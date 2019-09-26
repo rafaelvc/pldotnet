@@ -20,8 +20,8 @@ pldotnet.o \
 #pldotnet_debug.o \
 
 
-PG_CPPFLAGS = -I$(DOTNET_INCDIR) #-DP_DEBUG
-SHLIB_LINK = $(DOTNETLIB)
+# PG_CPPFLAGS = -I$(DOTNET_INCDIR) #-DP_DEBUG
+# SHLIB_LINK = $(DOTNETLIB)
 
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
