@@ -2,7 +2,7 @@
 
 # General
 DOTNET_HOSTDIR ?= $(shell find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g')
-DOTNET_INCHOSTDIR ?= $DOTNET_HOSTDIR
+DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR)
 #DOTNETLIB ?= -L/usr/local/lib -ldotnet3.0 ## Fix here
 DOTNET_HOSTLIB ?= -L$DOTNET_HOSTDIR -ldotnethost
 
