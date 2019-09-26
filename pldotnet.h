@@ -5,6 +5,8 @@
  * Please check copyright notice at the bottom of this file
  */
 
+#include "pldotnetcommon.h"
+
 //Datum DotNET_callhandler (/*additional args,*/ FunctionCallInfo fcinfo);
 //Datum DotNET_validator (/*additional args,*/ Oid oid);
 //#if PG_VERSION_NUM >= 90000
