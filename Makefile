@@ -4,7 +4,7 @@
 DOTNET_HOSTDIR ?= $(shell find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g')
 DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR)
 #DOTNETLIB ?= -L/usr/local/lib -ldotnet3.0 ## Fix here
-DOTNET_HOSTLIB ?= -L$DOTNET_HOSTDIR -ldotnethost
+DOTNET_HOSTLIB ?= -L$(DOTNET_HOSTDIR) -lnethost
 
 PG_CONFIG ?= pg_config
 PKG_LIBDIR := $(shell $(PG_CONFIG) --pkglibdir)

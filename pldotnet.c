@@ -134,8 +134,8 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
     int i;
     char_t host_path[MAX_PATH];
 
-    char* resolved = realpath(argv[0], host_path);
-    assert(resolved != nullptr);
+//    char* resolved = realpath(argv[0], host_path);
+//    assert(resolved != nullptr);
 
 //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
     const char* source_code = CODEBLOCK;
