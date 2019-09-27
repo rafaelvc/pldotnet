@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  pldonet-devenv:
+  pldotnet-devenv:
     build:
       context: .
       args:
