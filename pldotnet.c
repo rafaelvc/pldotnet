@@ -10,19 +10,23 @@
 #include <hostfxr.h>
 #include <dlfcn.h>
 #include <limits.h>
+
 #define STR(s) s
 #define CH(c) c
 #define DIR_SEPARATOR '/'
 #define MAX_PATH PATH_MAX
 // Null pointer constant definition
 #define nullptr ((void*)0)
-// Globals to hold hostfxr exports
-hostfxr_initialize_for_runtime_config_fn init_fptr;
-hostfxr_get_runtime_delegate_fn get_delegate_fptr;
-hostfxr_close_fn close_fptr;
+
+// Statics to hold hostfxr exports
+static hostfxr_initialize_for_runtime_config_fn init_fptr;
+static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
+static hostfxr_close_fn close_fptr;
+
 // Forward declarations
 int load_hostfxr();
 load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const char_t *assembly);
+
 // TODO: Check how Postgres API do this or shoud we use C lib
 #define SNPRINTF(name, size, fmt, ...)                  \
     char name[size];                                    \
