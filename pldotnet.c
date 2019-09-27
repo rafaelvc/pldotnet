@@ -51,6 +51,7 @@ Datum _PG_init(PG_FUNCTION_ARGS)
     // Initialize variable structs here 
     // Init dotnet runtime here ?
 
+      elog(LOG, "[plldotnet]: _PG_init");
 
     PG_RETURN_VOID();
 }
