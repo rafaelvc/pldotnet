@@ -135,105 +135,105 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 
     PG_TRY();
     {
-    // Run dotnet anonymous here  CODEBLOCK has the inlined source code
+        // Run dotnet anonymous here  CODEBLOCK has the inlined source code
 
-    // Get the current executable's directory
-    // This sample assumes the managed assembly to load and its
-    // runtime configuration file are next to the host
-    int i;
-    char_t host_path[MAX_PATH];
+        // Get the current executable's directory
+        // This sample assumes the managed assembly to load and its
+        // runtime configuration file are next to the host
+        int i;
+        char_t host_path[MAX_PATH];
 
-    // char* resolved = realpath(argv[0], host_path);
-    // assert(resolved != nullptr);
+        // char* resolved = realpath(argv[0], host_path);
+        // assert(resolved != nullptr);
 
-    //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
-    const char* source_code = CODEBLOCK;
-    //
-    // STEP 0: Compile C# source code
-    //
-    // char default_dnldir[] = "/DEBUG/home/app/src/DotNetLib/";
-    char default_dnldir[] = "/home/app/src/DotNetLib/";
-    char *dnldir = getenv("DNLDIR");
-    if (dnldir == nullptr) dnldir = &default_dnldir[0];
-    SNPRINTF(filename, 1024, "%s/Lib.cs", dnldir);
+        //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
+        const char* source_code = CODEBLOCK;
+        //
+        // STEP 0: Compile C# source code
+        //
+        // char default_dnldir[] = "/DEBUG/home/app/src/DotNetLib/";
+        char default_dnldir[] = "/home/app/src/DotNetLib/";
+        char *dnldir = getenv("DNLDIR");
+        if (dnldir == nullptr) dnldir = &default_dnldir[0];
+        SNPRINTF(filename, 1024, "%s/Lib.cs", dnldir);
 
-    FILE *output_file = fopen(filename, "w+");
-    if (!output_file) {
-        fprintf(stderr, "Cannot open file: '%s'\n", filename);
-        exit(-1);
-    }
-    if(fputs(source_code, output_file) == EOF){
-        fprintf(stderr, "Cannot write to file: '%s'\n", filename);
-        exit(-1);
-    }
-    fclose(output_file);
+        FILE *output_file = fopen(filename, "w+");
+        if (!output_file) {
+            fprintf(stderr, "Cannot open file: '%s'\n", filename);
+            exit(-1);
+        }
+        if(fputs(source_code, output_file) == EOF){
+            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+            exit(-1);
+        }
+        fclose(output_file);
 
-    SNPRINTF(cmd, 1024, "dotnet build %s > nul", dnldir);
-    int compile_resp = system(cmd);
-    assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
+        SNPRINTF(cmd, 1024, "dotnet build %s > nul", dnldir);
+        int compile_resp = system(cmd);
+        assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
-    char* root_path = strdup(host_path);
-    char *last_separator = rindex(root_path, DIR_SEPARATOR);
-    if(last_separator != NULL) *(last_separator+1) = 0;
+        char* root_path = strdup(host_path);
+        char *last_separator = rindex(root_path, DIR_SEPARATOR);
+        if(last_separator != NULL) *(last_separator+1) = 0;
 
-    //
-    // STEP 1: Load HostFxr and get exported hosting functions
-    //
-    if (!load_hostfxr()) assert(0 && "Failure: load_hostfxr()");
+        //
+        // STEP 1: Load HostFxr and get exported hosting functions
+        //
+        if (!load_hostfxr()) assert(0 && "Failure: load_hostfxr()");
 
-    //
-    // STEP 2: Initialize and start the .NET Core runtime
-    //
-    SNPRINTF(config_path, 1024, "%s/DotNetLib.runtimeconfig.json", root_path);
-    fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
+        //
+        // STEP 2: Initialize and start the .NET Core runtime
+        //
+        SNPRINTF(config_path, 1024, "%s/DotNetLib.runtimeconfig.json", root_path);
+        fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
-    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = \
-        get_dotnet_load_assembly(config_path);
-    assert(load_assembly_and_get_function_pointer != nullptr && \
-        "Failure: get_dotnet_load_assembly()");
+        load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = \
+            get_dotnet_load_assembly(config_path);
+        assert(load_assembly_and_get_function_pointer != nullptr && \
+            "Failure: get_dotnet_load_assembly()");
 
-    //
-    // STEP 3: Load managed assembly and get function pointer to a managed method
-    //
-    SNPRINTF(dotnetlib_path, 1024, "%s/DotNetLib.dll", root_path);
-    char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-    char dotnet_type_method[] = "Main";
+        //
+        // STEP 3: Load managed assembly and get function pointer to a managed method
+        //
+        SNPRINTF(dotnetlib_path, 1024, "%s/DotNetLib.dll", root_path);
+        char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
+        char dotnet_type_method[] = "Main";
 
-    // <SnippetLoadAndGet>
-    // Function pointer to managed delegate
-    component_entry_point_fn csharp_main = nullptr;
-    int rc = load_assembly_and_get_function_pointer(
-        dotnetlib_path,
-        dotnet_type,
-        dotnet_type_method,
-        nullptr /*delegate_type_name*/,
-        nullptr,
-        (void**)&csharp_main);
-    // </SnippetLoadAndGet>
+        // <SnippetLoadAndGet>
+        // Function pointer to managed delegate
+        component_entry_point_fn csharp_main = nullptr;
+        int rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_main);
+        // </SnippetLoadAndGet>
 
-    assert(rc == 0 && csharp_main != nullptr && \
-        "Failure: load_assembly_and_get_function_pointer()");
+        assert(rc == 0 && csharp_main != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
 
-    //
-    // STEP 4: Run managed code
-    //
-    struct lib_args
-    {
-        int number1;
-        int number2;
-        int Result;
-    };
+        //
+        // STEP 4: Run managed code
+        //
+        struct lib_args
+        {
+            int number1;
+            int number2;
+            int Result;
+        };
 
-    for (i = 0; i < 3; ++i)
-    {
-        // <SnippetCallManaged>
-        struct lib_args args =  { .number1 = i, .number2 = i };
-        csharp_main(&args, sizeof(args));
-        printf("Sum from C#: %d\n",args.Result);
-        // </SnippetCallManaged>
-    }
+        for (i = 0; i < 3; ++i)
+        {
+            // <SnippetCallManaged>
+            struct lib_args args =  { .number1 = i, .number2 = i };
+            csharp_main(&args, sizeof(args));
+            printf("Sum from C#: %d\n",args.Result);
+            // </SnippetCallManaged>
+        }
 
-    //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
+        //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 
     }
     PG_CATCH();
