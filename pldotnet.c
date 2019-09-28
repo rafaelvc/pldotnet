@@ -129,22 +129,24 @@ Datum pldotnet_validator(PG_FUNCTION_ARGS)
 PG_FUNCTION_INFO_V1(pldotnet_inline_handler);
 Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 {
-//  return DotNET_inlinehandler( /* additional args, */ CODEBLOCK);
+    //  return DotNET_inlinehandler( /* additional args, */ CODEBLOCK);
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[plldotnet]: could not connect to SPI manager");
+
     PG_TRY();
     {
-        // Run dotnet anonymous here  CODEBLOCK has the inlined source code
+    // Run dotnet anonymous here  CODEBLOCK has the inlined source code
 
     // Get the current executable's directory
-    // This sample assumes the managed assembly to load and its runtime configuration file are next to the host
+    // This sample assumes the managed assembly to load and its
+    // runtime configuration file are next to the host
     int i;
     char_t host_path[MAX_PATH];
 
-//    char* resolved = realpath(argv[0], host_path);
-//    assert(resolved != nullptr);
+    // char* resolved = realpath(argv[0], host_path);
+    // assert(resolved != nullptr);
 
-//// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
+    //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
     const char* source_code = CODEBLOCK;
     //
     // STEP 0: Compile C# source code
@@ -160,7 +162,10 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         fprintf(stderr, "Cannot open file: '%s'\n", filename);
         exit(-1);
     }
-    fputs(source_code, output_file);
+    if(fputs(source_code, output_file) == EOF){
+        fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+        exit(-1);
+    }
     fclose(output_file);
 
     SNPRINTF(cmd, 1024, "dotnet build %s > nul", dnldir);
@@ -168,7 +173,8 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
     assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
     char* root_path = strdup(host_path);
-    *(rindex(root_path, DIR_SEPARATOR)+1) = 0;
+    char *last_separator = rindex(root_path, DIR_SEPARATOR);
+    if(last_separator != NULL) *(last_separator+1) = 0;
 
     //
     // STEP 1: Load HostFxr and get exported hosting functions
@@ -181,8 +187,8 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
     SNPRINTF(config_path, 1024, "%s/DotNetLib.runtimeconfig.json", root_path);
     fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
-    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = nullptr;
-    load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
+    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = \
+        get_dotnet_load_assembly(config_path);
     assert(load_assembly_and_get_function_pointer != nullptr && \
         "Failure: get_dotnet_load_assembly()");
 
@@ -227,8 +233,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // </SnippetCallManaged>
     }
 
-//// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
-
+    //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 
     }
     PG_CATCH();
@@ -326,3 +331,4 @@ get_dotnet_load_assembly(const char_t *config_path)
 // </SnippetInitialize>
 //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 #endif
+
