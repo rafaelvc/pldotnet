@@ -1,0 +1,91 @@
+#+TITLE: AssemblyLoadContext is important
+#+DATE: Sat Sep 28 15:12:35 -03 2019
+#+AUTHOR: Todd Lewis <tlewis@brickabode.com>
+
+Let's look at DotNet's AssemblyLoadContext.
+
+Here is Microsoft's description:
+#+BEGIN_QUOTE
+The AssemblyLoadContext represents a load context. Conceptually, a load
+context creates a scope for loading, resolving, and potentially unloading
+a set of assemblies.
+
+The AssemblyLoadContext exists primarily to provide assembly binding
+isolation. It allows multiple versions of the same assembly to be loaded
+within a single process. It replaces the isolation mechanisms provided
+by multiple AppDomain instances in the .NET Framework.
+
+[[https://docs.microsoft.com/en-us/dotnet/api/system.runtime.loader.assemblyloadcontext?view=netcore-3.0]]
+#+END_QUOTE
+
+I had been wondering when they were going to do this!!! This is really
+important from a security point of view for us.
+
+Here is an interesting blog post:
+
+#+BEGIN_QUOTE
+Let's see in this blog post the new possibility offered by .NET
+Core 3.0 preview 2 to load and unload assemblies at run time using
+AssemblyLoadContext.
+
+[[https://laurentkempe.com/2019/02/18/dynamically-compile-and-run-code-using-dotNET-Core-3.0/]]
+#+END_QUOTE
+
+This lets you load assemblies from inside dotnet. That might be easier, or
+more featureful, or have other benefits, compared to doing it ourself. It
+might be worth familiarizing yourself with.
+
+Let's compare to the PGSQL's other PL environments and their security stories:
+
+#+BEGIN_QUOTE
+PL/Python is only available as an "untrusted" language, meaning it does
+not offer any way of restricting what users can do in it and is therefore
+named plpythonu. A trusted variant plpython might become available in
+the future if a secure execution mechanism is developed in Python. The
+writer of a function in untrusted PL/Python must take care that the
+function cannot be used to do anything unwanted, since it will be able
+to do anything that could be done by a user logged in as the database
+administrator. Only superusers can create functions in untrusted languages
+such as plpythonu.
+
+[[https://www.postgresql.org/docs/10/plpython.html]]
+#+END_QUOTE
+
+We want to allow dotnet to be a "trusted" pgpl, if we can.  By contrast,
+TCL is a safe PL environment.
+
+#+BEGIN_QUOTE
+One compelling good restriction is that everything is executed from
+within the safety of the context of a Tcl interpreter. In addition to
+the limited command set of safe Tcl, only a few commands are available
+to access the database via SPI and to raise messages via elog(). PL/Tcl
+provides no way to access internals of the database server or to gain
+OS-level access under the permissions of the PostgreSQL server process,
+as a C function can do. Thus, unprivileged database users can be trusted
+to use this language; it does not give them unlimited authority.
+
+[[https://www.postgresql.org/docs/10/pltcl-overview.html]]
+#+END_QUOTE
+
+Perl also claims safety:
+
+#+BEGIN_QUOTE
+Normally, PL/Perl is installed as a "trusted" programming language named
+plperl. In this setup, certain Perl operations are disabled to preserve
+security. In general, the operations that are restricted are those that
+interact with the environment. This includes file handle operations,
+require, and use (for external modules). There is no way to access
+internals of the database server process or to gain OS-level access with
+the permissions of the server process, as a C function can do. Thus,
+any unprivileged database user can be permitted to use this language.
+
+[[https://www.postgresql.org/docs/10/plperl-trusted.html]]
+#+END_QUOTE
+
+I have doubts about how safe those environments actually are.
+
+It's really important for us to only claim to be safe if we are actually
+safe, so we need to understand how dotnet achieves execution safety.
+This is the reason why I think we will need, at some point, to understand
+AssemblyLoadContext.
+
