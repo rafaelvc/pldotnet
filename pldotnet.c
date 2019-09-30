@@ -141,7 +141,6 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // This sample assumes the managed assembly to load and its
         // runtime configuration file are next to the host
         int i;
-        char_t host_path[MAX_PATH];
 
         // char* resolved = realpath(argv[0], host_path);
         // assert(resolved != nullptr);
@@ -152,7 +151,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // STEP 0: Compile C# source code
         //
         // char default_dnldir[] = "/DEBUG/home/app/src/DotNetLib/";
-        char default_dnldir[] = "/home/app/src/DotNetLib/";
+        char default_dnldir[] = "/home/app/DotNetLib/";
         char *dnldir = getenv("DNLDIR");
         if (dnldir == nullptr) dnldir = &default_dnldir[0];
         SNPRINTF(filename, 1024, "%s/Lib.cs", dnldir);
@@ -168,11 +167,12 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
 
+        setenv("DOTNET_CLI_HOME", default_dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s > nul", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
-        char* root_path = strdup(host_path);
+        char* root_path = strdup(dnldir);
         char *last_separator = rindex(root_path, DIR_SEPARATOR);
         if(last_separator != NULL) *(last_separator+1) = 0;
 
@@ -198,6 +198,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         SNPRINTF(dotnetlib_path, 1024, "%s/DotNetLib.dll", root_path);
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
         char dotnet_type_method[] = "Main";
+        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
@@ -295,7 +296,7 @@ load_hostfxr()
         lib, "hostfxr_initialize_for_runtime_config");
     get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)pldotnet_get_export( \
         lib, "hostfxr_get_runtime_delegate");
-    close_fptr = (hostfxr_close_fn)plpldotnet_get_export(lib, "hostfxr_close");
+    close_fptr = (hostfxr_close_fn)pldotnet_get_export(lib, "hostfxr_close");
 
     return (init_fptr && get_delegate_fptr && close_fptr);
 }

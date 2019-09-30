@@ -1,0 +1,25 @@
+#+TITLE: PL/.NET
+
+* How to build and run
+
+#+BEGIN_SRC shell
+git clone https://git.brickabode.com/DotNetInPostgreSQL/pldotnet
+cd pldotnet
+docker-compose build
+docker-compose run pldotnet-devenv bash
+make && make install
+/etc/init.d/postgres restart
+su postgres
+psql
+postgres=#CREATE EXTENSION pldotnet;
+postgres=#\i sql/testdo.sql
+#+END_SRC
+
+* Checking results
+
+#+BEGIN_SRC shell
+tail -n 3 /var/log/postgresql/postgresql-10-main.log
+Sum from C#: 0
+Sum from C#: 2
+Sum from C#: 4
+#+END_SRC

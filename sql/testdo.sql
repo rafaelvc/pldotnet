@@ -1,8 +1,6 @@
 do $$
-
 using System;
 using System.Runtime.InteropServices;
-
 namespace DotNetLib
 {
     public static class Lib
@@ -12,30 +10,24 @@ namespace DotNetLib
         [StructLayout(LayoutKind.Sequential)]
         public struct LibArgs
         {
-            public IntPtr Message;
-            public int Number;
+            public int Number1;
+            public int Number2;
+            public int Result;
         }
         
-        public static int Hello(IntPtr arg, int argLength)
+        public static int Main(IntPtr arg, int argLength)
         {
             if (argLength < System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))
             {
                 return 1;
             }
-
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
-            string message = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? Marshal.PtrToStringUni(libArgs.Message)
-                : Marshal.PtrToStringUTF8(libArgs.Message);
-
-            Console.WriteLine($"Hello, world! from {nameof(Lib)} [count: {s_CallCount++}]");
-            Console.WriteLine($"-- message: {message}");
-            Console.WriteLine($"-- number: {libArgs.Number}");
+            libArgs.Result = libArgs.Number1 + libArgs.Number2;
+            Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);
             return 0;
         }
     }
 }
-
 $$ language pldotnet;
 
 SELECT 1;
