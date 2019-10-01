@@ -8,7 +8,7 @@ cd pldotnet
 docker-compose build
 docker-compose run pldotnet-devenv bash
 make && make install
-/etc/init.d/postgres restart
+/etc/init.d/postgresql restart
 su postgres
 psql
 postgres=#CREATE EXTENSION pldotnet;
