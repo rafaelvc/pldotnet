@@ -444,7 +444,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         fclose(output_file);
 
         setenv("DOTNET_CLI_HOME", default_dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s > nul", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
@@ -460,7 +460,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 2: Initialize and start the .NET Core runtime
         //
-        SNPRINTF(config_path, 1024, "%s/DotNetLib.runtimeconfig.json", root_path);
+        SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
         load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = \
@@ -471,7 +471,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
-        SNPRINTF(dotnetlib_path, 1024, "%s/DotNetLib.dll", root_path);
+        SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
         char dotnet_type_method[] = "Main";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
@@ -561,11 +561,10 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         //
         // STEP 0: Compile C# source code
         //
-        // char default_dnldir[] = "/DEBUG/home/app/src/DotNetLib/";
-        char default_dnldir[] = "/home/app/DotNetLib/";
+        char default_dnldir[] = "/var/lib/DotNetLib/";
         char *dnldir = getenv("DNLDIR");
-        if (dnldir == nullptr) dnldir = &default_dnldir[0];
-        SNPRINTF(filename, 1024, "%s/Lib.cs", dnldir);
+	if (dnldir == nullptr) dnldir = &default_dnldir[0];
+        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
 
         FILE *output_file = fopen(filename, "w+");
         if (!output_file) {
