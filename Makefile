@@ -7,6 +7,7 @@ DOTNET_HOSTLIB ?= -L$(DOTNET_HOSTDIR) -lnethost
 
 PG_CONFIG ?= pg_config
 PKG_LIBDIR := $(shell $(PG_CONFIG) --pkglibdir)
+COPY_LIB  := $(shell cp -r DotNetLib $(PKG_LIBDIR) && chown -R postgres $(PKG_LIBDIR)/DotNetLib )
 
 MODULE_big = pldotnet
 EXTENSION = pldotnet
@@ -24,5 +25,6 @@ PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) -Iinc -D LINUX -g -Wl,-rpath,'$$ORIGIN',--d
 SHLIB_LINK = $(DOTNET_HOSTLIB)
 
 PGXS := $(shell $(PG_CONFIG) --pgxs)
+
 include $(PGXS)
 
