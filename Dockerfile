@@ -16,9 +16,7 @@ RUN apt-get update \
 RUN wget -q https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
     && dpkg -i packages-microsoft-prod.deb \
     && apt-get update -qq \
-    && apt-get install -y dotnet-sdk-"$DOTNET_VERSION" \
-    && echo "$(find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g' 2> /dev/null)" > /etc/ld.so.conf.d/nethost.conf \
-    && ldconfig
+    && apt-get install -y dotnet-sdk-"$DOTNET_VERSION" 
 
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
     && sh -c "echo deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main $PG_VERSION \ 
