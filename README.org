@@ -1,18 +1,46 @@
 #+TITLE: PL/.NET
 
-* How to build and run
+* Installation
+
+** Ubuntu (18.04)
+
+*** Pre-requisites
+
+ - [[https://www.postgresql.org/download/linux/ubuntu/][Postgres (10)]]
+ - [[https://dotnet.microsoft.com/download][.NET Core 3.0]]
+ - Make
+ - GCC compiler
+
+To install PL/.NET just run:
 
 #+BEGIN_SRC shell
-git clone https://git.brickabode.com/DotNetInPostgreSQL/pldotnet
-cd pldotnet
-docker-compose build
-docker-compose run pldotnet-devenv bash
-make && make install
-/etc/init.d/postgresql restart
-su postgres
-psql
-postgres=#CREATE EXTENSION pldotnet;
-postgres=#\i sql/testdo.sql
+$ make $$ make install
+$ /etc/init.d/postgres restart # restart your postgres server
+$ psql -c "CREATE EXTENSION pldotnet;" <mydb>
+$ psql -c "\i sql/testdo.sql" <mydb>
+#+END_SRC
+
+** Docker
+
+*** Pre-requisites 
+
+ - Docker
+ - Docker Compose
+
+First build the image and run its container:
+
+#+BEGIN_SRC shell
+$ docker-compose build
+$ docker-compose run pldotnet-devenv bash
+#+END_SRC
+
+Into the container shell run:
+
+#+BEGIN_SRC shell
+root@<container-id>:/home/app#  make && make install
+root@<container-id>:/home/app#  /etc/init.d/postgres restart
+root@<container-id>:/home/app#  psql -c "CREATE EXTENSION pldotnet" postgres
+root@<container-id>:/home/app#  psql -c "\i sql/testdo.sql" postgres
 #+END_SRC
 
 * Checking results
