@@ -19,6 +19,7 @@
 #define nullptr ((void*)0)
 
 // Statics to hold hostfxr exports
+void *h;
 static hostfxr_initialize_for_runtime_config_fn init_fptr;
 static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 static hostfxr_close_fn close_fptr;
@@ -500,6 +501,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         if (libArgs != NULL);
             free(libArgs);
         free(source_code);
+        dlclose(h);
 
     }
     PG_CATCH();
@@ -642,6 +644,8 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
             printf("Sum from C#: %d\n",args.Result);
             // </SnippetCallManaged>
         }
+
+        dlclose(h);
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
     }
     PG_CATCH();
@@ -669,7 +673,7 @@ static void *
 pldotnet_load_library(const char_t *path)
 {
     fprintf(stderr, "# DEBUG: doing dlopen(%s).\n", path);
-    void *h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+    h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
     assert(h != nullptr);
     return h;
 }
