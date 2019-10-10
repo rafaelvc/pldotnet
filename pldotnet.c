@@ -354,7 +354,7 @@ Datum _PG_init(PG_FUNCTION_ARGS)
     // Initialize variable structs here
     // Init dotnet runtime here ?
 
-      elog(LOG, "[plldotnet]: _PG_init");
+    elog(LOG, "[plldotnet]: _PG_init");
 
     PG_RETURN_VOID();
 }
@@ -364,6 +364,7 @@ Datum _PG_fini(PG_FUNCTION_ARGS)
 {
     // Deinitialize variable/structs here
     // Close dotnet runtime here ?
+    dlclose(h);
     PG_RETURN_VOID();
 }
 
@@ -501,8 +502,6 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         if (libArgs != NULL);
             free(libArgs);
         free(source_code);
-        dlclose(h);
-
     }
     PG_CATCH();
     {
@@ -644,7 +643,6 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
             // </SnippetCallManaged>
         }
 
-        dlclose(h);
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
     }
     PG_CATCH();
