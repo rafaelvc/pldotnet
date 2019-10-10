@@ -379,7 +379,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
     Form_pg_proc procst;
     Datum retval = 0;
 
-    char default_dnldir[] = "/home/app/DotNetLib/";
+    char default_dnldir[] = "/var/lib/DotNetLib/";
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
