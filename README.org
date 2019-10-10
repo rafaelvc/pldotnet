@@ -1,0 +1,89 @@
+#+TITLE: PL/.NET
+
+* Installation
+
+** Ubuntu (18.04)
+
+*** Pre-requisites
+
+ - Postgres and Postgres dev package (~postrgres-<version>~,~postgres-server-dev-<version>~)
+ - [[https://dotnet.microsoft.com/download][.NET Core 3.0]]
+ - Make
+ - GCC compiler
+
+To install PL/.NET just run:
+
+#+BEGIN_SRC shell
+$ make $$ make install
+$ /etc/init.d/postgres restart # restart your postgres server
+$ psql -c "CREATE EXTENSION pldotnet;" <mydb>
+#+END_SRC
+
+Testing simple return function:
+
+#+BEGIN_SRC shell
+$ psql -c "\i sql/testfunc.sql" <mydb>
+#+END_SRC
+
+Testing procedure (side effects produced in Postgres log):
+
+#+BEGIN_SRC shell
+$ psql -c "\i sql/testdo.sql" <mydb>
+#+END_SRC
+
+** Docker
+
+*** Pre-requisites 
+
+ - Docker
+ - Docker Compose
+
+First build the image and run its container:
+
+#+BEGIN_SRC shell
+$ docker-compose build
+$ docker-compose run pldotnet-devenv bash
+#+END_SRC
+
+Into the container shell run:
+
+#+BEGIN_SRC shell
+root@<container-id>:/home/app#  make && make install
+root@<container-id>:/home/app#  /etc/init.d/postgres restart
+root@<container-id>:/home/app#  psql -c "CREATE EXTENSION pldotnet" postgres
+#+END_SRC
+
+Testing simple return function:
+
+#+BEGIN_SRC shell
+root@<container-id>:/home/app#  psql -c "\i sql/tesfunc.sql" postgres
+#+END_SRC
+
+Testing procedure (side effects produced in Postgres log):
+
+#+BEGIN_SRC shell
+root@<container-id>:/home/app#  psql -c "\i sql/testdo.sql" postgres
+#+END_SRC
+
+
+** Checking results
+
+Simple function - psql command output:
+
+#+BEGIN_SRC shell
+psql:sql/testfunc.sql:4: WARNING:  libargs size: 4
+psql:sql/testfunc.sql:4: WARNING:  ---> 10
+ returnx
+---------
+      10
+(1 row)
+#+END_SRC
+
+Procedure:
+
+#+BEGIN_SRC shell
+tail -n 3 /var/log/postgresql/postgresql-10-main.log
+Sum from C#: 0
+Sum from C#: 2
+Sum from C#: 4
+#+END_SRC
