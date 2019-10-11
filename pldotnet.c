@@ -344,8 +344,9 @@ int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
 Datum getResultFromDotNet(int * libArgs)
 {
-    elog(WARNING, "---> %d", *(int *)libArgs);
-    return  Int32GetDatum ( *(libArgs + dotnet_info.typeSizeOfParams) );
+    elog(WARNING, "---> %d", *(libArgs+dotnet_info.typeSizeOfParams / sizeof(int)));
+    elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
+    return  Int32GetDatum ( *(libArgs + dotnet_info.typeSizeOfParams / sizeof(int)) );
 }
 
 PG_FUNCTION_INFO_V1(_PG_init);
