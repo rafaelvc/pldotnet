@@ -14,7 +14,7 @@
 To install PL/.NET just run:
 
 #+BEGIN_SRC shell
-$ make $$ make install
+$ make $$ make cinstall
 $ /etc/init.d/postgres restart # restart your postgres server
 $ psql -c "CREATE EXTENSION pldotnet;" <mydb>
 #+END_SRC
@@ -48,7 +48,7 @@ $ docker-compose run pldotnet-devenv bash
 Into the container shell run:
 
 #+BEGIN_SRC shell
-root@<container-id>:/home/app#  make && make install
+root@<container-id>:/home/app#  make && make plnet-install
 root@<container-id>:/home/app#  /etc/init.d/postgres restart
 root@<container-id>:/home/app#  psql -c "CREATE EXTENSION pldotnet" postgres
 #+END_SRC
