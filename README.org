@@ -14,7 +14,7 @@
 To install PL/.NET just run:
 
 #+BEGIN_SRC shell
-$ make $$ make cinstall
+$ make $$ make plnet-install
 $ /etc/init.d/postgres restart # restart your postgres server
 $ psql -c "CREATE EXTENSION pldotnet;" <mydb>
 #+END_SRC
