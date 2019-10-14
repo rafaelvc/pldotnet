@@ -31,9 +31,9 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 
 include $(PGXS)
 
-install:
+plnet-install: install
 	echo "$$(find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g' 2> /dev/null)"  > /etc/ld.so.conf.d/nethost.conf && ldconfig
 	cp -r DotNetLib $(DOTNET_SOURCE_LIB) && chown -R postgres $(DOTNET_SOURCE_LIB)/DotNetLib
 
-uninstall:
+plnet-uninstall: uninstall
 	rm -rf $(DOTNET_SOURCE_LIB)/DotNetLib
