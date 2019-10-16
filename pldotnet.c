@@ -283,7 +283,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 static int
 pldotnet_getArgTypeSize(void * p)
 {
-    return 4; // only for integers
+    return sizeof(int); // only for integers
 }
 
 static int *
@@ -293,44 +293,34 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     int nargs = procst->pronargs;
     int *curArg;
     int sizeOf_, i;
-    int totalSize = 0;
+    int curSize = 0;
     int *ptrToLibArgs = NULL;
 
-    if (nargs == 0)
-    {
-        // Only the return
-        sizeOf_ = pldotnet_getArgTypeSize(NULL);
-        //ptrToLibArgs = malloc(sizeOf_);
-        ptrToLibArgs = (int *) malloc(sizeof(int));
-        dotnet_info.typeSizeOfParams = 0;
-        //dotnet_info.typeSizeOfResult = sizeOf_;
-        dotnet_info.typeSizeOfResult = sizeof(int);
-        return ptrToLibArgs;
-    }
-
+    dotnet_info.typeSizeOfParams = 0;
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        sizeOf_ = pldotnet_getArgTypeSize(NULL);
-        if (i == 0)
-        {
-            ptrToLibArgs = malloc(sizeOf_);
-            // Apply here DatumGet<type> (postgres.h)
-            *(int *)ptrToLibArgs = DatumGetInt32(fcinfo->arg[i]);
-            totalSize = sizeOf_;
-        }
-        else
-        {
-            ptrToLibArgs = realloc(ptrToLibArgs, totalSize + sizeOf_);
-            curArg = ptrToLibArgs + totalSize / sizeof(int);
-            *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
-            totalSize += sizeOf_;
-        }
+        //TODO: get argtype size of the param
+        dotnet_info.typeSizeOfParams += pldotnet_getArgTypeSize(NULL);
     }
-    dotnet_info.typeSizeOfParams = totalSize;
-    // Return
-    sizeOf_ = pldotnet_getArgTypeSize(NULL);
-    dotnet_info.typeSizeOfResult = sizeOf_;
-    ptrToLibArgs = realloc(ptrToLibArgs, totalSize + sizeOf_);
+    //TODO: get argtype size of result
+    dotnet_info.typeSizeOfResult = pldotnet_getArgTypeSize(NULL);
+
+    ptrToLibArgs = (int *) malloc(dotnet_info.typeSizeOfParams +
+                                  dotnet_info.typeSizeOfResult);
+
+    curArg = ptrToLibArgs;
+    for (i = 0; i < fcinfo->nargs; i++)
+    {
+        //TODO: get argtype size of the param
+        sizeOf_ = pldotnet_getArgTypeSize(NULL);
+        // Apply here DatumGet<type> (postgres.h)
+        *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
+        curSize += sizeOf_;
+        //TODO: review this pointer arithmetics for
+        // arguments of different types
+        curArg = ptrToLibArgs + curSize / sizeOf_;
+    }
+
     return ptrToLibArgs;
 }
 
