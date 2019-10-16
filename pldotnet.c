@@ -401,19 +401,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         sprintf(source_code, "%s%s%s%s%s%s", block1, block2, block3,
                                              block4, block5, block6);
 
-/*        memcpy(source_code, block1, strlen(block1));
-        source_size = strlen(block1);
-        memcpy(source_code + source_size, block2, strlen(block2));
-        source_size += strlen(block2);
-        memcpy(source_code + source_size, block3, strlen(block3));
-        source_size += strlen(block3);
-        memcpy(source_code + source_size, block4, strlen(block4));
-        source_size += strlen(block4);
-        memcpy(source_code + source_size, block5, strlen(block5));
-        source_size += strlen(block5);
-        memcpy(source_code + source_size, block6, strlen(block6));*/
-
-	    elog(WARNING, "[pldotnet] %s", source_code);
+	elog(WARNING, "[pldotnet] %s", source_code);
 
         ReleaseSysCache(proc);
         free(block2);
