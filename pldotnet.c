@@ -50,12 +50,12 @@ PGDLLEXPORT Datum pldotnet_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum pldotnet_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-char * build_block2(Form_pg_proc procst);
-char * build_block4(Form_pg_proc procst);
-char * build_block5(Form_pg_proc procst, HeapTuple proc);
-int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-int getArgTypeSize(void * p);
-Datum getResultFromDotNet(int * libArgs);
+static char * pldotnet_build_block2(Form_pg_proc procst);
+static char * pldotnet_build_block4(Form_pg_proc procst);
+static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
+static int * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static int pldotnet_getArgTypeSize(void * p);
+static Datum pldotnet_getResultFromDotNet(int * libArgs);
 
 typedef struct pldotnet_info
 {
@@ -108,7 +108,8 @@ char  block6[] = "                            \n\
 // TODO: We should calculate first the size of things then we will
 //       do only one malloc instead of keep reallocing
 
-char * build_block2(Form_pg_proc procst)
+static char *
+pldotnet_build_block2(Form_pg_proc procst)
 {
     char *block2str, *pStr;
     int i;
@@ -119,8 +120,11 @@ char * build_block2(Form_pg_proc procst)
     const char semicon[] = ";";
     const char int_[] = "int ";
     char argName[] = "argN";
-    int totalSize = 0;
+    char result[] = "resu"; // have to be same size argN
+    int curSize = 0;
     int declSize = strlen(public_) + strlen(int_) + strlen(argName) + strlen(semicon);
+
+    int totalSize = (declSize * nargs) + declSize/*result*/;
 
     if (rettype != INT4OID) // TODO: check for all supported types
     {
@@ -128,6 +132,7 @@ char * build_block2(Form_pg_proc procst)
         return 0;
     }
 
+    block2str = (char *) malloc(totalSize);
     for (i = 0; i < nargs; i++)
     {
         if (argtype[i] != INT4OID) // TODO: check for all supporte types
@@ -138,46 +143,24 @@ char * build_block2(Form_pg_proc procst)
                 free(block2str);
             return 0;
         }
-
         sprintf(argName, "arg%d", i); // Review for nargs > 9
-        if (i == 0) // first arg
-        {
-            block2str = (char *) malloc(declSize);
-            sprintf(block2str, "%s%s%s%s", public_, int_, argName, semicon);
-            pStr = block2str;
-            totalSize = declSize;
-        }
-        else
-        {
-            block2str = (char *)realloc(block2str, totalSize + declSize);
-            pStr = pStr + totalSize;
-            sprintf(pStr, "%s%s%s%s", public_, int_, argName, semicon);
-            totalSize += declSize;
-        }
-
+        pStr = (char *)(block2str + curSize);
+        sprintf(pStr, "%s%s%s%s", public_, int_, argName, semicon);
+        curSize += declSize;
     }
 
     // result
-    sprintf(argName, "%s", "resu");
-    if (totalSize == 0)  // no args only return
-    {
-        block2str = malloc(declSize);
-        pStr = block2str;
-    }
-    else
-    {
-        block2str = realloc(block2str, totalSize + declSize);
-         pStr = pStr + totalSize;
-    }
-    sprintf(pStr, "%s%s%s%s", public_, int_, argName, semicon);
-
+    pStr = (char *)(block2str + curSize);
+    sprintf(pStr, "%s%s%s%s", public_, int_, result, semicon);
+    elog(WARNING, "%s", block2str);
     return block2str;
 }
 
-char * build_block4(Form_pg_proc procst)
+static char *
+pldotnet_build_block4(Form_pg_proc procst)
 {
     char *block2str, *pStr;
-    int curSize, i;
+    int curSize, i, totalSize;
     const char func[] = "FUNC(";
     const char libArgs[] = "libArgs.";
     const char comma[] = ",";
@@ -195,46 +178,48 @@ char * build_block4(Form_pg_proc procst)
          return block2str;
     }
 
-    curSize = strlen(func);
-    block2str = malloc(curSize);
+    totalSize = strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
+                     + strlen(endFun);
+
+    if (nargs > 1)
+         totalSize += (nargs - 1) * strlen(comma);
+
+    block2str = (char *) malloc(totalSize);
     sprintf(block2str, "%s", func);
-    pStr = block2str;
+    curSize = strlen(func);
     for (i = 0; i < nargs; i++)
     {
         sprintf(argName, "arg%d", i); // review nargs > 9
         if  (i + 1 == nargs)  // last no comma
         {
-            block2str = realloc(block2str, curSize + declParamSize);
-            pStr = block2str + curSize;
+            pStr = (char *)(block2str + curSize);
             sprintf(pStr, "%s%s", libArgs, argName);
             curSize += declParamSize;
         }
         else {
-            block2str = realloc(block2str, curSize + declParamSizeComma);
-            pStr = block2str + curSize;
+            pStr = (char *)(block2str + curSize);
             sprintf(pStr, "%s%s%s", libArgs, argName, comma);
             curSize += declParamSizeComma;
         }
     }
 
-    block2str = realloc(block2str, curSize + strlen(endFun));
-    pStr = block2str + curSize;
+    pStr = (char *)(block2str + curSize);
     sprintf(pStr, "%s", endFun);
-
+    elog(WARNING, "%s", block2str);
     return block2str;
 
 }
 
-char * build_block5(Form_pg_proc procst, HeapTuple proc)
+static char *
+pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *pStr, *argNm, *source_text;
-    int argNmSize, i, nnames, curSize, source_size;
+    int argNmSize, i, nnames, curSize, source_size, totalSize;
     bool isnull;
-    const char libArgs[] = "libArgs.";
-    const char int_[] = "int ";
     const char intret_[] = "\nint ";
-    const char comma[] = ",";
     const char func[] = "FUNC(";
+    const char int_[] = "int ";
+    const char comma[] = ",";
     const char endFunDec[] = "){";
     const char endFun[] = "}\n";
     int nargs = procst->pronargs;
@@ -256,10 +241,18 @@ char * build_block5(Form_pg_proc procst, HeapTuple proc)
       deconstruct_array(DatumGetArrayTypeP(argnames), TEXTOID, -1, false,
           'i', &argname, NULL, &nnames);
 
-    curSize = declParamSize + strlen(func);
-    block2str = (char *)malloc(curSize);
-    sprintf(block2str, "%s%s", intret_, func);
+    totalSize = strlen(intret_) + strlen(func) + strlen(int_) * nargs
+                + strlen(endFunDec) + source_size + strlen(endFun);
 
+    for (i = 0; i < nargs; i++)
+    {
+        argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
+        totalSize += argNmSize;
+    }
+
+    block2str = (char *)malloc(totalSize);
+    sprintf(block2str, "%s%s", intret_, func);
+    curSize = declParamSize + strlen(func);
     for (i = 0; i < nargs; i++)
     {
         argNm = VARDATA(DatumGetTextP(argname[i]));
@@ -267,85 +260,76 @@ char * build_block5(Form_pg_proc procst, HeapTuple proc)
         if  (i + 1 == nargs)  // last no comma
         {
             declParamSize = strlen(int_) + argNmSize;
-            block2str = (char *)realloc(block2str, curSize + declParamSize);
-            pStr = block2str + curSize;
+            pStr = (char *)(block2str + curSize);
             sprintf(pStr, "%s%s", int_, argNm);
         }
         else
         {
             declParamSize = strlen(int_) + argNmSize + strlen(comma);
-            block2str = (char *)realloc(block2str, curSize + declParamSize);
-            pStr = block2str + curSize;
-            sprintf(pStr, "%s%s%s", libArgs, argNm, comma);
+            pStr = (char *)(block2str + curSize);
+            sprintf(pStr, "%s%s%s", int_, argNm, comma);
         }
         curSize += declParamSize;
     }
 
-    block2str = (char *)realloc(block2str, curSize + strlen(endFunDec) + source_size + strlen(endFun));
-    pStr = block2str + curSize;
+    pStr = (char *)(block2str + curSize);
     sprintf(pStr, "%s%s%s", endFunDec, source_text, endFun);
+    elog(WARNING, "%s", block2str);
 
     return block2str;
 
 }
 
-int getArgTypeSize(void * p)
+static int
+pldotnet_getArgTypeSize(void * p)
 {
-    return 4; // only for integers
+    return sizeof(int); // only for integers
 }
 
-int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
+static int *
+pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     //Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
     int *curArg;
     int sizeOf_, i;
-    int totalSize = 0;
+    int curSize = 0;
     int *ptrToLibArgs = NULL;
 
-    if (nargs == 0)
-    {
-        // Only the return
-        sizeOf_ = getArgTypeSize(NULL);
-        //ptrToLibArgs = malloc(sizeOf_);
-        ptrToLibArgs = (int *) malloc(sizeof(int));
-        dotnet_info.typeSizeOfParams = 0;
-        //dotnet_info.typeSizeOfResult = sizeOf_;
-        dotnet_info.typeSizeOfResult = sizeof(int);
-        return ptrToLibArgs;
-    }
-
+    dotnet_info.typeSizeOfParams = 0;
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        sizeOf_ = getArgTypeSize(NULL);
-        if (i == 0)
-        {
-            ptrToLibArgs = malloc(sizeOf_);
-            // Apply here DatumGet<type> (postgres.h)
-            *(int *)ptrToLibArgs = DatumGetInt32(fcinfo->arg[i]);
-            totalSize = sizeOf_;
-        }
-        else
-        {
-            ptrToLibArgs = realloc(ptrToLibArgs, totalSize + sizeOf_);
-            curArg = ptrToLibArgs + totalSize;
-            *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
-            totalSize += sizeOf_;
-        }
+        //TODO: get argtype size of the param
+        dotnet_info.typeSizeOfParams += pldotnet_getArgTypeSize(NULL);
     }
-    dotnet_info.typeSizeOfParams = totalSize;
-    // Return
-    sizeOf_ = getArgTypeSize(NULL);
-    dotnet_info.typeSizeOfResult = sizeOf_;
-    ptrToLibArgs = realloc(ptrToLibArgs, totalSize + sizeOf_);
+    //TODO: get argtype size of result
+    dotnet_info.typeSizeOfResult = pldotnet_getArgTypeSize(NULL);
+
+    ptrToLibArgs = (int *) malloc(dotnet_info.typeSizeOfParams +
+                                  dotnet_info.typeSizeOfResult);
+
+    curArg = ptrToLibArgs;
+    for (i = 0; i < fcinfo->nargs; i++)
+    {
+        //TODO: get argtype size of the param
+        sizeOf_ = pldotnet_getArgTypeSize(NULL);
+        // Apply here DatumGet<type> (postgres.h)
+        *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
+        curSize += sizeOf_;
+        //TODO: review this pointer arithmetics for
+        // arguments of different types
+        curArg = ptrToLibArgs + curSize / sizeOf_;
+    }
+
     return ptrToLibArgs;
 }
 
-
-Datum getResultFromDotNet(int * libArgs)
+static Datum
+pldotnet_getResultFromDotNet(int * libArgs)
 {
-    elog(WARNING, "---> %d", *(int *)libArgs);
-    return  Int32GetDatum ( *(libArgs + dotnet_info.typeSizeOfParams) );
+    elog(WARNING, "---> %d", *(libArgs+dotnet_info.typeSizeOfParams / sizeof(int)));
+    elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
+    return  Int32GetDatum ( *(libArgs + dotnet_info.typeSizeOfParams / sizeof(int)) );
 }
 
 PG_FUNCTION_INFO_V1(_PG_init);
@@ -399,29 +383,20 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
             elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
-
         // Build the source code
-        block2 = build_block2( procst );
+        block2 = pldotnet_build_block2( procst );
 	//elog(ERROR, "[pldotnet] %s", block2);
-        block4 = build_block4( procst );
+        block4 = pldotnet_build_block4( procst );
 	//elog(ERROR, "[pldotnet] %s", block4);
-        block5 = build_block5( procst , proc );
+        block5 = pldotnet_build_block5( procst , proc );
 	//elog(ERROR, "[pldotnet] %s", block5);
         source_code = malloc(strlen(block1) + strlen(block2) + strlen(block3)
-                          + strlen(block4) + strlen(block5) + strlen(block6));
-        memcpy(source_code, block1, strlen(block1));
-        source_size = strlen(block1);
-        memcpy(source_code + source_size, block2, strlen(block2));
-        source_size += strlen(block2);
-        memcpy(source_code + source_size, block3, strlen(block3));
-        source_size += strlen(block3);
-        memcpy(source_code + source_size, block4, strlen(block4));
-        source_size += strlen(block4);
-        memcpy(source_code + source_size, block5, strlen(block5));
-        source_size += strlen(block5);
-        memcpy(source_code + source_size, block6, strlen(block6));
+                          + strlen(block4) + strlen(block5) + strlen(block6) + 1);
 
-	    elog(WARNING, "[pldotnet] %s", source_code);
+        sprintf(source_code, "%s%s%s%s%s%s", block1, block2, block3,
+                                             block4, block5, block6);
+
+        elog(WARNING, "[pldotnet] %s", source_code);
 
         ReleaseSysCache(proc);
         free(block2);
@@ -495,10 +470,11 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 4: Run managed code
         //
-        libArgs = CreateCStrucLibArgs(fcinfo, procst);
+        elog(WARNING, "start create c struc");
+        libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         csharp_main(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = getResultFromDotNet( libArgs );
+        retval = pldotnet_getResultFromDotNet( libArgs );
         if (libArgs != NULL);
             free(libArgs);
         free(source_code);
