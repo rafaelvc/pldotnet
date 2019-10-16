@@ -50,12 +50,12 @@ PGDLLEXPORT Datum pldotnet_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum pldotnet_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-char * build_block2(Form_pg_proc procst);
-char * build_block4(Form_pg_proc procst);
-char * build_block5(Form_pg_proc procst, HeapTuple proc);
-int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-int getArgTypeSize(void * p);
-Datum getResultFromDotNet(int * libArgs);
+static char * pldotnet_build_block2(Form_pg_proc procst);
+static char * pldotnet_build_block4(Form_pg_proc procst);
+static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
+static int * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static int pldotnet_getArgTypeSize(void * p);
+static Datum pldotnet_getResultFromDotNet(int * libArgs);
 
 typedef struct pldotnet_info
 {
@@ -108,7 +108,8 @@ char  block6[] = "                            \n\
 // TODO: We should calculate first the size of things then we will
 //       do only one malloc instead of keep reallocing
 
-char * build_block2(Form_pg_proc procst)
+static char *
+pldotnet_build_block2(Form_pg_proc procst)
 {
     char *block2str, *pStr;
     int i;
@@ -155,7 +156,8 @@ char * build_block2(Form_pg_proc procst)
     return block2str;
 }
 
-char * build_block4(Form_pg_proc procst)
+static char *
+pldotnet_build_block4(Form_pg_proc procst)
 {
     char *block2str, *pStr;
     int curSize, i, totalSize;
@@ -208,7 +210,8 @@ char * build_block4(Form_pg_proc procst)
 
 }
 
-char * build_block5(Form_pg_proc procst, HeapTuple proc)
+static char *
+pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *pStr, *argNm, *source_text;
     int argNmSize, i, nnames, curSize, source_size, totalSize;
@@ -277,12 +280,14 @@ char * build_block5(Form_pg_proc procst, HeapTuple proc)
 
 }
 
-int getArgTypeSize(void * p)
+static int
+pldotnet_getArgTypeSize(void * p)
 {
     return 4; // only for integers
 }
 
-int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
+static int *
+pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     //Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
@@ -294,7 +299,7 @@ int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     if (nargs == 0)
     {
         // Only the return
-        sizeOf_ = getArgTypeSize(NULL);
+        sizeOf_ = pldotnet_getArgTypeSize(NULL);
         //ptrToLibArgs = malloc(sizeOf_);
         ptrToLibArgs = (int *) malloc(sizeof(int));
         dotnet_info.typeSizeOfParams = 0;
@@ -305,7 +310,7 @@ int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        sizeOf_ = getArgTypeSize(NULL);
+        sizeOf_ = pldotnet_getArgTypeSize(NULL);
         if (i == 0)
         {
             ptrToLibArgs = malloc(sizeOf_);
@@ -323,14 +328,14 @@ int * CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     }
     dotnet_info.typeSizeOfParams = totalSize;
     // Return
-    sizeOf_ = getArgTypeSize(NULL);
+    sizeOf_ = pldotnet_getArgTypeSize(NULL);
     dotnet_info.typeSizeOfResult = sizeOf_;
     ptrToLibArgs = realloc(ptrToLibArgs, totalSize + sizeOf_);
     return ptrToLibArgs;
 }
 
-
-Datum getResultFromDotNet(int * libArgs)
+static Datum
+pldotnet_getResultFromDotNet(int * libArgs)
 {
     elog(WARNING, "---> %d", *(libArgs+dotnet_info.typeSizeOfParams / sizeof(int)));
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
@@ -389,11 +394,11 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         // Build the source code
-        block2 = build_block2( procst );
+        block2 = pldotnet_build_block2( procst );
 	//elog(ERROR, "[pldotnet] %s", block2);
-        block4 = build_block4( procst );
+        block4 = pldotnet_build_block4( procst );
 	//elog(ERROR, "[pldotnet] %s", block4);
-        block5 = build_block5( procst , proc );
+        block5 = pldotnet_build_block5( procst , proc );
 	//elog(ERROR, "[pldotnet] %s", block5);
         source_code = malloc(strlen(block1) + strlen(block2) + strlen(block3)
                           + strlen(block4) + strlen(block5) + strlen(block6) + 1);
@@ -476,10 +481,10 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         // STEP 4: Run managed code
         //
         elog(WARNING, "start create c struc");
-        libArgs = CreateCStrucLibArgs(fcinfo, procst);
+        libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         csharp_main(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = getResultFromDotNet( libArgs );
+        retval = pldotnet_getResultFromDotNet( libArgs );
         if (libArgs != NULL);
             free(libArgs);
         free(source_code);
