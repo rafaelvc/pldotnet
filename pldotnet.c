@@ -396,7 +396,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         sprintf(source_code, "%s%s%s%s%s%s", block1, block2, block3,
                                              block4, block5, block6);
 
-	elog(WARNING, "[pldotnet] %s", source_code);
+        elog(WARNING, "[pldotnet] %s", source_code);
 
         ReleaseSysCache(proc);
         free(block2);
