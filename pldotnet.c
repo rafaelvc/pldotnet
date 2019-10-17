@@ -258,10 +258,10 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     {
         argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
         /*+1 here is the space between type" "argname declaration*/
-        totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + argNmSize + 1; 
+        totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + 1 + argNmSize;
     }
      if (nargs > 1)
-         totalSize += (nargs - 1) * strlen(comma);
+         totalSize += (nargs - 1) * strlen(comma); // commas size
     totalSize += strlen(endFunDec) + source_size + strlen(endFun); 
 
     block2str = (char *)malloc(totalSize);
@@ -277,7 +277,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
             sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i]), argNm);
         else
             sprintf(pStr, "%s %s%s", pldotnet_getNetTypeName(argtype[i]), argNm, comma);
-        curSize += strlen(block2str);
+        curSize = strlen(block2str);
     }
 
     pStr = (char *)(block2str + curSize);

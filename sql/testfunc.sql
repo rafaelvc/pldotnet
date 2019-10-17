@@ -10,7 +10,7 @@
 
 
 CREATE OR REPLACE FUNCTION smallInt1(a smallint, b smallint) RETURNS smallint AS $$
-return a+b;
+return (short)(a+b);
 $$ LANGUAGE pldotnet;
 SELECT smallInt1(CAST(100 AS smallint), CAST(101 AS smallint));
 
