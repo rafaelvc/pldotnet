@@ -82,8 +82,6 @@ psql:sql/testfunc.sql:4: WARNING:  ---> 10
 Procedure:
 
 #+BEGIN_SRC shell
-tail -n 3 /var/log/postgresql/postgresql-10-main.log
-Sum from C#: 0
-Sum from C#: 2
-Sum from C#: 4
+tail -n 1 /var/log/postgresql/postgresql-10-main.log
+Compiled Sum: 10
 #+END_SRC
