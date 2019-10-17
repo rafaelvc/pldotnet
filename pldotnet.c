@@ -105,6 +105,23 @@ char  block6[] = "                            \n\
     }                                         \n\
 }";
 
+
+char block_inline1[] = "                           \n\
+using System;                               \n\
+using System.Runtime.InteropServices;       \n\
+namespace ProcedureCode                     \n\
+{                                           \n\
+    public static class ProcedureClass      \n\
+    {";
+char block_inline2[] = "                    \n\
+        public static void ProcedureMethod()\n\
+        {";                                   
+//block_inline3   Function body
+char  block_inline4[] = "                   \n\
+}                                           \n\
+     }                                      \n\
+}";
+
 // TODO: We should calculate first the size of things then we will
 //       do only one malloc instead of keep reallocing
 
@@ -532,25 +549,32 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // assert(resolved != nullptr);
 
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
-        const char* source_code = CODEBLOCK;
-        //
+
+	char*  block_inline3 = CODEBLOCK;
+
+	char* source_code = (char*) malloc(strlen(block_inline1) + strlen(block_inline2) + strlen(block_inline3) \
+	    + strlen(block_inline4) + 1);
+	sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
+
+	//elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);	
+	//
         // STEP 0: Compile C# source code
         //
         char default_dnldir[] = "/var/lib/DotNetLib/";
         char *dnldir = getenv("DNLDIR");
 	if (dnldir == nullptr) dnldir = &default_dnldir[0];
-        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+        //SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
 
-        FILE *output_file = fopen(filename, "w+");
-        if (!output_file) {
-            fprintf(stderr, "Cannot open file: '%s'\n", filename);
-            exit(-1);
-        }
-        if(fputs(source_code, output_file) == EOF){
-            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
-            exit(-1);
-        }
-        fclose(output_file);
+        //FILE *output_file = fopen(filename, "w+");
+        //if (!output_file) {
+        //    fprintf(stderr, "Cannot open file: '%s'\n", filename);
+        //    exit(-1);
+        //}
+        //if(fputs(source_code, output_file) == EOF){
+        //    fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+        //    exit(-1);
+        //}
+        //fclose(output_file);
 
         setenv("DOTNET_CLI_HOME", default_dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
@@ -582,7 +606,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-        char dotnet_type_method[] = "Main";
+        char dotnet_type_method[] = "Compile";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
 
         // <SnippetLoadAndGet>
@@ -605,21 +629,36 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         //
         struct lib_args
         {
-            int number1;
-            int number2;
-            int Result;
+            char* SourceCode;
+            int Number;
         };
 
-        for (i = 0; i < 3; ++i)
-        {
-            // <SnippetCallManaged>
-            struct lib_args args =  { .number1 = i, .number2 = i };
-            csharp_main(&args, sizeof(args));
-            printf("Sum from C#: %d\n",args.Result);
-            // </SnippetCallManaged>
-        }
+        // <SnippetCallManaged>
+        struct lib_args args =  { .SourceCode = source_code, .Number = 1 };
+        csharp_main(&args, sizeof(args));
+        // </SnippetCallManaged>
+	
+	char dotnet_type_method_2[] = "Run";
 
+        // <SnippetLoadAndGet>
+        // Function pointer to managed delegate
+        component_entry_point_fn csharp_main2 = nullptr;
+        rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method_2,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_main2);
+        // </SnippetLoadAndGet>
+
+        assert(rc == 0 && csharp_main2 != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+
+        struct lib_args args2 =  { .SourceCode = source_code, .Number = 2 };
+        csharp_main2(&args2, sizeof(args2));
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
+	free(source_code);
     }
     PG_CATCH();
     {
