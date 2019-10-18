@@ -53,9 +53,10 @@ PGDLLEXPORT Datum pldotnet_inline_handler(PG_FUNCTION_ARGS);
 static char * pldotnet_build_block2(Form_pg_proc procst);
 static char * pldotnet_build_block4(Form_pg_proc procst);
 static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
-static int * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static int pldotnet_getArgTypeSize(void * p);
-static Datum pldotnet_getResultFromDotNet(int * libArgs);
+static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static int pldotnet_getTypeSize(Oid id);
+static const char * pldotnet_getNetTypeName(Oid id);
+static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype);
 
 typedef struct pldotnet_info
 {
@@ -112,30 +113,26 @@ static char *
 pldotnet_build_block2(Form_pg_proc procst)
 {
     char *block2str, *pStr;
-    int i;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
     Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
     const char public_[] = "public ";
     const char semicon[] = ";";
-    const char int_[] = "int ";
-    char argName[] = "argN";
-    char result[] = "resu"; // have to be same size argN
-    int curSize = 0;
-    int declSize = strlen(public_) + strlen(int_) + strlen(argName) + strlen(semicon);
+    char argName[] = " argN";
+    char result[] = " resu"; // have to be same size argN
+    int i, curSize = 0, totalSize = 0;
 
-    int totalSize = (declSize * nargs) + declSize/*result*/;
-
-    if (rettype != INT4OID) // TODO: check for all supported types
+    if (rettype != INT4OID && rettype != INT8OID 
+        && rettype != INT2OID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
     }
 
-    block2str = (char *) malloc(totalSize);
-    for (i = 0; i < nargs; i++)
-    {
-        if (argtype[i] != INT4OID) // TODO: check for all supporte types
+    for (i = 0; i < nargs; i++) {
+
+        if (argtype[i] != INT4OID && argtype[i] != INT8OID 
+            && argtype[i] != INT2OID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -143,15 +140,29 @@ pldotnet_build_block2(Form_pg_proc procst)
                 free(block2str);
             return 0;
         }
-        sprintf(argName, "arg%d", i); // Review for nargs > 9
+
+        totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(argtype[i])) + 
+                       + strlen(argName) + strlen(semicon);
+    }
+    
+    totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(rettype)) + 
+                        + strlen(result) + strlen(semicon);
+
+    block2str = (char *) malloc(totalSize);
+
+    for (i = 0; i < nargs; i++)
+    {
+        sprintf(argName, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
-        sprintf(pStr, "%s%s%s%s", public_, int_, argName, semicon);
-        curSize += declSize;
+        sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(argtype[i]),
+                                                argName, semicon);
+        curSize += strlen(pStr);
     }
 
     // result
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s%s%s%s", public_, int_, result, semicon);
+    sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(rettype),
+                            result, semicon);
     elog(WARNING, "%s", block2str);
     return block2str;
 }
@@ -216,17 +227,15 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     char *block2str, *pStr, *argNm, *source_text;
     int argNmSize, i, nnames, curSize, source_size, totalSize;
     bool isnull;
-    const char intret_[] = "\nint ";
-    const char func[] = "FUNC(";
-    const char int_[] = "int ";
+    const char func[] = " FUNC(";
     const char comma[] = ",";
     const char endFunDec[] = "){";
     const char endFun[] = "}\n";
     int nargs = procst->pronargs;
-    //Oid rettype = procst->prorettype; // Indicates the return type
-    int declParamSize = strlen(intret_);
+    Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
     text * t;
+    Oid *argtype = procst->proargtypes.values; // Indicates the args type
 
     // Source code
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
@@ -241,35 +250,34 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
       deconstruct_array(DatumGetArrayTypeP(argnames), TEXTOID, -1, false,
           'i', &argname, NULL, &nnames);
 
-    totalSize = strlen(intret_) + strlen(func) + strlen(int_) * nargs
-                + strlen(endFunDec) + source_size + strlen(endFun);
-
-    for (i = 0; i < nargs; i++)
+    // Caculates the total amount in bytes of C# src text for 
+    // the function declaration according nr of arguments 
+    // their types and the function return type
+    totalSize = strlen(pldotnet_getNetTypeName(rettype)) + strlen(func);
+    for (i = 0; i < nargs; i++) 
     {
         argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
-        totalSize += argNmSize;
+        /*+1 here is the space between type" "argname declaration*/
+        totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + 1 + argNmSize;
     }
+     if (nargs > 1)
+         totalSize += (nargs - 1) * strlen(comma); // commas size
+    totalSize += strlen(endFunDec) + source_size + strlen(endFun); 
 
     block2str = (char *)malloc(totalSize);
-    sprintf(block2str, "%s%s", intret_, func);
-    curSize = declParamSize + strlen(func);
+    sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
+    curSize = strlen(block2str);
+
     for (i = 0; i < nargs; i++)
     {
         argNm = VARDATA(DatumGetTextP(argname[i]));
         argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
+        pStr = (char *)(block2str + curSize);
         if  (i + 1 == nargs)  // last no comma
-        {
-            declParamSize = strlen(int_) + argNmSize;
-            pStr = (char *)(block2str + curSize);
-            sprintf(pStr, "%s%s", int_, argNm);
-        }
+            sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i]), argNm);
         else
-        {
-            declParamSize = strlen(int_) + argNmSize + strlen(comma);
-            pStr = (char *)(block2str + curSize);
-            sprintf(pStr, "%s%s%s", int_, argNm, comma);
-        }
-        curSize += declParamSize;
+            sprintf(pStr, "%s %s%s", pldotnet_getNetTypeName(argtype[i]), argNm, comma);
+        curSize = strlen(block2str);
     }
 
     pStr = (char *)(block2str + curSize);
@@ -280,56 +288,95 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
 }
 
+// Size in bytes 
 static int
-pldotnet_getArgTypeSize(void * p)
+pldotnet_getTypeSize(Oid id)
 {
-    return sizeof(int); // only for integers
+    switch (id){
+        case INT4OID:
+            return sizeof(int);
+        case INT8OID:
+            return sizeof(long);
+        case INT2OID:
+            return sizeof(short);
+    }
+    return -1;
 }
 
-static int *
+// Postgres Datum type to C# type name
+static const char *
+pldotnet_getNetTypeName(Oid id) 
+{
+    switch (id){
+        case INT4OID:
+            return "int"; // System.Int32
+        case INT8OID:
+            return "long"; // System.Int64
+        case INT2OID:
+            return "short"; // System.Int64
+    }
+    return "";
+}
+
+static char *
 pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
-    //Oid rettype = procst->prorettype; // Indicates the return type
-    int nargs = procst->pronargs;
-    int *curArg;
-    int sizeOf_, i;
+    int i;
     int curSize = 0;
-    int *ptrToLibArgs = NULL;
+    char *ptrToLibArgs = NULL;
+    char *curArg = NULL;
+    Oid *argtype = procst->proargtypes.values;
+    Oid rettype = procst->prorettype;
+    Oid type;
 
     dotnet_info.typeSizeOfParams = 0;
     for (i = 0; i < fcinfo->nargs; i++)
-    {
-        //TODO: get argtype size of the param
-        dotnet_info.typeSizeOfParams += pldotnet_getArgTypeSize(NULL);
-    }
-    //TODO: get argtype size of result
-    dotnet_info.typeSizeOfResult = pldotnet_getArgTypeSize(NULL);
+        dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
 
-    ptrToLibArgs = (int *) malloc(dotnet_info.typeSizeOfParams +
+    dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
+
+    ptrToLibArgs = (char *) malloc(dotnet_info.typeSizeOfParams +
                                   dotnet_info.typeSizeOfResult);
 
     curArg = ptrToLibArgs;
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        //TODO: get argtype size of the param
-        sizeOf_ = pldotnet_getArgTypeSize(NULL);
-        // Apply here DatumGet<type> (postgres.h)
-        *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
-        curSize += sizeOf_;
-        //TODO: review this pointer arithmetics for
-        // arguments of different types
-        curArg = ptrToLibArgs + curSize / sizeOf_;
+        type = argtype[i];
+        switch (type)
+        {
+            case INT4OID:
+                *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
+                break;
+            case INT8OID:
+                *(long *)curArg = DatumGetInt64(fcinfo->arg[i]);
+                //elog(WARNING, "->%li",*(long *)curArg);
+                break;
+            case INT2OID:
+                *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
+                //elog(WARNING, "->%hi",*(short *)curArg);
+                break;
+        }
+        curSize += pldotnet_getTypeSize(argtype[i]);
+        curArg = ptrToLibArgs + curSize;
     }
 
     return ptrToLibArgs;
 }
 
 static Datum
-pldotnet_getResultFromDotNet(int * libArgs)
+pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
 {
-    elog(WARNING, "---> %d", *(libArgs+dotnet_info.typeSizeOfParams / sizeof(int)));
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
-    return  Int32GetDatum ( *(libArgs + dotnet_info.typeSizeOfParams / sizeof(int)) );
+    Datum retval = 0;
+    switch (rettype){
+        case INT4OID:
+            return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case INT8OID:
+            return  Int64GetDatum ( *(long *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case INT2OID:
+            return  Int16GetDatum ( *(short *)(libArgs + dotnet_info.typeSizeOfParams ) );
+    }
+    return retval;
 }
 
 PG_FUNCTION_INFO_V1(_PG_init);
@@ -358,11 +405,12 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
 //    return DotNET_callhandler( /* additional args, */ fcinfo);
     bool istrigger;
     char *source_code, *block2, *block4, *block5;
-    int *libArgs;
-    int source_size, i;
+    char *libArgs;
+    int i;
     HeapTuple proc;
     Form_pg_proc procst;
     Datum retval = 0;
+    Oid rettype;
 
     char default_dnldir[] = "/var/lib/DotNetLib/";
 
@@ -383,7 +431,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
             elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
-        // Build the source code
+    // Build the source code
         block2 = pldotnet_build_block2( procst );
 	//elog(ERROR, "[pldotnet] %s", block2);
         block4 = pldotnet_build_block4( procst );
@@ -397,6 +445,8 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
                                              block4, block5, block6);
 
         elog(WARNING, "[pldotnet] %s", source_code);
+
+        rettype = procst->prorettype;
 
         ReleaseSysCache(proc);
         free(block2);
@@ -474,8 +524,8 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         csharp_main(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = pldotnet_getResultFromDotNet( libArgs );
-        if (libArgs != NULL);
+        retval = pldotnet_getResultFromDotNet( libArgs, rettype );
+        if (libArgs != NULL)
             free(libArgs);
         free(source_code);
     }
