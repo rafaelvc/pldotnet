@@ -123,7 +123,8 @@ pldotnet_build_block2(Form_pg_proc procst)
     int i, curSize = 0, totalSize = 0;
 
     if (rettype != INT4OID && rettype != INT8OID 
-        && rettype != INT2OID) // Check for all supported types
+       && rettype != INT2OID && rettype != FLOAT4OID
+       && rettype != FLOAT8OID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -132,7 +133,8 @@ pldotnet_build_block2(Form_pg_proc procst)
     for (i = 0; i < nargs; i++) {
 
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
-            && argtype[i] != INT2OID)
+            && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
+            && argtype[i] != FLOAT8OID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -299,6 +301,10 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(long);
         case INT2OID:
             return sizeof(short);
+        case FLOAT4OID:
+            return sizeof(float);
+        case FLOAT8OID:
+            return sizeof(double);
     }
     return -1;
 }
@@ -314,6 +320,10 @@ pldotnet_getNetTypeName(Oid id)
             return "long"; // System.Int64
         case INT2OID:
             return "short"; // System.Int64
+        case FLOAT4OID:
+            return "float"; // System.Single
+        case FLOAT8OID:
+            return "double"; // System.Double
     }
     return "";
 }
@@ -355,6 +365,12 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
                 //elog(WARNING, "->%hi",*(short *)curArg);
                 break;
+            case FLOAT4OID:
+                *(float *)curArg = DatumGetFloat4(fcinfo->arg[i]);
+                break;
+            case FLOAT8OID:
+                *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
+                break;
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + curSize;
@@ -375,6 +391,10 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Int64GetDatum ( *(long *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case INT2OID:
             return  Int16GetDatum ( *(short *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case FLOAT4OID:
+            return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case FLOAT8OID:
+            return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
     }
     return retval;
 }
