@@ -132,7 +132,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     for (i = 0; i < nargs; i++) {
 
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
-            && rettype != INT2OID) 
+            && argtype[i] != INT2OID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -346,10 +346,15 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         {
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
+                break;
             case INT8OID:
                 *(long *)curArg = DatumGetInt64(fcinfo->arg[i]);
+                //elog(WARNING, "->%li",*(long *)curArg);
+                break;
             case INT2OID:
                 *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
+                //elog(WARNING, "->%hi",*(short *)curArg);
+                break;
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + curSize;
