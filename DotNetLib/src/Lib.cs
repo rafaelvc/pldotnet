@@ -82,7 +82,8 @@ namespace DotNetLib
           	                               
 	    Type procClassType = compiledAssembly.GetType("ProcedureCode.ProcedureClass");
             MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
-            procMethod.Invoke(null, null);
+            var procReturn = procMethod.Invoke(null, new object[] {arg, argLength});
+	    Console.WriteLine("Returned Value : {0}", procReturn);
                                            
  	    return 0;                          
         }                                  

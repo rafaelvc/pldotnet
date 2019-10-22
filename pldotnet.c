@@ -74,9 +74,9 @@ pldotnet_info dotnet_info;
 char block1[] = "                           \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-namespace DotNetLib                         \n\
+namespace ProcedureCode                     \n\
 {                                           \n\
-    public static class Lib                 \n\
+    public static class ProcedureClass      \n\
     {                                       \n\
         [StructLayout(LayoutKind.Sequential)]\n\
         public struct LibArgs                \n\
@@ -87,7 +87,7 @@ namespace DotNetLib                         \n\
 	        //public returnT resu;//result
 char block3[] = "                            \n\
         }                                    \n\
-        public static int Main(IntPtr arg, int argLength)\n\
+        public static int ProcedureMethod(IntPtr arg, int argLength)\n\
         {                                    \n\
             if (argLength < System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
@@ -100,7 +100,7 @@ char block3[] = "                            \n\
             //}
 char  block6[] = "                            \n\
             Console.WriteLine($\"resu: {libArgs.resu}\");\n\
-	        Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
+	    Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
             return 0;                         \n\
         }                                     \n\
     }                                         \n\
@@ -492,19 +492,19 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
 
         char *dnldir = getenv("DNLDIR");
         if (dnldir == nullptr) dnldir = &default_dnldir[0];
-        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+        //SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
 
-        FILE *output_file = fopen(filename, "w");
-        if (!output_file) {
-            fprintf(stderr, "Cannot open file: '%s'\n", filename);
-            exit(-1);
-        }
+        //FILE *output_file = fopen(filename, "w");
+        //if (!output_file) {
+        //    fprintf(stderr, "Cannot open file: '%s'\n", filename);
+        //    exit(-1);
+        //}
 
-        if(fputs(source_code, output_file) == EOF){
-            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
-            exit(-1);
-        }
-        fclose(output_file);
+        //if(fputs(source_code, output_file) == EOF){
+        //    fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+        //    exit(-1);
+        //}
+        //fclose(output_file);
 
         setenv("DOTNET_CLI_HOME", default_dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
@@ -536,7 +536,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-        char dotnet_type_method[] = "Main";
+        char dotnet_type_method[] = "Compile";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
 
         // <SnippetLoadAndGet>
@@ -557,11 +557,39 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 4: Run managed code
         //
-        elog(WARNING, "start create c struc");
+        
+	struct lib_args_source
+        {
+            char* SourceCode;
+            int Number;
+        };
+	
+        struct lib_args_source args_source =  { .SourceCode = source_code, .Number = 1 };
+        csharp_main(&args_source, sizeof(args_source));
+	
+	char dotnet_type_method_2[] = "Run";
+
+        // <SnippetLoadAndGet>
+        // Function pointer to managed delegate
+        component_entry_point_fn csharp_main2 = nullptr;
+        rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method_2,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_main2);
+        // </SnippetLoadAndGet>
+
+        assert(rc == 0 && csharp_main2 != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+
+	elog(WARNING, "start create c struc");
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        csharp_main(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = pldotnet_getResultFromDotNet( libArgs, rettype );
+        csharp_main2(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);        
+	retval = pldotnet_getResultFromDotNet( libArgs, rettype );
+
         if (libArgs != NULL)
             free(libArgs);
         free(source_code);
