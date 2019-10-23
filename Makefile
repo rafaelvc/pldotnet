@@ -6,7 +6,6 @@ DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR)
 DOTNET_HOSTLIB ?= -L$(DOTNET_HOSTDIR) -lnethost
 DOTNET_SOURCE_LIB := /var/lib
 
-
 PG_CONFIG ?= pg_config
 PKG_LIBDIR := $(shell $(PG_CONFIG) --pkglibdir)
 
@@ -34,6 +33,9 @@ include $(PGXS)
 plnet-install: install
 	echo "$$(find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g' 2> /dev/null)"  > /etc/ld.so.conf.d/nethost.conf && ldconfig
 	cp -r DotNetLib $(DOTNET_SOURCE_LIB) && chown -R postgres $(DOTNET_SOURCE_LIB)/DotNetLib
+ifeq ("$(shell echo $(USE_DOTNETBUILD) | tr A-Z a-z)", "true")
+	@echo "----NETBUILD TRUE!---"
+endif
 
 plnet-uninstall: uninstall
 	rm -rf $(DOTNET_SOURCE_LIB)/DotNetLib

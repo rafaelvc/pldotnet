@@ -650,6 +650,10 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         char *dnldir = getenv("DNLDIR");
 	if (dnldir == nullptr) dnldir = &default_dnldir[0];
 
+	char* use_dotnet_build = getenv("USE_DOTNETBUILD");
+	printf("\n\nENV: %s", use_dotnet_build);
+	//if(!strcmp(use_dotnet_build,"TRUE")) elog(WARNING,"\n\nDOTNET BUILD TRUE!!!\n\n");
+
         setenv("DOTNET_CLI_HOME", default_dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
