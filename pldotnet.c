@@ -69,7 +69,7 @@ pldotnet_info dotnet_info;
 typedef struct args_source
 {
     char* SourceCode;
-    int Number;
+    int Result;
 }args_source;
 
 #if PG_VERSION_NUM >= 90000
@@ -121,11 +121,10 @@ namespace ProcedureCode                     \n\
     public static class ProcedureClass      \n\
     {";
 char block_inline2[] = "                    \n\
-        public static object ProcedureMethod(IntPtr arg, int argLength)\n\
+        public static void ProcedureMethod(IntPtr arg, int argLength)\n\
         {";                                   
 //block_inline3   Function body
 char  block_inline4[] = "                   \n\
-            return 0;                       \n\
 	}                                   \n\
      }                                      \n\
 }";
@@ -483,7 +482,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         block_call5 = pldotnet_build_block5( procst , proc );
 	//elog(ERROR, "[pldotnet] %s", block_call5);
         source_code = malloc(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
-                          + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
+                             + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
 
         sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
                                              block_call4, block_call5, block_call6);
@@ -530,52 +529,52 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-        char dotnet_type_method[] = "Compile";
+        char dotnet_type_method[64] = "Compile";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
-        component_entry_point_fn csharp_compile = nullptr;
+        component_entry_point_fn csharp_method = nullptr;
         int rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
             dotnet_type,
             dotnet_type_method,
             nullptr /*delegate_type_name*/,
             nullptr,
-            (void**)&csharp_compile);
+            (void**)&csharp_method);
         // </SnippetLoadAndGet>
 
-        assert(rc == 0 && csharp_compile != nullptr && \
+        assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
         //
         // STEP 4: Run managed code
         //
 
-        args_source args_source =  { .SourceCode = source_code, .Number = 1 };
-        csharp_compile(&args_source, sizeof(args_source));
+        args_source args_source =  { .SourceCode = source_code, .Result = 1 };
+        csharp_method(&args_source, sizeof(args_source));
 
-	char dotnet_type_method_2[] = "Run";
+	bzero(dotnet_type_method,sizeof(dotnet_type_method));
+	strcpy(dotnet_type_method,"Run");
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
-        component_entry_point_fn csharp_run = nullptr;
         rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
             dotnet_type,
-            dotnet_type_method_2,
+            dotnet_type_method,
             nullptr /*delegate_type_name*/,
             nullptr,
-            (void**)&csharp_run);
+            (void**)&csharp_method);
         // </SnippetLoadAndGet>
 
-        assert(rc == 0 && csharp_run != nullptr && \
+        assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
 	elog(WARNING, "start create c struc");
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        csharp_run(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);        
+        csharp_method(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);        
 	retval = pldotnet_getResultFromDotNet( libArgs, rettype );
 
         if (libArgs != NULL)
@@ -638,8 +637,9 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 
 	char*  block_inline3 = CODEBLOCK;
 
-	char* source_code = (char*) malloc(strlen(block_inline1) + strlen(block_inline2) + strlen(block_inline3) \
-	    + strlen(block_inline4) + 1);
+	char* source_code = (char*) malloc(strlen(block_inline1) + strlen(block_inline2) 
+			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
+
 	sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
 
 	//elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);	
@@ -680,56 +680,51 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-        char dotnet_type_method[] = "Compile";
+        char dotnet_type_method[64] = "Compile";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
-        component_entry_point_fn csharp_compile = nullptr;
+        component_entry_point_fn csharp_method = nullptr;
         int rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
             dotnet_type,
             dotnet_type_method,
             nullptr,//delegate_type_name
             nullptr,
-            (void**)&csharp_compile);
+            (void**)&csharp_method);
         // </SnippetLoadAndGet>
 
-        assert(rc == 0 && csharp_compile != nullptr && \
+        assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
         //
         // STEP 4: Run managed code
         //
-        struct lib_args
-        {
-            char* SourceCode;
-            int Number;
-        };
-
         // <SnippetCallManaged>
-        args_source args =  { .SourceCode = source_code, .Number = 1 };
-        csharp_compile(&args, sizeof(args));
+
+        args_source args =  { .SourceCode = source_code, .Result = 1 };
+        csharp_method(&args, sizeof(args));
         // </SnippetCallManaged>
-	
-	char dotnet_type_method_2[] = "Run";
+
+	bzero(dotnet_type_method,sizeof(dotnet_type_method));
+	strcpy(dotnet_type_method,"Run");	
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
-        component_entry_point_fn csharp_run = nullptr;
         rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
             dotnet_type,
-            dotnet_type_method_2,
+            dotnet_type_method,
             nullptr /*delegate_type_name*/,
             nullptr,
-            (void**)&csharp_run);
+            (void**)&csharp_method);
         // </SnippetLoadAndGet>
 
-        assert(rc == 0 && csharp_run != nullptr && \
+        assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
-        csharp_run(&args, sizeof(args));
+        csharp_method(&args, sizeof(args));
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 	free(source_code);
     }
