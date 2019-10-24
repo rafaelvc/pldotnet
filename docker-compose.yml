@@ -6,6 +6,8 @@ services:
       context: .
       args:
         DOTNET_VERSION: 3.0
+    environment:
+      USE_DOTNETBUILD: "FALSE"
     volumes:
       - $PWD/:/home/app
 
