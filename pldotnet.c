@@ -38,6 +38,13 @@ static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const 
     }
 //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 
+#define datum2string(d, f) \
+  DatumGetCString(DirectFunctionCall1((f), (d)))
+
+//#define string2datum(d, f) \
+//  CStringGetDatum(DirectFunctionCall1((f), (d)))
+
+
 PG_MODULE_MAGIC;
 
 // Declare extension variables/structs here
@@ -329,6 +336,8 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(float);
         case FLOAT8OID:
             return sizeof(double);
+        case VARCHAR:
+            return sizeof(char *);
     }
     return -1;
 }
@@ -348,6 +357,8 @@ pldotnet_getNetTypeName(Oid id)
             return "float"; // System.Single
         case FLOAT8OID:
             return "double"; // System.Double
+        case VARCHAROID:
+            return "string"; // System.String
     }
     return "";
 }
@@ -383,11 +394,9 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 break;
             case INT8OID:
                 *(long *)curArg = DatumGetInt64(fcinfo->arg[i]);
-                //elog(WARNING, "->%li",*(long *)curArg);
                 break;
             case INT2OID:
                 *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
-                //elog(WARNING, "->%hi",*(short *)curArg);
                 break;
             case FLOAT4OID:
                 *(float *)curArg = DatumGetFloat4(fcinfo->arg[i]);
@@ -395,6 +404,10 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case FLOAT8OID:
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
+            case VARCHAROID:
+                (char *)curArg = datum2string( fcinfo->arg[i], varcharout );
+                break;
+
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + curSize;
@@ -419,6 +432,8 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case VARCHAROID:
+            return CStringGetDatum(  (char *)(libArgs + dotnet_info.typeSizeOfParams ) );
     }
     return retval;
 }
