@@ -147,7 +147,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
     if (rettype != INT4OID && rettype != INT8OID 
        && rettype != INT2OID && rettype != FLOAT4OID
-       && rettype != FLOAT8OID) // Check for all supported types
+       && rettype != FLOAT8OID && rettype != BOOLOID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -157,7 +157,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
             && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
-            && argtype[i] != FLOAT8OID)
+            && argtype[i] != FLOAT8OID &&  rettype != BOOLOID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -318,6 +318,8 @@ static int
 pldotnet_getTypeSize(Oid id)
 {
     switch (id){
+        case BOOLOID:
+            return sizeof(bool);
         case INT4OID:
             return sizeof(int);
         case INT8OID:
@@ -337,6 +339,8 @@ static const char *
 pldotnet_getNetTypeName(Oid id) 
 {
     switch (id){
+        case BOOLOID:
+            return "bool"; // System.Boolean
         case INT4OID:
             return "int"; // System.Int32
         case INT8OID:
@@ -377,6 +381,9 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         type = argtype[i];
         switch (type)
         {
+            case BOOLOID:
+                *(bool *)curArg = DatumGetBool(fcinfo->arg[i]);
+                break;
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
                 break;
@@ -408,6 +415,8 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
     Datum retval = 0;
     switch (rettype){
+        case BOOLOID:
+            return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case INT4OID:
             return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case INT8OID:
