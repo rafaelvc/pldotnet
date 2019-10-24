@@ -106,7 +106,7 @@ char block_call3[] = "                            \n\
             //}
 char  block_call6[] = "                            \n\
             Console.WriteLine($\"resu: {libArgs.resu}\");\n\
-	    Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
+	    Marshal.StructureToPtr<LibArgs>(libArgs, arg, true);\n\
             return 0;                         \n\
 	}                                     \n\
     }                                         \n\
@@ -140,15 +140,18 @@ pldotnet_build_block2(Form_pg_proc procst)
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
     Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
+    const char public_bool[] = "[MarshalAs(UnmanagedType.U1)]public ";
     const char public_[] = "public ";
     const char semicon[] = ";";
     char argName[] = " argN";
     char result[] = " resu"; // have to be same size argN
     int i, curSize = 0, totalSize = 0;
 
+    int public_size = (rettype == BOOLOID) ? strlen(public_bool) : strlen(public_);
+
     if (rettype != INT4OID && rettype != INT8OID 
        && rettype != INT2OID && rettype != FLOAT4OID
-       && rettype != FLOAT8OID) // Check for all supported types
+       && rettype != FLOAT8OID && rettype != BOOLOID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -158,7 +161,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
             && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
-            && argtype[i] != FLOAT8OID)
+            && argtype[i] != FLOAT8OID &&  rettype != BOOLOID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -167,11 +170,11 @@ pldotnet_build_block2(Form_pg_proc procst)
             return 0;
         }
 
-        totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(argtype[i])) + 
+        totalSize += public_size + strlen(pldotnet_getNetTypeName(argtype[i])) + 
                        + strlen(argName) + strlen(semicon);
     }
     
-    totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(rettype)) + 
+    totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype)) + 
                         + strlen(result) + strlen(semicon);
 
     block2str = (char *) malloc(totalSize);
@@ -180,15 +183,27 @@ pldotnet_build_block2(Form_pg_proc procst)
     {
         sprintf(argName, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
-        sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(argtype[i]),
+
+	if (rettype == BOOLOID)
+            sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(argtype[i]),
                                                 argName, semicon);
+	else
+            sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(argtype[i]),
+                                                argName, semicon);
+
         curSize += strlen(pStr);
     }
 
     // result
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(rettype),
+
+    if (rettype == BOOLOID)
+        sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(rettype),
                             result, semicon);
+    else
+        sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(rettype),
+                            result, semicon);
+
     elog(WARNING, "%s", block2str);
     return block2str;
 }
@@ -319,6 +334,8 @@ static int
 pldotnet_getTypeSize(Oid id)
 {
     switch (id){
+        case BOOLOID:
+            return sizeof(bool);
         case INT4OID:
             return sizeof(int);
         case INT8OID:
@@ -338,6 +355,8 @@ static const char *
 pldotnet_getNetTypeName(Oid id) 
 {
     switch (id){
+        case BOOLOID:
+            return "bool"; // System.Boolean
         case INT4OID:
             return "int"; // System.Int32
         case INT8OID:
@@ -378,6 +397,10 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         type = argtype[i];
         switch (type)
         {
+            case BOOLOID:
+                *(bool *)curArg = DatumGetBool(fcinfo->arg[i]);
+                //elog(WARNING, "->%s",*(bool *)curArg?"true":"false");
+                break;
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
                 break;
@@ -409,6 +432,9 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
     Datum retval = 0;
     switch (rettype){
+        case BOOLOID:
+	    elog(WARNING, "\n\nRETVALUE: %s\n\n", *(bool *)(libArgs + dotnet_info.typeSizeOfParams)? "true":"false"); 
+            return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case INT4OID:
             return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case INT8OID:
