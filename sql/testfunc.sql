@@ -3,7 +3,7 @@ return 10;
 $$ LANGUAGE pldotnet;
 SELECT returnX();
 
-CREATE OR REPLACE FUNCTION inc2(val integer) RETURNS integer AS $$
+/*CREATE OR REPLACE FUNCTION inc2(val integer) RETURNS integer AS $$
 return val + 2;
 $$
 LANGUAGE pldotnet;
@@ -26,5 +26,5 @@ return a + b + c + d;
 $$
 LANGUAGE pldotnet;
 SELECT sum4(4,3,2,1);
-
+*/
 
