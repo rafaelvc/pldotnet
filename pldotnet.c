@@ -154,7 +154,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
     if (rettype != INT4OID && rettype != INT8OID 
        && rettype != INT2OID && rettype != FLOAT4OID
-       && rettype != FLOAT8OID) // Check for all supported types
+       && rettype != FLOAT8OID && rettype != VARCHAROID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -164,7 +164,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
             && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
-            && argtype[i] != FLOAT8OID)
+            && argtype[i] != FLOAT8OID && argtype[i] != VARCHAROID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -335,7 +335,7 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(float);
         case FLOAT8OID:
             return sizeof(double);
-        case VARCHAR:
+        case VARCHAROID:
             return sizeof(char *);
     }
     return -1;
@@ -374,8 +374,10 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     Oid type;
 
     dotnet_info.typeSizeOfParams = 0;
-    for (i = 0; i < fcinfo->nargs; i++)
+    for (i = 0; i < fcinfo->nargs; i++) {
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
+        elog(WARNING, "%d", dotnet_info.typeSizeOfParams );
+    }
 
     dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
 
@@ -404,7 +406,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
             case VARCHAROID:
-                (char *)curArg = datum2string( fcinfo->arg[i], varcharout );
+                curArg = datum2string( fcinfo->arg[i], varcharout );
                 break;
 
         }
