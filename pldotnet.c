@@ -80,7 +80,7 @@ typedef struct args_source
 char block_call1[] = "                           \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-namespace ProcedureCode                     \n\
+namespace DotNetLib                       \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
@@ -93,7 +93,7 @@ namespace ProcedureCode                     \n\
 	        //public returnT resu;//result
 char block_call3[] = "                            \n\
         }                                    \n\
-        public static object ProcedureMethod(IntPtr arg, int argLength)\n\
+        public static int ProcedureMethod(IntPtr arg, int argLength)\n\
         {                                    \n\
             if (argLength < System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
@@ -116,15 +116,16 @@ char  block_call6[] = "                            \n\
 char block_inline1[] = "                           \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-namespace ProcedureCode                     \n\
+namespace DotNetLib                       \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {";
 char block_inline2[] = "                    \n\
-        public static void ProcedureMethod(IntPtr arg, int argLength)\n\
+        public static int ProcedureMethod(IntPtr arg, int argLength)\n\
         {";                                   
 //block_inline3   Function body
 char  block_inline4[] = "                   \n\
+	    return 0; \n\
 	}                                   \n\
      }                                      \n\
 }";
@@ -500,6 +501,20 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         if (dnldir == nullptr) dnldir = &default_dnldir[0];
 
 #ifdef USE_DOTNETBUILD
+        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+
+        FILE *output_file = fopen(filename, "w");
+        if (!output_file) {
+            fprintf(stderr, "Cannot open file: '%s'\n", filename);
+            exit(-1);
+        }
+
+        if(fputs(source_code, output_file) == EOF){
+            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+            exit(-1);
+        }
+        fclose(output_file);
+
         setenv("DOTNET_CLI_HOME", default_dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
@@ -530,6 +545,27 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+
+#ifdef USE_DOTNETBUILD
+        char dotnet_type[]        = "DotNetLib.ProcedureClass, DotNetLib";
+        char dotnet_type_method[64] = "ProcedureMethod";
+        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
+
+        // <SnippetLoadAndGet>
+        // Function pointer to managed delegate
+        component_entry_point_fn csharp_method = nullptr;
+        int rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_method);
+        // </SnippetLoadAndGet>
+
+        assert(rc == 0 && csharp_method != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+#else
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
         char dotnet_type_method[64] = "Compile";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
@@ -572,7 +608,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
 
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
-
+#endif
 	elog(WARNING, "start create c struc");
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
@@ -653,12 +689,26 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 	if (dnldir == nullptr) dnldir = &default_dnldir[0];
 
 #ifdef USE_DOTNETBUILD
+        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+
+        FILE *output_file = fopen(filename, "w");
+        if (!output_file) {
+            fprintf(stderr, "Cannot open file: '%s'\n", filename);
+            exit(-1);
+        }
+
+        if(fputs(source_code, output_file) == EOF){
+            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+            exit(-1);
+        }
+        fclose(output_file);
+
         setenv("DOTNET_CLI_HOME", default_dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
-#endif
 
+#endif
         char* root_path = strdup(dnldir);
         char *last_separator = rindex(root_path, DIR_SEPARATOR);
         if(last_separator != NULL) *(last_separator+1) = 0;
@@ -683,6 +733,29 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+
+#ifdef USE_DOTNETBUILD
+        char dotnet_type[]        = "DotNetLib.ProcedureClass, DotNetLib";
+        char dotnet_type_method[64] = "ProcedureMethod";
+        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
+
+        // <SnippetLoadAndGet>
+        // Function pointer to managed delegate
+        component_entry_point_fn csharp_method = nullptr;
+        int rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_method);
+        // </SnippetLoadAndGet>
+
+        assert(rc == 0 && csharp_method != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+        args_source args =  { .SourceCode = source_code, .Result = 1 };
+
+#else
         char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
         char dotnet_type_method[64] = "Compile";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
@@ -728,6 +801,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
+#endif
         csharp_method(&args, sizeof(args));
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 	free(source_code);
@@ -827,4 +901,3 @@ get_dotnet_load_assembly(const char_t *config_path)
 // </SnippetInitialize>
 //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 #endif
-
