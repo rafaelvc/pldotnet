@@ -80,7 +80,7 @@ namespace DotNetLib
             Assembly compiledAssembly;     
             compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
           	                               
-	    Type procClassType = compiledAssembly.GetType("ProcedureCode.ProcedureClass");
+	    Type procClassType = compiledAssembly.GetType("DotNetLib.ProcedureClass");
             MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
             procMethod.Invoke(null, new object[] {arg, argLength});
                                            
