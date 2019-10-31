@@ -207,13 +207,13 @@ pldotnet_build_block4(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         block2str = (char *)palloc0(strlen(func) + strlen(endFun));
+         block2str = (char *)palloc0(strlen(func) + strlen(endFun) + 1);
          sprintf(block2str, "%s%s", func, endFun);
          return block2str;
     }
 
     totalSize = strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
-                     + strlen(endFun);
+                     + strlen(endFun) + 1;
 
     if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma);
@@ -287,7 +287,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     }
      if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma); // commas size
-    totalSize += strlen(endFunDec) + source_size + strlen(endFun); 
+    totalSize += strlen(endFunDec) + source_size + strlen(endFun) + 1;
 
     block2str = (char *)palloc0(totalSize);
     sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
@@ -502,7 +502,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         block_call5 = pldotnet_build_block5( procst , proc );
 	//elog(ERROR, "[pldotnet] %s", block_call5);
         source_code = palloc0(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
-                             + strlen(block_call4) + strlen(block_call5) + strlen(block_call6));
+                             + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
 
         sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
                                              block_call4, block_call5, block_call6);
