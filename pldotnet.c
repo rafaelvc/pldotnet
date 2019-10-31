@@ -169,7 +169,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     }
     
     totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(rettype)) + 
-                        + strlen(result) + strlen(semicon);
+                        + strlen(result) + strlen(semicon) + 1;
 
     block2str = (char *) palloc0(totalSize);
 
