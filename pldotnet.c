@@ -263,8 +263,8 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     // Source code
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
     t = DatumGetTextP(prosrc);
-    source_text = VARDATA(t);
-    source_size = VARSIZE(t) - VARHDRSZ;
+    source_text = DirectFunctionCall1(textout, DatumGetCString(t));
+    source_size = strlen(source_text);
 
     argnames = SysCacheGetAttr(PROCOID, proc,
         Anum_pg_proc_proargnames, &isnull);
@@ -287,7 +287,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
          totalSize += (nargs - 1) * strlen(comma); // commas size
     totalSize += strlen(endFunDec) + source_size + strlen(endFun); 
 
-    block2str = (char *)palloc(totalSize);
+    block2str = (char *)palloc0(totalSize);
     sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
     curSize = strlen(block2str);
 
