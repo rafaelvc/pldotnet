@@ -171,7 +171,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(rettype)) + 
                         + strlen(result) + strlen(semicon);
 
-    block2str = (char *) palloc(totalSize);
+    block2str = (char *) palloc0(totalSize);
 
     for (i = 0; i < nargs; i++)
     {
@@ -207,7 +207,7 @@ pldotnet_build_block4(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         block2str = (char *)palloc(strlen(func) + strlen(endFun));
+         block2str = (char *)palloc0(strlen(func) + strlen(endFun));
          sprintf(block2str, "%s%s", func, endFun);
          return block2str;
     }
@@ -218,7 +218,7 @@ pldotnet_build_block4(Form_pg_proc procst)
     if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma);
 
-    block2str = (char *) palloc(totalSize);
+    block2str = (char *) palloc0(totalSize);
     sprintf(block2str, "%s", func);
     curSize = strlen(func);
     for (i = 0; i < nargs; i++)
@@ -279,7 +279,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     totalSize = strlen(pldotnet_getNetTypeName(rettype)) + strlen(func);
     for (i = 0; i < nargs; i++) 
     {
-        argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+        argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
         totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + 1 + argNmSize;
     }
@@ -293,8 +295,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
     for (i = 0; i < nargs; i++)
     {
-        argNm = VARDATA(DatumGetTextP(argname[i]));
-        argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+        argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
         if  (i + 1 == nargs)  // last no comma
             sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i]), argNm);
@@ -498,7 +501,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
 	//elog(ERROR, "[pldotnet] %s", block_call4);
         block_call5 = pldotnet_build_block5( procst , proc );
 	//elog(ERROR, "[pldotnet] %s", block_call5);
-        source_code = palloc(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
+        source_code = palloc0(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
                              + strlen(block_call4) + strlen(block_call5) + strlen(block_call6));
 
         sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
