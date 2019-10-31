@@ -11,7 +11,7 @@ SELECT sumReal(1.50055, 1.50054); -- 3.00109
 
 --- Float8 (double precision): 15 digits of precison
 CREATE OR REPLACE FUNCTION returnDouble() RETURNS double precision AS $$
-return 11.0050000000005
+return 11.0050000000005;
 $$ LANGUAGE pldotnet;
 SELECT returnDouble();
 
