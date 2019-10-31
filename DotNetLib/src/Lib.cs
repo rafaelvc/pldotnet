@@ -25,10 +25,7 @@ namespace DotNetLib
         public static int Compile(IntPtr arg, int argLength)
         {                                  
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
-
-            string sourceCode = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? Marshal.PtrToStringUni(libArgs.SourceCode)
-                : Marshal.PtrToStringUTF8(libArgs.SourceCode); 
+            string sourceCode = Marshal.PtrToStringAuto(libArgs.SourceCode);
            
             //Console.WriteLine($"Source Code: {sourceCode}");
 	    SyntaxTree tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
