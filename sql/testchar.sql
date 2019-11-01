@@ -18,7 +18,12 @@ return "Hello " + fname + lname + "!";
 $$ LANGUAGE pldotnet;
 SELECT retVarCharText('Homer Jay ', 'Simpson');
 
-CREATE OR REPLACE FUNCTION retTextVarChar(fname text, lname text) RETURNS varchar AS $$
-return "Hello " + fname + lname + "!";
+CREATE OR REPLACE FUNCTION retChar(argchar character) RETURNS character AS $$
+return argchar;
 $$ LANGUAGE pldotnet;
-SELECT retTextVarChar('Lisa ', 'Simpson');
+SELECT retChar('R');
+
+--CREATE OR REPLACE FUNCTION retConcatLeter(fletter character, letter character) RETURNS varchar AS $$
+--return ";
+--$$ LANGUAGE pldotnet;
+--SELECT retTextVarChar('Lisa ', 'Simpson');
