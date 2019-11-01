@@ -149,7 +149,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     if (rettype != INT4OID && rettype != INT8OID 
        && rettype != INT2OID && rettype != FLOAT4OID
        && rettype != FLOAT8OID && rettype != VARCHAROID
-       && rettype != BOOLOID) // Check for all supported types
+       && rettype != BOOLOID && rettype != TEXTOID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -160,7 +160,7 @@ pldotnet_build_block2(Form_pg_proc procst)
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
             && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
             && argtype[i] != FLOAT8OID && argtype[i] != VARCHAROID
-            && argtype[i] != BOOLOID)
+            && argtype[i] != BOOLOID  && argtype[i] != TEXTOID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
@@ -351,6 +351,7 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(float);
         case FLOAT8OID:
             return sizeof(double);
+        case TEXTOID:
         case VARCHAROID:
             return sizeof(char *);
     }
@@ -374,6 +375,7 @@ pldotnet_getNetTypeName(Oid id)
             return "float"; // System.Single
         case FLOAT8OID:
             return "double"; // System.Double
+        case TEXTOID:
         case VARCHAROID:
             return "string"; // System.String
     }
@@ -427,6 +429,10 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case FLOAT8OID:
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
+            case TEXTOID:
+                *(unsigned long *)curArg =
+                     DirectFunctionCall1(textout, DatumGetCString(fcinfo->arg[i]));
+                break;
             case VARCHAROID:
                 *(unsigned long *)curArg =
                      DirectFunctionCall1(varcharout, DatumGetCString(fcinfo->arg[i]));
@@ -465,6 +471,10 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case TEXTOID:
+             retval = DirectFunctionCall1(textin,
+                            CStringGetDatum(
+                                    *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
         case VARCHAROID:
              retval = DirectFunctionCall1(varcharin,
                             CStringGetDatum(
