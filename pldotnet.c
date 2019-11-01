@@ -698,7 +698,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 
 	char*  block_inline3 = CODEBLOCK;
 
-	char* source_code = (char*) palloc(strlen(block_inline1) + strlen(block_inline2)
+	char* source_code = (char*) palloc0(strlen(block_inline1) + strlen(block_inline2)
 			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
 
 	sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
