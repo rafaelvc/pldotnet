@@ -10,6 +10,7 @@
 #include <hostfxr.h>
 #include <dlfcn.h>
 #include <limits.h>
+//#include <mb/pg_wchar.h> For Unicode/UTF8 support
 
 #define STR(s) s
 #define CH(c) c
@@ -402,6 +403,10 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case VARCHAROID:
                 *(unsigned long *)curArg =
                      DirectFunctionCall1(varcharout, DatumGetCString(fcinfo->arg[i]));
+               // For Unicode/UTF8:
+               // *(unsigned long *)curArg =
+               //     pg_do_encoding_conversion( VARDATA( fcinfo->arg[i] ),
+               //     VARSIZE( fcinfo->arg[i] ) - VARHDRSZ, GetDatabaseEncoding(), PG_UTF8);
                 break;
 
         }
@@ -417,6 +422,9 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
 {
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
     Datum retval = 0;
+    //VarChar * resVarChar; //For Unicode/UTF8 support
+    //int lenStr;
+
     switch (rettype){
         case INT4OID:
             return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams ) );
@@ -432,6 +440,20 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
              retval = DirectFunctionCall1(varcharin,
                             CStringGetDatum(
                                     *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
+// For Unicode/UTF8 support
+//             //lenStr = strlen // based on pljava it should not work for unicode!
+//             lenStr = pg_mbstrlen
+//             ( *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams) );
+//             resVarChar = (VarChar *)palloc0(lenStr + VARHDRSZ);
+//#if PG_VERSION_NUM < 80300
+//            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
+//#else
+//            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
+//#endif
+//            memcpy(VARDATA(resVarChar),
+//            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams) , lenStr);
+//            PG_RETURN_VARCHAR_P(resVarChar);
+
     }
     return retval;
 }
