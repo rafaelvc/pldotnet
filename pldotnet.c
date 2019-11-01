@@ -10,6 +10,7 @@
 #include <hostfxr.h>
 #include <dlfcn.h>
 #include <limits.h>
+//#include <mb/pg_wchar.h> For Unicode/UTF8 support
 
 #define STR(s) s
 #define CH(c) c
@@ -95,7 +96,7 @@ char block_call3[] = "                            \n\
         }                                    \n\
         public static int ProcedureMethod(IntPtr arg, int argLength)\n\
         {                                    \n\
-            if (argLength < System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
+            if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n\
             libArgs.resu = ";
@@ -106,9 +107,9 @@ char block_call3[] = "                            \n\
             //}
 char  block_call6[] = "                            \n\
             Console.WriteLine($\"resu: {libArgs.resu}\");\n\
-	    Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
+            Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
             return 0;                         \n\
-	}                                     \n\
+        }                                     \n\
     }                                         \n\
 }";
 
@@ -130,9 +131,6 @@ char  block_inline4[] = "                   \n\
      }                                      \n\
 }";
 
-// TODO: We should calculate first the size of things then we will
-//       do only one malloc instead of keep reallocing
-
 static char *
 pldotnet_build_block2(Form_pg_proc procst)
 {
@@ -148,7 +146,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
     if (rettype != INT4OID && rettype != INT8OID 
        && rettype != INT2OID && rettype != FLOAT4OID
-       && rettype != FLOAT8OID) // Check for all supported types
+       && rettype != FLOAT8OID && rettype != VARCHAROID) // Check for all supported types
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -158,12 +156,12 @@ pldotnet_build_block2(Form_pg_proc procst)
 
         if (argtype[i] != INT4OID && argtype[i] != INT8OID 
             && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
-            && argtype[i] != FLOAT8OID)
+            && argtype[i] != FLOAT8OID && argtype[i] != VARCHAROID)
         {
             // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             if (block2str != NULL)
-                free(block2str);
+                pfree(block2str);
             return 0;
         }
 
@@ -172,9 +170,9 @@ pldotnet_build_block2(Form_pg_proc procst)
     }
     
     totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(rettype)) + 
-                        + strlen(result) + strlen(semicon);
+                        + strlen(result) + strlen(semicon) + 1;
 
-    block2str = (char *) malloc(totalSize);
+    block2str = (char *) palloc0(totalSize);
 
     for (i = 0; i < nargs; i++)
     {
@@ -210,18 +208,18 @@ pldotnet_build_block4(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         block2str = (char *)malloc(strlen(func) + strlen(endFun));
+         block2str = (char *)palloc0(strlen(func) + strlen(endFun) + 1);
          sprintf(block2str, "%s%s", func, endFun);
          return block2str;
     }
 
     totalSize = strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
-                     + strlen(endFun);
+                     + strlen(endFun) + 1;
 
     if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma);
 
-    block2str = (char *) malloc(totalSize);
+    block2str = (char *) palloc0(totalSize);
     sprintf(block2str, "%s", func);
     curSize = strlen(func);
     for (i = 0; i < nargs; i++)
@@ -266,8 +264,8 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     // Source code
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
     t = DatumGetTextP(prosrc);
-    source_text = VARDATA(t);
-    source_size = VARSIZE(t) - VARHDRSZ;
+    source_text = DirectFunctionCall1(textout, DatumGetCString(t));
+    source_size = strlen(source_text);
 
     argnames = SysCacheGetAttr(PROCOID, proc,
         Anum_pg_proc_proargnames, &isnull);
@@ -282,22 +280,25 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     totalSize = strlen(pldotnet_getNetTypeName(rettype)) + strlen(func);
     for (i = 0; i < nargs; i++) 
     {
-        argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+        argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
         totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + 1 + argNmSize;
     }
      if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma); // commas size
-    totalSize += strlen(endFunDec) + source_size + strlen(endFun); 
+    totalSize += strlen(endFunDec) + source_size + strlen(endFun) + 1;
 
-    block2str = (char *)malloc(totalSize);
+    block2str = (char *)palloc0(totalSize);
     sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
     curSize = strlen(block2str);
 
     for (i = 0; i < nargs; i++)
     {
-        argNm = VARDATA(DatumGetTextP(argname[i]));
-        argNmSize = VARSIZE(DatumGetTextP(argname[i])) - VARHDRSZ;
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+        argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
         if  (i + 1 == nargs)  // last no comma
             sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i]), argNm);
@@ -329,6 +330,8 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(float);
         case FLOAT8OID:
             return sizeof(double);
+        case VARCHAROID:
+            return sizeof(char *);
     }
     return -1;
 }
@@ -348,6 +351,8 @@ pldotnet_getNetTypeName(Oid id)
             return "float"; // System.Single
         case FLOAT8OID:
             return "double"; // System.Double
+        case VARCHAROID:
+            return "string"; // System.String
     }
     return "";
 }
@@ -364,12 +369,14 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     Oid type;
 
     dotnet_info.typeSizeOfParams = 0;
-    for (i = 0; i < fcinfo->nargs; i++)
+    for (i = 0; i < fcinfo->nargs; i++) {
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
+        elog(WARNING, "%d", dotnet_info.typeSizeOfParams );
+    }
 
     dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
 
-    ptrToLibArgs = (char *) malloc(dotnet_info.typeSizeOfParams +
+    ptrToLibArgs = (char *) palloc0(dotnet_info.typeSizeOfParams +
                                   dotnet_info.typeSizeOfResult);
 
     curArg = ptrToLibArgs;
@@ -383,11 +390,9 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 break;
             case INT8OID:
                 *(long *)curArg = DatumGetInt64(fcinfo->arg[i]);
-                //elog(WARNING, "->%li",*(long *)curArg);
                 break;
             case INT2OID:
                 *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
-                //elog(WARNING, "->%hi",*(short *)curArg);
                 break;
             case FLOAT4OID:
                 *(float *)curArg = DatumGetFloat4(fcinfo->arg[i]);
@@ -395,6 +400,15 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case FLOAT8OID:
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
+            case VARCHAROID:
+                *(unsigned long *)curArg =
+                     DirectFunctionCall1(varcharout, DatumGetCString(fcinfo->arg[i]));
+               // For Unicode/UTF8:
+               // *(unsigned long *)curArg =
+               //     pg_do_encoding_conversion( VARDATA( fcinfo->arg[i] ),
+               //     VARSIZE( fcinfo->arg[i] ) - VARHDRSZ, GetDatabaseEncoding(), PG_UTF8);
+                break;
+
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + curSize;
@@ -408,6 +422,9 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
 {
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
     Datum retval = 0;
+    //VarChar * resVarChar; //For Unicode/UTF8 support
+    //int lenStr;
+
     switch (rettype){
         case INT4OID:
             return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams ) );
@@ -419,6 +436,24 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case VARCHAROID:
+             retval = DirectFunctionCall1(varcharin,
+                            CStringGetDatum(
+                                    *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
+// For Unicode/UTF8 support
+//             //lenStr = strlen // based on pljava it should not work for unicode!
+//             lenStr = pg_mbstrlen
+//             ( *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams) );
+//             resVarChar = (VarChar *)palloc0(lenStr + VARHDRSZ);
+//#if PG_VERSION_NUM < 80300
+//            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
+//#else
+//            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
+//#endif
+//            memcpy(VARDATA(resVarChar),
+//            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams) , lenStr);
+//            PG_RETURN_VARCHAR_P(resVarChar);
+
     }
     return retval;
 }
@@ -470,6 +505,12 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
     // ...
     PG_TRY();
     {
+        MemoryContext oldcontext = CurrentMemoryContext;
+        MemoryContext func_cxt = NULL;
+        func_cxt = AllocSetContextCreate(TopMemoryContext,
+                                    "PL/NET func_exec_ctx",
+                                    ALLOCSET_SMALL_SIZES);
+        MemoryContextSwitchTo(func_cxt);
         proc = SearchSysCache(PROCOID, ObjectIdGetDatum(fcinfo->flinfo->fn_oid), 0, 0, 0);
         if (!HeapTupleIsValid(proc))
             elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
@@ -482,7 +523,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
 	//elog(ERROR, "[pldotnet] %s", block_call4);
         block_call5 = pldotnet_build_block5( procst , proc );
 	//elog(ERROR, "[pldotnet] %s", block_call5);
-        source_code = malloc(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
+        source_code = palloc0(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
                              + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
 
         sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
@@ -493,9 +534,9 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         rettype = procst->prorettype;
 
         ReleaseSysCache(proc);
-        free(block_call2);
-        free(block_call4);
-        free(block_call5);
+        pfree(block_call2);
+        pfree(block_call4);
+        pfree(block_call5);
 
         char *dnldir = getenv("DNLDIR");
         if (dnldir == nullptr) dnldir = &default_dnldir[0];
@@ -592,8 +633,8 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         args_source args_source =  { .SourceCode = source_code, .Result = 1 };
         csharp_method(&args_source, sizeof(args_source));
 
-	bzero(dotnet_type_method,sizeof(dotnet_type_method));
-	strcpy(dotnet_type_method,"Run");
+        bzero(dotnet_type_method,sizeof(dotnet_type_method));
+        strcpy(dotnet_type_method,"Run");
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
@@ -609,19 +650,23 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 #endif
-	elog(WARNING, "start create c struc");
+        elog(WARNING, "start create c struc");
+
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         csharp_method(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);        
-	retval = pldotnet_getResultFromDotNet( libArgs, rettype );
-
+        retval = pldotnet_getResultFromDotNet( libArgs, rettype );
         if (libArgs != NULL)
-            free(libArgs);
-        free(source_code);
+            pfree(libArgs);
+        pfree(source_code);
+        MemoryContextSwitchTo(oldcontext);
+        if (func_cxt)
+            MemoryContextDelete(func_cxt);
     }
     PG_CATCH();
     {
         // Do the excption handling
+        elog(WARNING, "Exception");
         PG_RE_THROW();
     }
     PG_END_TRY();
@@ -675,7 +720,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 
 	char*  block_inline3 = CODEBLOCK;
 
-	char* source_code = (char*) malloc(strlen(block_inline1) + strlen(block_inline2) 
+	char* source_code = (char*) palloc0(strlen(block_inline1) + strlen(block_inline2)
 			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
 
 	sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
@@ -804,7 +849,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 #endif
         csharp_method(&args, sizeof(args));
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
-	free(source_code);
+        pfree(source_code);
     }
     PG_CATCH();
     {
