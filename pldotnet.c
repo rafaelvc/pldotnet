@@ -479,14 +479,18 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
-        case BPCHAROID:
-             retval = DirectFunctionCall1(bpcharin,
-                            CStringGetDatum(
-                                    *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
         case TEXTOID:
              retval = DirectFunctionCall1(textin,
                             CStringGetDatum(
                                     *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
+        case BPCHAROID:
+        // https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
+        // We should try to get atttymod which is n size in char(n)
+        // and use it in bpcharin (I did not find a way to get it)
+        // case BPCHAROID:
+        //    retval = DirectFunctionCall1(bpcharin,
+        //                           CStringGetDatum(
+        //                            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)), attypmod);
         case VARCHAROID:
              retval = DirectFunctionCall1(varcharin,
                             CStringGetDatum(
