@@ -436,6 +436,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case BPCHAROID:
                 *(unsigned long *)curArg =
                      DirectFunctionCall1(bpcharout, DatumGetCString(fcinfo->arg[i]));
+                     //elog(WARNING, "size %d", VARSIZE_ANY_EXHDR(fcinfo->arg[i]));
                 break;
             case TEXTOID:
                 *(unsigned long *)curArg =
