@@ -318,8 +318,6 @@ int result;
                 result = sprintf(h_ptr,"bool? %s=%s%s%s?(bool?)null:%s%s%s;",
                     argNm,argNm,nullable_suffix,null_prop_suffix,argNm,nullable_suffix,value_prop_suffix);
                 elog(WARNING, "\n\n Build %d characters into string\n\n", result);
-            default:
-                sprintf(h_ptr,"");
         }
 
         //elog(WARNING,"\n\n ARG : %s \n\n",build_nullable_header(h_ptr,argNm,argtype[i]));
@@ -357,8 +355,6 @@ int result;
             //elog(WARNING,"\n\n HEADER PTR LOOP content %d : %s \n\n",i,h_ptr);
             result = sprintf(src,"%s%s", resu_value, resu_flag);
             //elog(WARNING, "\n\n Build %d characters into string\n\n", result);
-        default:
-            sprintf(src,"");
     }
         //elog(WARNING,"\n\n ARG : %s \n\n",build_nullable_header(h_ptr,argNm,argtype[i]));
 }
@@ -454,17 +450,33 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         curSize = strlen(block2str);
     }
 
-    header_nullable = (char *)palloc0(header_size);
-    footer_nullable = (char *)palloc0(footer_size);
-    build_nullable_header(header_nullable,argname,argtype,nargs);
-    elog(WARNING,"\n\n ARG HEADER COMPLETE STR: %s \n\n",header_nullable);
-    build_nullable_footer(footer_nullable, rettype);
-    elog(WARNING,"\n\n ARG FOOTER COMPLETE STR: %s \n\n",footer_nullable);
+    pStr = (char *)(block2str + curSize);
+    sprintf(pStr, "%s", endFunDec);
+    curSize = strlen(block2str);
+
+    if (header_size > 0) {
+        header_nullable = (char *)palloc0(header_size);
+        pStr = (char *)(block2str + curSize);
+        build_nullable_header(header_nullable,argname,argtype,nargs);
+        elog(WARNING,"\n\n ARG HEADER COMPLETE STR: %s \n\n",header_nullable);
+        sprintf(pStr, "%s",header_nullable);
+        curSize = strlen(block2str);
+    }
 
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s%s%s%s%s", endFunDec, header_nullable, source_text, endFun, footer_nullable);
-    elog(WARNING, "%s", block2str);
+    sprintf(pStr, "%s%s", source_text, endFun);
+    curSize = strlen(block2str);
 
+    if (footer_size > 0) {
+        footer_nullable = (char *)palloc0(footer_size);
+        build_nullable_footer(footer_nullable, rettype);
+        elog(WARNING,"\n\n ARG FOOTER COMPLETE STR: %s \n\n",footer_nullable);
+        pStr = (char *)(block2str + curSize);
+        sprintf(pStr, "%s", footer_nullable);
+        curSize = strlen(block2str);
+    }
+
+    elog(WARNING, "%s", block2str);
     return block2str;
 
 }
