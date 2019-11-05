@@ -18,7 +18,23 @@ return "Hello " + fname + lname + "!";
 $$ LANGUAGE pldotnet;
 SELECT retVarCharText('Homer Jay ', 'Simpson');
 
-CREATE OR REPLACE FUNCTION retTextVarChar(fname text, lname text) RETURNS varchar AS $$
-return "Hello " + fname + lname + "!";
+CREATE OR REPLACE FUNCTION retChar(argchar character) RETURNS character AS $$
+return argchar;
 $$ LANGUAGE pldotnet;
-SELECT retTextVarChar('Lisa ', 'Simpson');
+SELECT retChar('R');
+
+CREATE OR REPLACE FUNCTION retConcatLetters(a character, b character) RETURNS varchar AS $$
+return a + b;
+$$ LANGUAGE pldotnet;
+SELECT retConcatLetters('R', 'C');
+
+-- Problem here it is neither padding and truncating
+CREATE OR REPLACE FUNCTION retConcatChars(a char(5), b char(7)) RETURNS char(5) AS $$
+return a + b;
+$$ LANGUAGE pldotnet;
+SELECT retConcatChars('H.', 'Simpson');
+
+CREATE OR REPLACE FUNCTION retConcatVarChars(a varchar(5), b varchar(7)) RETURNS varchar(5) AS $$
+return a + b;
+$$ LANGUAGE pldotnet;
+SELECT retConcatVarChars('H.', 'Simpson');
