@@ -57,7 +57,7 @@ static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
 static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
 static int pldotnet_getTypeSize(Oid id);
 static const char * pldotnet_getNetTypeName(Oid id);
-static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype);
+static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo );
 
 typedef struct pldotnet_info
 {
@@ -73,6 +73,12 @@ typedef struct args_source
     int Result;
 }args_source;
 
+typedef struct nullable_bool
+{
+    bool value;
+    bool is_null;
+}nullable_bool;
+
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text
@@ -85,6 +91,14 @@ namespace DotNetLib                       \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
+        [StructLayout(LayoutKind.Sequential)] \n\
+        public struct Nullable_bool         \n\
+        {                                   \n\
+		    [MarshalAs(UnmanagedType.U1)]   \n\
+            public bool value;              \n\
+		    [MarshalAs(UnmanagedType.U1)]   \n\
+            public bool is_null;            \n\
+        }                                   \n\
         [StructLayout(LayoutKind.Sequential)]\n\
         public struct LibArgs                \n\
         {";
@@ -98,9 +112,8 @@ char block_call3[] = "                            \n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
-            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n\
-            libArgs.resu = ";
-//block_call4                     //FUNC(libArgs.argName1, libArgs.argName2, ...);
+            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);";
+//block_call4 libArgs.resu = FUNC(libArgs.argName1, libArgs.argName2, ...);
 //block_call5    //returnT FUNC(argType1 argName1, argType2 argName2, ...)
 	        //{
 		          // What is in the SQL function code here
@@ -138,12 +151,11 @@ pldotnet_build_block2(Form_pg_proc procst)
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
     Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
-    const char public_bool[] = "[MarshalAs(UnmanagedType.U1)]public ";
     const char public_[] = "public ";
     const char semicon[] = ";";
     char argName[] = " argN";
     char result[] = " resu"; // have to be same size argN
-    int i, curSize = 0, totalSize = 0, public_size;
+    int i, curSize = 0, totalSize = 0;
 
 
     if (rettype != INT4OID && rettype != INT8OID 
@@ -169,14 +181,11 @@ pldotnet_build_block2(Form_pg_proc procst)
             return 0;
         }
 
-        public_size = (argtype[i] == BOOLOID) ? strlen(public_bool) : strlen(public_);
-
-        totalSize += public_size + strlen(pldotnet_getNetTypeName(argtype[i])) + 
+        totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(argtype[i])) + 
                        + strlen(argName) + strlen(semicon);
     }
     
-    public_size = (rettype == BOOLOID) ? strlen(public_bool) : strlen(public_);
-    totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype)) + 
+    totalSize += strlen(public_) + strlen(pldotnet_getNetTypeName(rettype)) + 
                     + strlen(result) + strlen(semicon) + 1;
 
     block2str = (char *) palloc0(totalSize);
@@ -186,11 +195,7 @@ pldotnet_build_block2(Form_pg_proc procst)
         sprintf(argName, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
 
-	if (rettype == BOOLOID)
-            sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(argtype[i]),
-                                                argName, semicon);
-	else
-            sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(argtype[i]),
+        sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(argtype[i]),
                                                 argName, semicon);
 
         curSize += strlen(pStr);
@@ -199,11 +204,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     // result
     pStr = (char *)(block2str + curSize);
 
-    if (rettype == BOOLOID)
-        sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(rettype),
-                            result, semicon);
-    else
-        sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(rettype),
+    sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(rettype),
                             result, semicon);
 
     elog(WARNING, "%s", block2str);
@@ -223,6 +224,18 @@ pldotnet_build_block4(Form_pg_proc procst)
     int declParamSize = strlen(libArgs) + strlen(argName);
     int declParamSizeComma = declParamSize + strlen(comma);
     int nargs = procst->pronargs;
+    //experimental
+    Oid rettype = procst->prorettype;
+    char *resu_var;
+
+    if (rettype == BOOLOID)
+    {
+        resu_var = (char *)palloc0(20);
+        sprintf(resu_var,"bool? resu_nullable=");
+    } else {
+        resu_var = (char *)palloc0(13);
+        sprintf(resu_var,"libArgs.resu=");
+    }
 
     // TODO:  review for nargs > 9
     if (nargs == 0)
@@ -232,15 +245,15 @@ pldotnet_build_block4(Form_pg_proc procst)
          return block2str;
     }
 
-    totalSize = strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
+    totalSize = strlen(resu_var) + strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
                      + strlen(endFun) + 1;
 
     if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma);
 
     block2str = (char *) palloc0(totalSize);
-    sprintf(block2str, "%s", func);
-    curSize = strlen(func);
+    sprintf(block2str, "%s%s", resu_var, func);
+    curSize = strlen(func) + strlen(resu_var);
     for (i = 0; i < nargs; i++)
     {
         sprintf(argName, "arg%d", i); // review nargs > 9
@@ -264,6 +277,88 @@ pldotnet_build_block4(Form_pg_proc procst)
 
 }
 
+static int
+get_size_nullable_header(int argNm_size, Oid arg_type)
+{
+    int total_size = 0;
+
+    switch (arg_type)
+    {
+        case BOOLOID:
+            total_size = (3 * argNm_size) + (2 * 5) + 43;
+            break;
+    }
+
+    return total_size;
+}
+
+static void
+build_nullable_header(char* src,Datum* argname, Oid* argtype, int nargs){
+
+char *h_ptr, *argNm;
+const char null_prop_suffix[] = ".is_null";
+const char value_prop_suffix[] = ".value";
+const char nullable_suffix[] = "_nullable";
+int h_size = 0,i;
+//DEBUG
+int result;
+
+    h_size = strlen(src);
+
+    for (i = 0; i < nargs; i++)
+    {
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+        h_ptr = (char *)(src + h_size);
+        
+        switch (argtype[i]){
+            case BOOLOID:
+                elog(WARNING,"\n\n HEADER PTR LOOP %d : %p \n\n",i,(long*)h_ptr);
+                elog(WARNING,"\n\n HEADER PTR LOOP content %d : %s \n\n",i,h_ptr);
+                result = sprintf(h_ptr,"bool? %s=%s%s%s?(bool?)null:%s%s%s;",
+                    argNm,argNm,nullable_suffix,null_prop_suffix,argNm,nullable_suffix,value_prop_suffix);
+                elog(WARNING, "\n\n Build %d characters into string\n\n", result);
+        }
+
+        //elog(WARNING,"\n\n ARG : %s \n\n",build_nullable_header(h_ptr,argNm,argtype[i]));
+        h_size = strlen(src);
+
+    }
+}
+
+static int
+get_size_nullable_footer(Oid ret_type)
+{
+    int total_size = 0;
+
+    switch (ret_type)
+    {
+        case BOOLOID:
+            total_size = 51 + 59;
+            break;
+    }
+
+    return total_size;
+}
+
+static void
+build_nullable_footer(char* src, Oid rettype){
+
+const char resu_value[] = "libArgs.resu.value = resu_nullable.GetValueOrDefault();";
+const char resu_flag[] = "libArgs.resu.is_null = !resu_nullable.HasValue;";
+//DEBUG
+int result;
+
+    switch (rettype){
+        case BOOLOID:
+            //elog(WARNING,"\n\n HEADER PTR LOOP %d : %p \n\n",i,(long*)h_ptr);
+            //elog(WARNING,"\n\n HEADER PTR LOOP content %d : %s \n\n",i,h_ptr);
+            result = sprintf(src,"%s%s", resu_value, resu_flag);
+            //elog(WARNING, "\n\n Build %d characters into string\n\n", result);
+    }
+        //elog(WARNING,"\n\n ARG : %s \n\n",build_nullable_header(h_ptr,argNm,argtype[i]));
+}
+
 static char *
 pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 {
@@ -272,13 +367,16 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     bool isnull;
     const char func[] = " FUNC(";
     const char comma[] = ",";
-    const char endFunDec[] = "){";
+    const char endFunDec[] = "){\n";
     const char endFun[] = "}\n";
     int nargs = procst->pronargs;
     Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
     text * t;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    //experimental
+    char *header_nullable, *footer_nullable;
+    int header_size=0,footer_size=0;
 
     // Source code
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
@@ -296,27 +394,53 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     // Caculates the total amount in bytes of C# src text for 
     // the function declaration according nr of arguments 
     // their types and the function return type
-    totalSize = strlen(pldotnet_getNetTypeName(rettype)) + strlen(func);
+    if(rettype == BOOLOID) 
+    {
+        totalSize = strlen("bool?") + strlen(func);
+    } else{
+        totalSize = strlen(pldotnet_getNetTypeName(rettype)) + strlen(func);
+    }
     for (i = 0; i < nargs; i++) 
     {
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
+
+        if(argtype[i] == BOOLOID)
+            strcat(argNm,"_nullable");
+
         argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
         totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + 1 + argNmSize;
+        header_size += get_size_nullable_header(strlen(argNm),argtype[i]);
     }
      if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma); // commas size
-    totalSize += strlen(endFunDec) + source_size + strlen(endFun) + 1;
+
+    footer_size = get_size_nullable_footer(rettype);
+
+    totalSize += strlen(endFunDec) + header_size + source_size + strlen(endFun) + footer_size + 1;
 
     block2str = (char *)palloc0(totalSize);
-    sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
-    curSize = strlen(block2str);
+    //elog(WARNING,"\n\n ARGs TOTAL LENGTH : %d \n\n",header_size);
+    elog(WARNING,"\n\n HEADER TOTAl SIZE: %d \n\n",header_size);
+    elog(WARNING,"\n\n HEADER PTR: %p \n\n",(long*)header_nullable);
 
+    if(rettype == BOOLOID) 
+    {
+        sprintf(block2str, "bool? %s",func);
+    } else {
+        sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
+    }
+    curSize = strlen(block2str);
+    
     for (i = 0; i < nargs; i++)
     {
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
+
+        if(argtype[i] == BOOLOID)
+            strcat(argNm,"_nullable");
+
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
         if  (i + 1 == nargs)  // last no comma
@@ -326,8 +450,15 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         curSize = strlen(block2str);
     }
 
+    header_nullable = (char *)palloc0(header_size);
+    footer_nullable = (char *)palloc0(footer_size);
+    build_nullable_header(header_nullable,argname,argtype,nargs);
+    elog(WARNING,"\n\n ARG HEADER COMPLETE STR: %s \n\n",header_nullable);
+    build_nullable_footer(footer_nullable, rettype);
+    elog(WARNING,"\n\n ARG FOOTER COMPLETE STR: %s \n\n",footer_nullable);
+
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s%s%s", endFunDec, source_text, endFun);
+    sprintf(pStr, "%s%s%s%s%s", endFunDec,header_nullable, source_text, endFun, footer_nullable);
     elog(WARNING, "%s", block2str);
 
     return block2str;
@@ -340,7 +471,7 @@ pldotnet_getTypeSize(Oid id)
 {
     switch (id){
         case BOOLOID:
-            return sizeof(bool);
+            return sizeof(nullable_bool);
         case INT4OID:
             return sizeof(int);
         case INT8OID:
@@ -364,7 +495,7 @@ pldotnet_getNetTypeName(Oid id)
 {
     switch (id){
         case BOOLOID:
-            return "bool"; // System.Boolean
+            return "Nullable_bool"; // System.Boolean
         case INT4OID:
             return "int"; // System.Int32
         case INT8OID:
@@ -411,8 +542,11 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         switch (type)
         {
             case BOOLOID:
-                *(bool *)curArg = DatumGetBool(fcinfo->arg[i]);
-                //elog(WARNING, "->%s",*(bool *)curArg?"true":"false");
+                //TODO: Address arg conversion for different PGVERSION
+                *(bool *)curArg = fcinfo->argnull[i]? false : DatumGetBool(fcinfo->arg[i]);
+                *(bool *)(curArg + 1) = fcinfo->argnull[i];
+                //elog(WARNING, "arg%d value  %s",i,*(bool *)curArg?"true":"false");
+                //elog(WARNING, "arg%d nullflag %s",i,*(bool *)(curArg+1)?"true":"false");
                 break;
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
@@ -451,7 +585,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 static Datum
-pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
+pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo)
 {
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
     Datum retval = 0;
@@ -460,7 +594,13 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
 
     switch (rettype){
         case BOOLOID:
-            return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams ) );
+            if(*(bool *)(libArgs + dotnet_info.typeSizeOfParams + 1 ))
+            {
+                fcinfo->isnull=true;
+                return (Datum) 0;
+            } else { 
+                return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams ) );
+            }
         case INT4OID:
             return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case INT8OID:
@@ -694,7 +834,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
         elog(WARNING, "libargs size: %d", dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         csharp_method(libArgs, dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);        
-        retval = pldotnet_getResultFromDotNet( libArgs, rettype );
+        retval = pldotnet_getResultFromDotNet( libArgs, rettype, fcinfo );
         if (libArgs != NULL)
             pfree(libArgs);
         pfree(source_code);
