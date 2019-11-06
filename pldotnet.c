@@ -58,6 +58,7 @@ static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc
 static int pldotnet_getTypeSize(Oid id);
 static const char * pldotnet_getNetTypeName(Oid id);
 static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype);
+static bool pldotnet_type_supported(Oid type);
 
 typedef struct pldotnet_info
 {
@@ -131,6 +132,16 @@ char  block_inline4[] = "                   \n\
      }                                      \n\
 }";
 
+// Check for all supported types
+static bool pldotnet_type_supported(Oid type)
+{
+    return (type == INT4OID || type == INT8OID
+       || type == INT2OID   || type == FLOAT4OID
+       || type == FLOAT8OID || type == VARCHAROID
+       || type == BOOLOID   || type == TEXTOID
+       || type == BPCHAROID);
+}
+
 static char *
 pldotnet_build_block2(Form_pg_proc procst)
 {
@@ -145,29 +156,17 @@ pldotnet_build_block2(Form_pg_proc procst)
     char result[] = " resu"; // have to be same size argN
     int i, curSize = 0, totalSize = 0, public_size;
 
-
-    if (rettype != INT4OID && rettype != INT8OID 
-       && rettype != INT2OID && rettype != FLOAT4OID
-       && rettype != FLOAT8OID && rettype != VARCHAROID
-       && rettype != BOOLOID && rettype != TEXTOID
-       && rettype != BPCHAROID) // Check for all supported types
+    if (!pldotnet_type_supported(rettype))
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
     }
 
-    for (i = 0; i < nargs; i++) {
-
-        if (argtype[i] != INT4OID && argtype[i] != INT8OID 
-            && argtype[i] != INT2OID && argtype[i] != FLOAT4OID
-            && argtype[i] != FLOAT8OID && argtype[i] != VARCHAROID
-            && argtype[i] != BOOLOID && argtype[i] != TEXTOID
-            && argtype[i] != BPCHAROID)
+    for (i = 0; i < nargs; i++)
+    {
+        if (!pldotnet_type_supported(argtype[i]))
         {
-            // Unsupported type
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
-            if (block2str != NULL)
-                pfree(block2str);
             return 0;
         }
 
