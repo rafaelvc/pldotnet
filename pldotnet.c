@@ -188,7 +188,7 @@ pldotnet_build_block2(Form_pg_proc procst)
         sprintf(argName, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
 
-	if (rettype == BOOLOID)
+	if (argtype[i] == BOOLOID)
             sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(argtype[i]),
                                                 argName, semicon);
 	else
