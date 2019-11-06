@@ -38,3 +38,12 @@ CREATE OR REPLACE FUNCTION retConcatVarChars(a varchar(5), b varchar(7)) RETURNS
 return a + b;
 $$ LANGUAGE pldotnet;
 SELECT retConcatVarChars('H.', 'Simpson');
+SELECT retConcatVarChars('H. あ', 'Simpson');
+
+CREATE OR REPLACE FUNCTION retNonRegularEncoding(a varchar) RETURNS varchar AS $$
+return a;
+$$ LANGUAGE pldotnet;
+SELECT retNonRegularEncoding('漢字');
+SELECT retNonRegularEncoding('ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃ');
+SELECT retNonRegularEncoding('ŁĄŻĘĆŃŚŹ');
+SELECT retNonRegularEncoding('Unicode, которая состоится 10-12 марта 1997 года в Майнце в Германии.');
