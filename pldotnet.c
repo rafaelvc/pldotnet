@@ -10,7 +10,7 @@
 #include <hostfxr.h>
 #include <dlfcn.h>
 #include <limits.h>
-//#include <mb/pg_wchar.h> For Unicode/UTF8 support
+#include <mb/pg_wchar.h> //For UTF8 support
 
 #define STR(s) s
 #define CH(c) c
@@ -78,6 +78,10 @@ typedef struct args_source
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text
 
+const char public_bool[] = "[MarshalAs(UnmanagedType.U1)]public ";
+const char public_string_utf8[] = "[MarshalAs(UnmanagedType.LPUTF8Str)]public ";
+const char public_[] = "public ";
+
 // C# CODE TEMPLATE
 char block_call1[] = "                           \n\
 using System;                               \n\
@@ -142,6 +146,38 @@ static bool pldotnet_type_supported(Oid type)
        || type == BPCHAROID);
 }
 
+static int pldotnet_public_decl_size(Oid type)
+{
+    switch (type)
+    {
+        case BOOLOID:
+            return strlen(public_bool);
+        case BPCHAROID:
+        case VARCHAROID:
+        case TEXTOID:
+            return strlen(public_string_utf8);
+        default:
+            return strlen(public_);
+    }
+    return  0;
+}
+
+static char * pldotnet_public_decl(Oid type)
+{
+    switch (type)
+    {
+        case BOOLOID:
+            return &public_bool;
+        case BPCHAROID:
+        case VARCHAROID:
+        case TEXTOID:
+            return &public_string_utf8;
+        default:
+            return &public_;
+    }
+    return  0;
+}
+
 static char *
 pldotnet_build_block2(Form_pg_proc procst)
 {
@@ -149,8 +185,6 @@ pldotnet_build_block2(Form_pg_proc procst)
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
     Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
-    const char public_bool[] = "[MarshalAs(UnmanagedType.U1)]public ";
-    const char public_[] = "public ";
     const char semicon[] = ";";
     char argName[] = " argN";
     char result[] = " resu"; // have to be same size argN
@@ -169,14 +203,12 @@ pldotnet_build_block2(Form_pg_proc procst)
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             return 0;
         }
-
-        public_size = (argtype[i] == BOOLOID) ? strlen(public_bool) : strlen(public_);
-
+        public_size = pldotnet_public_decl_size(argtype[i]);
         totalSize += public_size + strlen(pldotnet_getNetTypeName(argtype[i])) + 
                        + strlen(argName) + strlen(semicon);
     }
     
-    public_size = (rettype == BOOLOID) ? strlen(public_bool) : strlen(public_);
+    public_size = pldotnet_public_decl_size(rettype);
     totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype)) + 
                     + strlen(result) + strlen(semicon) + 1;
 
@@ -186,26 +218,18 @@ pldotnet_build_block2(Form_pg_proc procst)
     {
         sprintf(argName, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
-
-	if (argtype[i] == BOOLOID)
-            sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(argtype[i]),
-                                                argName, semicon);
-	else
-            sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(argtype[i]),
-                                                argName, semicon);
-
+        sprintf(pStr, "%s%s%s%s",
+            pldotnet_public_decl(argtype[i]),
+            pldotnet_getNetTypeName(argtype[i]), argName, semicon);
         curSize += strlen(pStr);
     }
 
     // result
     pStr = (char *)(block2str + curSize);
 
-    if (rettype == BOOLOID)
-        sprintf(pStr, "%s%s%s%s", public_bool, pldotnet_getNetTypeName(rettype),
-                            result, semicon);
-    else
-        sprintf(pStr, "%s%s%s%s", public_, pldotnet_getNetTypeName(rettype),
-                            result, semicon);
+    sprintf(pStr, "%s%s%s%s",
+            pldotnet_public_decl(rettype),
+            pldotnet_getNetTypeName(rettype), result, semicon);
 
     elog(WARNING, "%s", block2str);
     return block2str;
@@ -395,6 +419,8 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     Oid *argtype = procst->proargtypes.values;
     Oid rettype = procst->prorettype;
     Oid type;
+    int lenBuff;
+    char * newArgVl;
 
     dotnet_info.typeSizeOfParams = 0;
     for (i = 0; i < fcinfo->nargs; i++) {
@@ -433,21 +459,28 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
             case BPCHAROID:
-                *(unsigned long *)curArg =
-                     DirectFunctionCall1(bpcharout, DatumGetCString(fcinfo->arg[i]));
-                     //elog(WARNING, "size %d", VARSIZE_ANY_EXHDR(fcinfo->arg[i]));
-                break;
+                // C String encoding
+                //*(unsigned long *)curArg =
+                //    DirectFunctionCall1(bpcharout, DatumGetCString(fcinfo->arg[i]));
+                //break;
             case TEXTOID:
-                *(unsigned long *)curArg =
-                     DirectFunctionCall1(textout, DatumGetCString(fcinfo->arg[i]));
-                break;
+                // C String encoding
+                //*(unsigned long *)curArg =
+                //    DirectFunctionCall1(textout, DatumGetCString(fcinfo->arg[i]));
+                //break;
             case VARCHAROID:
-                *(unsigned long *)curArg =
-                     DirectFunctionCall1(varcharout, DatumGetCString(fcinfo->arg[i]));
-               // For Unicode/UTF8:
-               // *(unsigned long *)curArg =
-               //     pg_do_encoding_conversion( VARDATA( fcinfo->arg[i] ),
-               //     VARSIZE( fcinfo->arg[i] ) - VARHDRSZ, GetDatabaseEncoding(), PG_UTF8);
+                // C String encoding
+                //*(unsigned long *)curArg =
+                //    DirectFunctionCall1(varcharout, DatumGetCString(fcinfo->arg[i]));
+               // UTF8 encoding
+               lenBuff = VARSIZE( fcinfo->arg[i] ) - VARHDRSZ;
+               newArgVl = (char *)palloc0(lenBuff + 1);
+               memcpy(newArgVl, VARDATA( fcinfo->arg[i] ), lenBuff);
+               newArgVl[lenBuff] = '\0';
+               *(unsigned long *)curArg = (char *)
+                    pg_do_encoding_conversion(newArgVl,
+                                              lenBuff+1,
+                                              GetDatabaseEncoding(), PG_UTF8);
                 break;
 
         }
@@ -463,8 +496,9 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
 {
     elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
     Datum retval = 0;
-    //VarChar * resVarChar; //For Unicode/UTF8 support
-    //int lenStr;
+    unsigned long * retP;
+    VarChar * resVarChar; //For Unicode/UTF8 support
+    int lenStr;
 
     switch (rettype){
         case BOOLOID:
@@ -480,9 +514,10 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case TEXTOID:
-             retval = DirectFunctionCall1(textin,
-                            CStringGetDatum(
-                                    *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
+             // C String encoding
+             //retval = DirectFunctionCall1(textin,
+             //               CStringGetDatum(
+             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
         case BPCHAROID:
         // https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
         // We should try to get atttymod which is n size in char(n)
@@ -492,23 +527,30 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
         //                           CStringGetDatum(
         //                            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)), attypmod);
         case VARCHAROID:
-             retval = DirectFunctionCall1(varcharin,
-                            CStringGetDatum(
-                                    *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
-// For Unicode/UTF8 support
-//             //lenStr = strlen // based on pljava it should not work for unicode!
-//             lenStr = pg_mbstrlen
-//             ( *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams) );
-//             resVarChar = (VarChar *)palloc0(lenStr + VARHDRSZ);
-//#if PG_VERSION_NUM < 80300
-//            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
-//#else
-//            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
-//#endif
-//            memcpy(VARDATA(resVarChar),
-//            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams) , lenStr);
-//            PG_RETURN_VARCHAR_P(resVarChar);
+             // C String encoding
+             //retval = DirectFunctionCall1(varcharin,
+             //               CStringGetDatum(
+             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
 
+            // UTF8 encoding
+            retP = *(long *)(libArgs + dotnet_info.typeSizeOfParams);
+//          lenStr = pg_mbstrlen(retP);
+            lenStr = strlen(retP);
+            elog(WARNING, "Result size %d", lenStr);
+            char * encodedStr =
+            pg_do_encoding_conversion( retP,
+                                       lenStr,
+                                       PG_UTF8,
+                                       GetDatabaseEncoding() );
+            resVarChar = (VarChar *)palloc0(lenStr + 1 + VARHDRSZ);
+#if PG_VERSION_NUM < 80300
+            VARATT_SIZEP(resVarChar) = lenStr+1 + VARHDRSZ;    /* Total size of structure, not just data */
+#else
+            SET_VARSIZE(resVarChar, lenStr+1 + VARHDRSZ);      /* Total size of structure, not just data */
+#endif
+            memcpy(VARDATA(resVarChar), encodedStr , lenStr);
+            //pfree(encodedStr);
+            PG_RETURN_VARCHAR_P(resVarChar);
     }
     return retval;
 }
