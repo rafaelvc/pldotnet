@@ -476,7 +476,6 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                lenBuff = VARSIZE( fcinfo->arg[i] ) - VARHDRSZ;
                newArgVl = (char *)palloc0(lenBuff + 1);
                memcpy(newArgVl, VARDATA( fcinfo->arg[i] ), lenBuff);
-               newArgVl[lenBuff] = '\0';
                *(unsigned long *)curArg = (char *)
                     pg_do_encoding_conversion(newArgVl,
                                               lenBuff+1,
