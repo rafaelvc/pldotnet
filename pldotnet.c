@@ -396,7 +396,7 @@ pldotnet_getNetTypeName(Oid id)
         case INT8OID:
             return "long"; // System.Int64
         case INT2OID:
-            return "short"; // System.Int64
+            return "short"; // System.Int16
         case FLOAT4OID:
             return "float"; // System.Single
         case FLOAT8OID:
