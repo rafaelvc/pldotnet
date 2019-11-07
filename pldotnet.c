@@ -143,7 +143,7 @@ static bool pldotnet_type_supported(Oid type)
        || type == INT2OID   || type == FLOAT4OID
        || type == FLOAT8OID || type == VARCHAROID
        || type == BOOLOID   || type == TEXTOID
-       || type == BPCHAROID);
+       || type == BPCHAROID || type == NUMERICOID);
 }
 
 static int pldotnet_public_decl_size(Oid type)
@@ -242,23 +242,40 @@ pldotnet_build_block4(Form_pg_proc procst)
     int curSize, i, totalSize;
     const char func[] = "FUNC(";
     const char libArgs[] = "libArgs.";
+    const char strConvert[] = ".ToString()"; // Converts func return
+    const char toDecimal[] = "Convert.ToDecimal(";
     const char comma[] = ",";
     char argName[] = "argN";
-    const char endFun[] = ");";
+    const char endFun[] = ")";
+    const char semicolon = ";";
     int declParamSize = strlen(libArgs) + strlen(argName);
     int declParamSizeComma = declParamSize + strlen(comma);
     int nargs = procst->pronargs;
+    Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    Oid rettype = procst->prorettype; // Indicates the return type
 
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
          block2str = (char *)palloc0(strlen(func) + strlen(endFun) + 1);
-         sprintf(block2str, "%s%s", func, endFun);
+         if (rettype == NUMERICOID)
+            sprintf(block2str, "%s%s%s%s%s", func, endFun, strConvert, semicolon);
+         else
+            sprintf(block2str, "%s%s%s", func, endFun, semicolon);
          return block2str;
     }
 
     totalSize = strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
-                     + strlen(endFun) + 1;
+                     + strlen(endFun) + strlen(semicolon) + 1;
+
+    for (i = 0; i < nargs; i++) // Get number of Numeric args
+    {
+        if (argtype[i] == NUMERICOID)
+            totalSize += strlen(toDecimal) + strlen(endFun);
+    }
+
+    if (rettype == NUMERICOID)
+        totalSize += strlen(strConvert);
 
     if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma);
@@ -272,18 +289,27 @@ pldotnet_build_block4(Form_pg_proc procst)
         if  (i + 1 == nargs)  // last no comma
         {
             pStr = (char *)(block2str + curSize);
-            sprintf(pStr, "%s%s", libArgs, argName);
+            if (argtype[i] == NUMERICOID)
+                sprintf(pStr, "%s%s%s%s", toDecimal, libArgs, argName, endFun);
+            else
+                sprintf(pStr, "%s%s", libArgs, argName);
             curSize += declParamSize;
         }
         else {
             pStr = (char *)(block2str + curSize);
-            sprintf(pStr, "%s%s%s", libArgs, argName, comma);
+            if (argtype[i] == NUMERICOID)
+                sprintf(pStr, "%s%s%s%s%s", toDecimal, libArgs, argName, endFun, comma);
+            else
+                sprintf(pStr, "%s%s%s", libArgs, argName, comma);
             curSize += declParamSizeComma;
         }
     }
 
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s", endFun);
+    if (rettype == NUMERICOID)
+        sprintf(pStr, "%s%s%s", endFun, strConvert, semicolon);
+    else
+        sprintf(pStr, "%s%s", endFun, semicolon);
     elog(WARNING, "%s", block2str);
     return block2str;
 
@@ -376,6 +402,7 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(float);
         case FLOAT8OID:
             return sizeof(double);
+        case NUMERICOID:
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
@@ -401,6 +428,7 @@ pldotnet_getNetTypeName(Oid id)
             return "float"; // System.Single
         case FLOAT8OID:
             return "double"; // System.Double
+        case NUMERICOID: // Will be parsed to String
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
@@ -458,6 +486,11 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case FLOAT8OID:
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
+            case NUMERICOID:
+                // C String encoding
+                *(unsigned long *)curArg =
+                    DatumGetCString(DirectFunctionCall1(numeric_out, fcinfo->arg[i]));
+                break;
             case BPCHAROID:
                 // C String encoding
                 //*(unsigned long *)curArg =
@@ -512,6 +545,9 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case NUMERICOID:
+            return  DirectFunctionCall1(numeric_in,  // Converts string to numeric
+                    *(long *)(libArgs + dotnet_info.typeSizeOfParams));
         case TEXTOID:
              // C String encoding
              //retval = DirectFunctionCall1(textin,
