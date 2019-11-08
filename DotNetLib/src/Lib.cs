@@ -13,76 +13,96 @@ namespace DotNetLib
 {                                          
     public static class Lib                
     {                                      
-	[StructLayout(LayoutKind.Sequential)]  
+        [StructLayout(LayoutKind.Sequential)]
         public struct LibArgs              
         {                                  
             public IntPtr SourceCode;      
             public int Number;             
+            public int FuncOid;
         }                                  
                                            
-	static MemoryStream memStream;         
-                                           
+        static MemoryStream memStream;
+        static IDictionary<int, (string, MemoryStream)> funcBuiltCodeDict;
+
         public static int Compile(IntPtr arg, int argLength)
         {                                  
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
             string sourceCode = Marshal.PtrToStringAuto(libArgs.SourceCode);
-           
+
+            if (Lib.funcBuiltCodeDict == null)
+                Lib.funcBuiltCodeDict = new Dictionary<int, (string, MemoryStream)>();
+            else {
+                // Code has not changed then it is not needed to build it
+                try {
+                    Lib.funcBuiltCodeDict.TryGetValue(libArgs.FuncOid,
+                    out (string src, MemoryStream builtCode) pair);
+                    if  (pair.src == sourceCode) {
+                        Lib.memStream = pair.builtCode;
+                        //Console.WriteLine("Func... already built.");
+                        return 0;
+                    }
+                }catch{}
+            }
+            //Console.WriteLine("First time... building func.");
+
             //Console.WriteLine($"Source Code: {sourceCode}");
-	    SyntaxTree tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+            SyntaxTree tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
 
-	    var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
+            var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
 
-	    var neededAssemblies = new[]
-	    {
-	        "System.Runtime",
-	        "System.Private.CoreLib",
-	        "System.Console",
-	    };
+            var neededAssemblies = new[]
+            {
+                "System.Runtime",
+                "System.Private.CoreLib",
+                "System.Console",
+            };
 
-	    List<PortableExecutableReference> references = trustedAssembliesPaths
+            List<PortableExecutableReference> references = trustedAssembliesPaths
                 .Where(p => neededAssemblies.Contains(Path.GetFileNameWithoutExtension(p)))
                 .Select(p => MetadataReference.CreateFromFile(p))
-		.ToList();
+            .ToList();
 
             CSharpCompilation compilation = CSharpCompilation.Create(
                 "plnetproc.dll",
-		options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+                options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
                 syntaxTrees: new[] { tree },
                 references: references);
                                            
             Lib.memStream = new MemoryStream();
             Microsoft.CodeAnalysis.Emit.EmitResult compileResult = compilation.Emit(Lib.memStream);
 
-	    if(!compileResult.Success)
-	    {
-	        Console.WriteLine("\n********ERROR************\n");
-	        foreach(var diagnostic in compileResult.Diagnostics)
-	        {
-	            Console.WriteLine(diagnostic.ToString());
-	        }
-	        Console.WriteLine("\n********ERROR************\n");
-	    }
+            if(!compileResult.Success)
+            {
+                Console.WriteLine("\n********ERROR************\n");
+                foreach(var diagnostic in compileResult.Diagnostics)
+                {
+                    Console.WriteLine(diagnostic.ToString());
+                }
+                Console.WriteLine("\n********ERROR************\n");
+                return 0;
+            }
 
-	    string path = "CompiledProcCode.dll";
-	    using(FileStream stream = new FileStream(path, FileMode.OpenOrCreate))
-	    {                                  
-                Microsoft.CodeAnalysis.Emit.EmitResult compileResultFile = compilation.Emit(stream);
-	    }                                  
+            funcBuiltCodeDict[libArgs.FuncOid] = (sourceCode, Lib.memStream);
+
+            //string path = "CompiledProcCode.dll";
+            //using(FileStream stream = new FileStream(path, FileMode.OpenOrCreate))
+            //{
+            //    Microsoft.CodeAnalysis.Emit.EmitResult compileResultFile = compilation.Emit(stream);
+            //}
                                            
-	    return 0;
-	}                                      
-                                           
-	public static int Run(IntPtr arg, int argLength)
-	{                                      
+            return 0;
+        }
+
+        public static int Run(IntPtr arg, int argLength)
+        {
             Assembly compiledAssembly;     
             compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
-          	                               
-	    Type procClassType = compiledAssembly.GetType("DotNetLib.ProcedureClass");
+
+            Type procClassType = compiledAssembly.GetType("DotNetLib.ProcedureClass");
             MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
             procMethod.Invoke(null, new object[] {arg, argLength});
-                                           
- 	    return 0;                          
+
+            return 0;
         }                                  
     }                                      
 }
-
