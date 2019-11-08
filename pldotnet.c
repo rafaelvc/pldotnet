@@ -11,6 +11,7 @@
 #include <dlfcn.h>
 #include <limits.h>
 #include <mb/pg_wchar.h> //For UTF8 support
+#include <utils/numeric.h>
 
 #define STR(s) s
 #define CH(c) c
@@ -56,7 +57,7 @@ static char * pldotnet_build_block4(Form_pg_proc procst);
 static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
 static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
 static int pldotnet_getTypeSize(Oid id);
-static const char * pldotnet_getNetTypeName(Oid id);
+static const char * pldotnet_getNetTypeName(Oid id, bool hasTypeConversion);
 static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype);
 static bool pldotnet_type_supported(Oid type);
 
@@ -143,7 +144,7 @@ static bool pldotnet_type_supported(Oid type)
        || type == INT2OID   || type == FLOAT4OID
        || type == FLOAT8OID || type == VARCHAROID
        || type == BOOLOID   || type == TEXTOID
-       || type == BPCHAROID);
+       || type == BPCHAROID || type == NUMERICOID);
 }
 
 static int pldotnet_public_decl_size(Oid type)
@@ -190,6 +191,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     char result[] = " resu"; // have to be same size argN
     int i, curSize = 0, totalSize = 0, public_size;
 
+
     if (!pldotnet_type_supported(rettype))
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
@@ -204,12 +206,12 @@ pldotnet_build_block2(Form_pg_proc procst)
             return 0;
         }
         public_size = pldotnet_public_decl_size(argtype[i]);
-        totalSize += public_size + strlen(pldotnet_getNetTypeName(argtype[i])) + 
+        totalSize += public_size + strlen(pldotnet_getNetTypeName(argtype[i], true)) +
                        + strlen(argName) + strlen(semicon);
     }
     
     public_size = pldotnet_public_decl_size(rettype);
-    totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype)) + 
+    totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype, true)) +
                     + strlen(result) + strlen(semicon) + 1;
 
     block2str = (char *) palloc0(totalSize);
@@ -220,7 +222,7 @@ pldotnet_build_block2(Form_pg_proc procst)
         pStr = (char *)(block2str + curSize);
         sprintf(pStr, "%s%s%s%s",
             pldotnet_public_decl(argtype[i]),
-            pldotnet_getNetTypeName(argtype[i]), argName, semicon);
+            pldotnet_getNetTypeName(argtype[i], true), argName, semicon);
         curSize += strlen(pStr);
     }
 
@@ -229,7 +231,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 
     sprintf(pStr, "%s%s%s%s",
             pldotnet_public_decl(rettype),
-            pldotnet_getNetTypeName(rettype), result, semicon);
+            pldotnet_getNetTypeName(rettype, true), result, semicon);
 
     elog(WARNING, "%s", block2str);
     return block2str;
@@ -242,23 +244,38 @@ pldotnet_build_block4(Form_pg_proc procst)
     int curSize, i, totalSize;
     const char func[] = "FUNC(";
     const char libArgs[] = "libArgs.";
+    const char strConvert[] = ".ToString()"; // Converts func return
+    const char toDecimal[] = "Convert.ToDecimal(";
     const char comma[] = ",";
     char argName[] = "argN";
-    const char endFun[] = ");";
-    int declParamSize = strlen(libArgs) + strlen(argName);
-    int declParamSizeComma = declParamSize + strlen(comma);
+    const char endFun[] = ")";
+    const char semicolon[] = ";";
     int nargs = procst->pronargs;
+    Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    Oid rettype = procst->prorettype; // Indicates the return type
 
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
          block2str = (char *)palloc0(strlen(func) + strlen(endFun) + 1);
-         sprintf(block2str, "%s%s", func, endFun);
+         if (rettype == NUMERICOID)
+            sprintf(block2str, "%s%s%s%s%s", func, endFun, strConvert, semicolon);
+         else
+            sprintf(block2str, "%s%s%s", func, endFun, semicolon);
          return block2str;
     }
 
     totalSize = strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
-                     + strlen(endFun) + 1;
+                     + strlen(endFun) + strlen(semicolon) + 1;
+
+    for (i = 0; i < nargs; i++) // Get number of Numeric args
+    {
+        if (argtype[i] == NUMERICOID)
+            totalSize += strlen(toDecimal) + strlen(endFun);
+    }
+
+    if (rettype == NUMERICOID)
+        totalSize += strlen(strConvert);
 
     if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma);
@@ -269,21 +286,28 @@ pldotnet_build_block4(Form_pg_proc procst)
     for (i = 0; i < nargs; i++)
     {
         sprintf(argName, "arg%d", i); // review nargs > 9
+        pStr = (char *)(block2str + curSize);
         if  (i + 1 == nargs)  // last no comma
         {
-            pStr = (char *)(block2str + curSize);
-            sprintf(pStr, "%s%s", libArgs, argName);
-            curSize += declParamSize;
+            if (argtype[i] == NUMERICOID)
+                sprintf(pStr, "%s%s%s%s", toDecimal, libArgs, argName, endFun);
+            else
+                sprintf(pStr, "%s%s", libArgs, argName);
         }
         else {
-            pStr = (char *)(block2str + curSize);
-            sprintf(pStr, "%s%s%s", libArgs, argName, comma);
-            curSize += declParamSizeComma;
+            if (argtype[i] == NUMERICOID)
+                sprintf(pStr, "%s%s%s%s%s", toDecimal, libArgs, argName, endFun, comma);
+            else
+                sprintf(pStr, "%s%s%s", libArgs, argName, comma);
         }
+        curSize = strlen(block2str);
     }
 
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s", endFun);
+    if (rettype == NUMERICOID)
+        sprintf(pStr, "%s%s%s", endFun, strConvert, semicolon);
+    else
+        sprintf(pStr, "%s%s", endFun, semicolon);
     elog(WARNING, "%s", block2str);
     return block2str;
 
@@ -321,21 +345,21 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     // Caculates the total amount in bytes of C# src text for 
     // the function declaration according nr of arguments 
     // their types and the function return type
-    totalSize = strlen(pldotnet_getNetTypeName(rettype)) + strlen(func);
+    totalSize = strlen(pldotnet_getNetTypeName(rettype, false)) + strlen(func);
     for (i = 0; i < nargs; i++) 
     {
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
         argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
-        totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i])) + 1 + argNmSize;
+        totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i], false)) + 1 + argNmSize;
     }
      if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma); // commas size
     totalSize += strlen(endFunDec) + source_size + strlen(endFun) + 1;
 
     block2str = (char *)palloc0(totalSize);
-    sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype), func);
+    sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype, false), func);
     curSize = strlen(block2str);
 
     for (i = 0; i < nargs; i++)
@@ -345,9 +369,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
         if  (i + 1 == nargs)  // last no comma
-            sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i]), argNm);
+            sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i], false), argNm);
         else
-            sprintf(pStr, "%s %s%s", pldotnet_getNetTypeName(argtype[i]), argNm, comma);
+            sprintf(pStr, "%s %s%s", pldotnet_getNetTypeName(argtype[i], false), argNm, comma);
         curSize = strlen(block2str);
     }
 
@@ -376,6 +400,7 @@ pldotnet_getTypeSize(Oid id)
             return sizeof(float);
         case FLOAT8OID:
             return sizeof(double);
+        case NUMERICOID:
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
@@ -386,7 +411,7 @@ pldotnet_getTypeSize(Oid id)
 
 // Postgres Datum type to C# type name
 static const char *
-pldotnet_getNetTypeName(Oid id) 
+pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
 {
     switch (id){
         case BOOLOID:
@@ -401,6 +426,8 @@ pldotnet_getNetTypeName(Oid id)
             return "float"; // System.Single
         case FLOAT8OID:
             return "double"; // System.Double
+        case NUMERICOID:
+            return hasTypeConversion ? "string" : "decimal"; // System.Decimal
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
@@ -458,6 +485,11 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
             case FLOAT8OID:
                 *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
                 break;
+            case NUMERICOID:
+                // C String encoding
+                *(unsigned long *)curArg =
+                    DatumGetCString(DirectFunctionCall1(numeric_out, fcinfo->arg[i]));
+                break;
             case BPCHAROID:
                 // C String encoding
                 //*(unsigned long *)curArg =
@@ -498,6 +530,8 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
     unsigned long * retP;
     VarChar * resVarChar; //For Unicode/UTF8 support
     int lenStr;
+    Numeric numRes;
+    char * numStr;
 
     switch (rettype){
         case BOOLOID:
@@ -512,6 +546,13 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype)
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams ) );
         case FLOAT8OID:
             return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams ) );
+        case NUMERICOID:
+            numStr = (char *)*(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams);
+            return DatumGetNumeric(
+                                   DirectFunctionCall3(numeric_in,
+                                         CStringGetDatum(numStr),
+                                         ObjectIdGetDatum(InvalidOid),
+                                         Int32GetDatum(-1)));
         case TEXTOID:
              // C String encoding
              //retval = DirectFunctionCall1(textin,
