@@ -73,6 +73,7 @@ typedef struct args_source
 {
     char* SourceCode;
     int Result;
+    int FuncOid;
 }args_source;
 
 #if PG_VERSION_NUM >= 90000
@@ -767,7 +768,8 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         // STEP 4: Run managed code
         //
 
-        args_source args_source =  { .SourceCode = source_code, .Result = 1 };
+        args_source args_source =  { .SourceCode = source_code, .Result = 1,
+                                     .FuncOid = (int) fcinfo->flinfo->fn_oid };
         csharp_method(&args_source, sizeof(args_source));
 
         bzero(dotnet_type_method,sizeof(dotnet_type_method));
