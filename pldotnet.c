@@ -111,7 +111,7 @@ namespace DotNetLib                       \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
-        [StructLayout(LayoutKind.Sequential)]\n\
+        [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs                \n\
         {";
 //block_call2    //public argType1 argName1;
