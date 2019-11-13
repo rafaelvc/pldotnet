@@ -69,8 +69,6 @@ static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionC
 static bool pldotnet_type_supported(Oid type);
 static int get_size_args_null_array(int nargs);
 static void build_args_null_array_str(char *dest, int nargs);
-static int get_size_return_null_flag();
-static void build_return_null_str(char *dest);\
 
 typedef struct pldotnet_info
 {
@@ -238,8 +236,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     
     public_size = pldotnet_public_decl_size(rettype);
 
-    if(is_nullable(rettype))
-        return_null_flag_size = get_size_return_null_flag();
+    return_null_flag_size = strlen(public_bool) + strlen(resu_flag_str);
 
     if(nullable_arg_flag)
         null_flags_size = get_size_args_null_array(nargs);
@@ -258,13 +255,11 @@ pldotnet_build_block2(Form_pg_proc procst)
         curSize += strlen(pStr);
     }
 
-    if(is_nullable(rettype)) {
-        char *return_null_flag_str = (char *)palloc0(return_null_flag_size);
-        build_return_null_str(return_null_flag_str);
-        pStr = (char *)(block2str + curSize);
-        sprintf(pStr,"%s",return_null_flag_str);
-        curSize += strlen(pStr);
-    }
+    char *return_null_flag_str = (char *)palloc0(return_null_flag_size);
+    sprintf(return_null_flag_str,"%s%s",public_bool, resu_flag_str);
+    pStr = (char *)(block2str + curSize);
+    sprintf(pStr,"%s",return_null_flag_str);
+    curSize += strlen(pStr);
 
     for (i = 0; i < nargs; i++)
     {
@@ -395,18 +390,6 @@ build_args_null_array_str(char *dest, int nargs)
         nargs, arg_flag_str);
 }
 
-static int
-get_size_return_null_flag()
-{
-    return (strlen(public_bool) + strlen(resu_flag_str));
-}
-
-static void
-build_return_null_str(char *dest)
-{
-    sprintf(dest,"%s%s",public_bool, resu_flag_str);
-}
-
 /*
  * Returns the size of typical C# line converting
  * a struct argument to a nullable C# type argument
@@ -415,12 +398,12 @@ static int
 get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
 {
     int total_size = 0;
-    char question_mark = '?';
-    char equal_char = '=';
-    char parenthesis_char = '('; /* same for ')' */
-    char square_bracket_char = '['; /* same for ']' */
-    char colon_char = ':';
-    char semicolon_char = ';';
+    char *question_mark = "?";
+    char *equal_char = "=";
+    char *parenthesis_char = "("; /* same for ')' */
+    char *square_bracket_char = "["; /* same for ']' */
+    char *colon_char = ":";
+    char *semicolon_char = ";";
     char *null_str = "null";
     int n_digits_arg = 0;
 
@@ -431,14 +414,17 @@ get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
         n_digits_arg = floor(log10(abs(narg))) + 1;
 
     switch (arg_type){
+        case INT2OID:
+        case INT4OID:
+        case INT8OID:
         case BOOLOID:
             /* template: bool? <arg>=argsnull[i]? (bool?)null : <arg>_nullable; */
             total_size = strlen(pldotnet_getNetNullableTypeName(arg_type)) + argNm_size
-                + sizeof(equal_char) + strlen(argsnull_str) + sizeof(square_bracket_char) + n_digits_arg +
-                + sizeof(square_bracket_char) + sizeof(question_mark) + sizeof(parenthesis_char)
-                + strlen(pldotnet_getNetNullableTypeName(arg_type)) + sizeof(parenthesis_char)
-                + strlen(null_str) + sizeof(colon_char) + argNm_size + strlen(nullable_suffix)
-                + sizeof(semicolon_char);
+                + strlen(equal_char) + strlen(argsnull_str) + strlen(square_bracket_char) + n_digits_arg +
+                + strlen(square_bracket_char) + strlen(question_mark) + strlen(parenthesis_char)
+                + strlen(pldotnet_getNetNullableTypeName(arg_type)) + strlen(parenthesis_char)
+                + strlen(null_str) + strlen(colon_char) + argNm_size + strlen(nullable_suffix)
+                + strlen(semicolon_char);
             break;
     }
 
@@ -465,6 +451,9 @@ build_nullable_header(char* src,Datum* argname, Oid* argtype, int nargs)
         h_ptr = (char *)(src + h_size);
 
         switch (argtype[i]){
+            case INT2OID:
+            case INT4OID:
+            case INT8OID:
             case BOOLOID:
                 sprintf(h_ptr,"%s%s=%s[%d]?(%s)null:%s%s;", pldotnet_getNetNullableTypeName(argtype[i])
                     , argNm, argsnull_str, i, pldotnet_getNetNullableTypeName(argtype[i])
@@ -485,6 +474,9 @@ get_size_nullable_footer(Oid ret_type)
     int total_size = 0;
 
     switch (ret_type){
+        case INT2OID:
+        case INT4OID:
+        case INT8OID:
         case BOOLOID:
             total_size = strlen(resu_nullable_value) + strlen(resu_nullable_flag);
             break;
@@ -496,7 +488,8 @@ get_size_nullable_footer(Oid ret_type)
 static bool
 is_nullable(Oid type)
 {
-    return(type == BOOLOID);
+    return (type == INT2OID || type == INT4OID
+       || type == INT8OID   ||  type == BOOLOID);
 }
 
 /*
@@ -511,6 +504,9 @@ build_nullable_footer(char* src, Oid rettype)
      *     libArgs.resunull = !resu_nullable.HasValue;
      */
     switch (rettype){
+        case INT2OID:
+        case INT4OID:
+        case INT8OID:
         case BOOLOID:
             sprintf(src,"%s%s", resu_nullable_value, resu_nullable_flag);
     }
@@ -695,7 +691,13 @@ pldotnet_getNetNullableTypeName(Oid id)
 {
     switch (id){
         case BOOLOID:
-            return "bool?"; // Nullable<Boolean>
+            return "bool?"; /* Nullable<System.Boolean> */
+        case INT2OID:
+            return "short?";/* Nullable<System.Int16> */
+        case INT4OID:
+            return "int?";  /* Nullable<System.Int32> */
+        case INT8OID:
+            return "long?"; /* Nullable<System.Int64> */
     }
     return "";
 }
@@ -730,8 +732,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     if(nullable_arg_flag)
         dotnet_info.typeSizeNullFlags += sizeof(bool) * fcinfo->nargs;
 
-    if(is_nullable(rettype))
-        dotnet_info.typeSizeNullFlags += sizeof(bool);
+    dotnet_info.typeSizeNullFlags += sizeof(bool);
 
     dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
 
@@ -753,12 +754,15 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 break;
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
+                argsnullP[i]=fcinfo->argnull[i];
                 break;
             case INT8OID:
                 *(long *)curArg = DatumGetInt64(fcinfo->arg[i]);
+                argsnullP[i]=fcinfo->argnull[i];
                 break;
             case INT2OID:
                 *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
+                argsnullP[i]=fcinfo->argnull[i];
                 break;
             case FLOAT4OID:
                 *(float *)curArg = DatumGetFloat4(fcinfo->arg[i]);
@@ -819,19 +823,27 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
     switch (rettype){
         case BOOLOID:
             /* Recover flag for null result*/
-            resunull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
-            if(resunull)
-            {
-                fcinfo->isnull=true;
+            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            if(fcinfo->isnull)
                 return (Datum) 0;
-            } else {
-                return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
-            }
+            return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
         case INT4OID:
+            /* Recover flag for null result*/
+            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            if(fcinfo->isnull)
+                return (Datum) 0;
             return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
         case INT8OID:
+            /* Recover flag for null result*/
+            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            if(fcinfo->isnull)
+                return (Datum) 0;
             return  Int64GetDatum ( *(long *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
         case INT2OID:
+            /* Recover flag for null result*/
+            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            if(fcinfo->isnull)
+                return (Datum) 0;
             return  Int16GetDatum ( *(short *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
         case FLOAT4OID:
             return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
