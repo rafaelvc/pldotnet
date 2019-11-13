@@ -1,0 +1,626 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- saved from url=(0189)https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&Expires=1573656134&AWSAccessKeyId=AKIASJ5326WDWOQT7YXD -->
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<!-- 2019-11-13 Wed 11:03 -->
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adding .NET support to PostgreSQL</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Brick Abode">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2019 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Adding .NET support to PostgreSQL</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#orgf99d38f">1. Introduction</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org90fd288">2. Motivation</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org35e4a45">3. Initial feature set</a>
+<ul>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org59c37ee">3.1. Current (Alpha) Implementation</a>
+<ul>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org3ca0dab">3.1.1. Data types and "System.Nullable"</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org9ef8e63">3.1.2. Compilation</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org31adc5e">3.1.3. Languages</a></li>
+</ul>
+</li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org17a24b6">3.2. Imminent, Version 1 Implementation</a>
+<ul>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org3ea3b4e">3.2.1. Structures ("Composites" in PostgreSQL)</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org92c2803">3.2.2. Arrays</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#orgf1581fe">3.2.3. SPI</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org5b055f7">3.2.4. Full F# support</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org752d0cc">3.2.5. Testing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org99f9aa8">4. Our experience thusfar</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org129ea75">5. Future Plans</a>
+<ul>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#orga2e33dc">5.1. PostgreSQL features</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#orgbcdb9d8">5.2. Exploring more of the relevant .NET universe</a></li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org7636097">5.3. Cross-PL community</a></li>
+</ul>
+</li>
+<li><a href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#org005c566">6. Conclusions</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgf99d38f" class="outline-2">
+<h2 id="orgf99d38f"><span class="section-number-2">1</span> Introduction</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+PostgreSQL<sup><a id="fnr.1" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.1">1</a></sup> (also "Postgres") is a leading open-source relational
+database.  Postgres allows user functions to be written in C<sup><a id="fnr.2" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.2">2</a></sup>
+(the implementation language) and SQL<sup><a id="fnr.3" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.3">3</a></sup> (the native language of
+the database itself), but it also allows user-defined functions to be
+written in other languages, generically called Procedural Languages<sup><a id="fnr.4" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.4">4</a></sup>.
+These languages currently include Tcl<sup><a id="fnr.5" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.5">5</a></sup>, Perl<sup><a id="fnr.6" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.6">6</a></sup>, and Python<sup><a id="fnr.7" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.7">7</a></sup>
+in the main distribution, and Java<sup><a id="fnr.8" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.8">8</a></sup>, Ruby<sup><a id="fnr.9" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.9">9</a></sup>, Lua<sup><a id="fnr.10" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.10">10</a></sup>,
+R<sup><a id="fnr.11" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.11">11</a></sup>, Javascript<sup><a id="fnr.12" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.12">12</a></sup>, and Unix shell<sup><a id="fnr.13" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.13">13</a></sup>, hosted outside of
+the main distribution.
+</p>
+
+<p>
+We have added Microsoft's .NET framework to PostgreSQL.  Both
+PostgreSQL<sup><a id="fnr.14" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.14">14</a></sup> and .NET Core<sup><a id="fnr.15" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.15">15</a></sup> are available under Berkeley-style
+licenses, and so is our work.
+</p>
+
+<p>
+Our work is preliminary, and it is going very well.  We have made an
+initial, alpha-quality release, along with this white paper, in order
+to spread awareness and seek feedback on the project.  We anticipate
+making our first full release in January of 2020.
+</p>
+
+<p>
+We will fully support both the C#<sup><a id="fnr.16" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.16">16</a></sup> and F#<sup><a id="fnr.17" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.17">17</a></sup> languages, and support for
+other .NET languages such as Visual Basic<sup><a id="fnr.18" class="footref" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fn.18">18</a></sup> should be straightforward if
+interest arises.
+</p>
+
+<p>
+This paper describes our motivation for the project, the initial feature
+set of both this Alpha release as well as version 1, our experience
+thus far, and our future plans, including our hopes of cooperating
+with other PostgreSQL Procedural Language implementations.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org90fd288" class="outline-2">
+<h2 id="org90fd288"><span class="section-number-2">2</span> Motivation</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+We at Brick Abode love strongly-typed functional programming, and we are
+commercial software developers.  We have embraced .NET as a platform
+because it combines a powerful application development environment
+(especially ASP.NET and related web-based application solutions) with
+a powerful, typed functional programming language, F#.
+</p>
+
+<p>
+We build most of our internal applications on F#, and we use it for some
+client project as well, where appropriate.  We also do a great deal of
+C# development for clients.
+</p>
+
+<p>
+We also are heavy users of PostgreSQL.  Members of our team have
+previously done heavy work on the internals of the database, and it
+has played a central role in our creation of highly-secured financial
+applications.
+</p>
+
+<p>
+As part of that security work, we have wished for the ability to move
+certain functionality from the application to the database, and having
+C# and F# as PostgreSQL Procedural Languages will make that possible.
+We then can tightly restrict database access to the main part of the code,
+significantly reducing the danger of any security intrusions that might
+occur there.  (This is part of a broader architecture of multi-layered
+security protections.)
+</p>
+
+<p>
+Securing this particular application was our original motivation, but
+as we explored the idea, we grew more enthusiasm for the project for
+other reasons as well:
+</p>
+
+<ol class="org-ol">
+<li>Move computation to data
+<ul class="org-ul">
+<li>requires SDLC support</li>
+<li>creates SDLC possibilities!</li>
+</ul></li>
+<li>Security
+<ul class="org-ul">
+<li>tied to SDLC</li>
+</ul></li>
+<li>Functional database programming
+<ul class="org-ul">
+<li>we want OCaml with good threading and a strong library</li>
+<li>hey, look, we have it!  It's called F#!</li>
+<li>A good ML, ML types, strong system library, amazing runtime</li>
+<li>relational databases are already fairly functional-friendly environments, and now we can explore further in that direction</li>
+</ul></li>
+</ol>
+</div>
+</div>
+
+<div id="outline-container-org35e4a45" class="outline-2">
+<h2 id="org35e4a45"><span class="section-number-2">3</span> Initial feature set</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+Because we are making this preliminary release of the software, the
+initial features are broken into two sets: those which are currently
+working, and those which are currently underway and will be working in
+version 1.  We describe them separately.
+</p>
+</div>
+
+<div id="outline-container-org59c37ee" class="outline-3">
+<h3 id="org59c37ee"><span class="section-number-3">3.1</span> Current (Alpha) Implementation</h3>
+<div class="outline-text-3" id="text-3-1">
+</div>
+<div id="outline-container-org3ca0dab" class="outline-4">
+<h4 id="org3ca0dab"><span class="section-number-4">3.1.1</span> Data types and "System.Nullable"</h4>
+<div class="outline-text-4" id="text-3-1-1">
+<p>
+We currently have working and tested booleans, integers, floating point
+numbers, and text.  We also have mapped each of these types to the
+"nullable" construct in C# ("System.Nullable&lt;T&gt;" in .NET.)  We will
+describe each of these in turn.
+</p>
+
+<ul class="org-ul">
+<li>base types:
+<ul class="org-ul">
+<li>booleans</li>
+<li>numerics (int &amp; float)</li>
+<li>strings</li>
+</ul></li>
+<li>nullable types</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org9ef8e63" class="outline-4">
+<h4 id="org9ef8e63"><span class="section-number-4">3.1.2</span> Compilation</h4>
+<div class="outline-text-4" id="text-3-1-2">
+<ul class="org-ul">
+<li>compiler and Roslyn</li>
+<li>functions and DO</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org31adc5e" class="outline-4">
+<h4 id="org31adc5e"><span class="section-number-4">3.1.3</span> Languages</h4>
+<div class="outline-text-4" id="text-3-1-3">
+<ul class="org-ul">
+<li>C#: full; F#: proof-of-concept</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org17a24b6" class="outline-3">
+<h3 id="org17a24b6"><span class="section-number-3">3.2</span> Imminent, Version 1 Implementation</h3>
+<div class="outline-text-3" id="text-3-2">
+</div>
+<div id="outline-container-org3ea3b4e" class="outline-4">
+<h4 id="org3ea3b4e"><span class="section-number-4">3.2.1</span> Structures ("Composites" in PostgreSQL)</h4>
+<div class="outline-text-4" id="text-3-2-1">
+<p>
+"A composite type represents the structure of a row or record; it is
+essentially just a list of field names and their data types. PostgreSQL
+allows composite types to be used in many of the same ways that simple
+types can be used. For example, a column of a table can be declared to
+be of a composite type."
+</p>
+</div>
+</div>
+
+<div id="outline-container-org92c2803" class="outline-4">
+<h4 id="org92c2803"><span class="section-number-4">3.2.2</span> Arrays</h4>
+</div>
+<div id="outline-container-orgf1581fe" class="outline-4">
+<h4 id="orgf1581fe"><span class="section-number-4">3.2.3</span> SPI</h4>
+</div>
+<div id="outline-container-org5b055f7" class="outline-4">
+<h4 id="org5b055f7"><span class="section-number-4">3.2.4</span> Full F# support</h4>
+</div>
+<div id="outline-container-org752d0cc" class="outline-4">
+<h4 id="org752d0cc"><span class="section-number-4">3.2.5</span> Testing</h4>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org99f9aa8" class="outline-2">
+<h2 id="org99f9aa8"><span class="section-number-2">4</span> Our experience thusfar</h2>
+<div class="outline-text-2" id="text-4">
+<ul class="org-ul">
+<li>nullable</li>
+<li>unicode</li>
+<li>memory</li>
+<li>compilation</li>
+<li>security</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org129ea75" class="outline-2">
+<h2 id="org129ea75"><span class="section-number-2">5</span> Future Plans</h2>
+<div class="outline-text-2" id="text-5">
+</div>
+<div id="outline-container-orga2e33dc" class="outline-3">
+<h3 id="orga2e33dc"><span class="section-number-3">5.1</span> PostgreSQL features</h3>
+<div class="outline-text-3" id="text-5-1">
+<ul class="org-ul">
+<li>other data types: 
+<ul class="org-ul">
+<li>binary</li>
+<li>datetime</li>
+<li>timezone</li>
+<li>json</li>
+<li>range</li>
+<li>geometry</li>
+<li>internet</li>
+<li>bitstring</li>
+</ul></li>
+<li>security</li>
+<li>triggers</li>
+<li>exoterica
+<ul class="org-ul">
+<li>careful examination of function attributes</li>
+<li>giving access to expression parse tree</li>
+<li>exotic SPI</li>
+</ul></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgbcdb9d8" class="outline-3">
+<h3 id="orgbcdb9d8"><span class="section-number-3">5.2</span> Exploring more of the relevant .NET universe</h3>
+<div class="outline-text-3" id="text-5-2">
+<ul class="org-ul">
+<li>SQL Server/CLR integration
+<ul class="org-ul">
+<li><a href="https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/sql/introduction-to-sql-server-clr-integration">https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/sql/introduction-to-sql-server-clr-integration</a></li>
+<li>our intention is to generally be good .NET citizens and follow SQL Server's lead</li>
+</ul></li>
+<li>Entity Framework</li>
+<li>Linq</li>
+<li>ADO.NET</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org7636097" class="outline-3">
+<h3 id="org7636097"><span class="section-number-3">5.3</span> Cross-PL community</h3>
+<div class="outline-text-3" id="text-5-3">
+<ul class="org-ul">
+<li>cross-PL test suite</li>
+<li>guide for future PL authors</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org005c566" class="outline-2">
+<h2 id="org005c566"><span class="section-number-2">6</span> Conclusions</h2>
+<div class="outline-text-2" id="text-6">
+</div>
+</div>
+<div id="footnotes">
+<h2 class="footnotes">Footnotes: </h2>
+<div id="text-footnotes">
+
+<div class="footdef"><sup><a id="fn.1" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.1">1</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/index.html">https://www.postgresql.org/docs/current/index.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.2" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.2">2</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/plpgsql.html">https://www.postgresql.org/docs/current/plpgsql.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.3" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.3">3</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/xfunc-c.html">https://www.postgresql.org/docs/current/xfunc-c.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.4" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.4">4</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/plhandler.html">https://www.postgresql.org/docs/current/plhandler.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.5" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.5">5</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/pltcl.html">https://www.postgresql.org/docs/current/pltcl.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.6" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.6">6</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/plperl.html">https://www.postgresql.org/docs/current/plperl.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.7" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.7">7</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/docs/current/plpython.html">https://www.postgresql.org/docs/current/plpython.html</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.8" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.8">8</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://tada.github.io/pljava/">https://tada.github.io/pljava/</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.9" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.9">9</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://github.com/knu/postgresql-plruby">https://github.com/knu/postgresql-plruby</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.10" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.10">10</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://github.com/pllua/pllua">https://github.com/pllua/pllua</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.11" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.11">11</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://github.com/postgres-plr/plr">https://github.com/postgres-plr/plr</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.12" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.12">12</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://github.com/plv8/plv8">https://github.com/plv8/plv8</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.13" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.13">13</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://github.com/petere/plsh">https://github.com/petere/plsh</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.14" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.14">14</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://www.postgresql.org/about/licence/">https://www.postgresql.org/about/licence/</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.15" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.15">15</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://dotnet.microsoft.com/platform/free">https://dotnet.microsoft.com/platform/free</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.16" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.16">16</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://en.wikipedia.org/wiki/C_Sharp_(programming_language)">https://en.wikipedia.org/wiki/C_Sharp_(programming_language)</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.17" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.17">17</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://en.wikipedia.org/wiki/F_Sharp_(programming_language)">https://en.wikipedia.org/wiki/F_Sharp_(programming_language)</a>
+</p></div></div>
+
+<div class="footdef"><sup><a id="fn.18" class="footnum" href="https://brickabode-zulip.s3.amazonaws.com/2/MpPF5e6PIs_N7LwGKjllSLKA/white-paper-nov19.html?Signature=ZasRlsE931oeWW1TubIwozzcL%2Fc%3D&amp;Expires=1573656134&amp;AWSAccessKeyId=AKIASJ5326WDWOQT7YXD#fnr.18">18</a></sup> <div class="footpara"><p class="footpara">
+<a href="https://en.wikipedia.org/wiki/Visual_Basic_.NET">https://en.wikipedia.org/wiki/Visual_Basic_.NET</a>
+</p></div></div>
+
+
+</div>
+</div></div>
+<div id="postamble" class="status">
+<p class="date">Date: Thu Nov  7 11:02:10 -03 2019</p>
+<p class="author">Author: Brick Abode</p>
+<p class="date">Created: 2019-11-13 Wed 11:03</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+
+
+</body></html>
