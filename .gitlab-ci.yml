@@ -1,0 +1,12 @@
+image: registry.brickabode.com/dotnetinpostgresql/pldotnet
+
+stages:
+    - test
+
+installcheck:
+    stage: test
+    script:
+        - /etc/init.d/postgresql restart
+        - make && make plnet-install && make installcheck
+        - cat regression.diffs || true
+
