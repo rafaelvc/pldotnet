@@ -288,7 +288,8 @@ pldotnet_build_block4(Form_pg_proc procst)
 {
     char *block2str, *pStr, *resu_var;
     int curSize, i, totalSize;
-    const char func[] = "FUNC(";
+    const char beginFun[] = "(";
+    char * func;
     const char libArgs[] = "libArgs.";
     const char strConvert[] = ".ToString()"; // Converts func return
     const char toDecimal[] = "Convert.ToDecimal(";
@@ -299,6 +300,9 @@ pldotnet_build_block4(Form_pg_proc procst)
     int nargs = procst->pronargs;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
     Oid rettype = procst->prorettype; // Indicates the return type
+
+    // Function name
+    func = NameStr(procst->proname);
 
     if (is_nullable(rettype))
     {
@@ -314,15 +318,16 @@ pldotnet_build_block4(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         block2str = (char *)palloc0(strlen(resu_var) + strlen(func) + strlen(endFun) + 1);
+         block2str = (char *)palloc0(strlen(resu_var) + strlen(func) + strlen(beginFun) + strlen(endFun) + 1);
          if (rettype == NUMERICOID)
-            sprintf(block2str, "%s%s%s%s%s",resu_var, func, endFun, strConvert, semicolon);
+            sprintf(block2str, "%s%s%s%s%s%s",resu_var, func, beginFun, endFun, strConvert, semicolon);
          else
-            sprintf(block2str, "%s%s%s%s",resu_var, func, endFun, semicolon);
+            sprintf(block2str, "%s%s%s%s%s",resu_var, func, beginFun, endFun, semicolon);
          return block2str;
     }
 
-    totalSize = strlen(resu_var) + strlen(func) + (strlen(libArgs) + strlen(argName)) * nargs 
+    totalSize = strlen(resu_var) + strlen(func) + strlen(beginFun) +
+                    (strlen(libArgs) + strlen(argName)) * nargs
                      + strlen(endFun) + strlen(semicolon) + 1;
 
     for (i = 0; i < nargs; i++) // Get number of Numeric args
@@ -338,8 +343,8 @@ pldotnet_build_block4(Form_pg_proc procst)
          totalSize += (nargs - 1) * strlen(comma);
 
     block2str = (char *) palloc0(totalSize);
-    sprintf(block2str, "%s%s", resu_var, func);
-    curSize = strlen(func) + strlen(resu_var);
+    sprintf(block2str, "%s%s%s", resu_var, func, beginFun);
+    curSize = strlen(resu_var) + strlen(func) + strlen(beginFun);
     for (i = 0; i < nargs; i++)
     {
         sprintf(argName, "arg%d", i); // review nargs > 9
@@ -518,7 +523,8 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     char *block2str, *pStr, *argNm, *source_text;
     int argNmSize, i, nnames, curSize, source_size, totalSize;
     bool isnull;
-    const char func[] = " FUNC(";
+    const char beginFunDec[] = "(";
+    char * func;
     const char comma[] = ",";
     const char endFunDec[] = "){\n";
     const char endFun[] = "}\n";
@@ -530,6 +536,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     /* nullable related */
     char *header_nullable, *footer_nullable;
     int header_size=0, footer_size=0;
+
+    // Function name
+    func = NameStr(procst->proname);
 
     // Source code
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
@@ -549,9 +558,11 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     // their types and the function return type
     if(is_nullable(rettype))
     {
-        totalSize = strlen(pldotnet_getNetNullableTypeName(rettype)) + strlen(func);
+        totalSize = strlen(pldotnet_getNetNullableTypeName(rettype))
+                    + strlen(" ") + strlen(func) + strlen(beginFunDec);
     } else{
-        totalSize = strlen(pldotnet_getNetTypeName(rettype, false)) + strlen(func);
+        totalSize = strlen(pldotnet_getNetTypeName(rettype, false))
+                    + strlen(" ") + strlen(func) + strlen(beginFunDec);
     }
 
     for (i = 0; i < nargs; i++) 
@@ -579,9 +590,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
     if(is_nullable(rettype))
     {
-        sprintf(block2str, "%s%s",pldotnet_getNetNullableTypeName(rettype), func);
+        sprintf(block2str, "%s %s%s",pldotnet_getNetNullableTypeName(rettype), func, beginFunDec);
     } else {
-        sprintf(block2str, "%s%s", pldotnet_getNetTypeName(rettype, false), func);
+        sprintf(block2str, "%s %s%s", pldotnet_getNetTypeName(rettype, false), func, beginFunDec);
     }
 
     curSize = strlen(block2str);
