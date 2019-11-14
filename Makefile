@@ -21,8 +21,15 @@ EXTENSION = pldotnet
 DATA = pldotnet--0.0.1.sql
 #DATA_built = pldotnet.sql
 
-# REGRESS = \
-# pldotnettest \
+REGRESS = \
+init-extension \
+testfunc \
+testintegers testnullintegers \
+testbool testnullbool \
+testnumeric \
+testfloats \
+testchar \
+testmixedtypes \
 
 OBJS = \
 pldotnet.o \

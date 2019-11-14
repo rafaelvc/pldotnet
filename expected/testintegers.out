@@ -1,0 +1,77 @@
+CREATE OR REPLACE FUNCTION maxSmallInt() RETURNS smallint AS $$
+return (short)32767;
+$$ LANGUAGE pldotnet;
+SELECT maxSmallInt();
+ maxsmallint 
+-------------
+       32767
+(1 row)
+
+CREATE OR REPLACE FUNCTION sum2SmallInt(a smallint, b smallint) RETURNS smallint AS $$
+return (short)(a+b); //C# requires short cast
+$$ LANGUAGE pldotnet;
+SELECT sum2SmallInt(CAST(100 AS smallint), CAST(101 AS smallint));
+ sum2smallint 
+--------------
+          201
+(1 row)
+
+CREATE OR REPLACE FUNCTION maxInteger() RETURNS integer AS $$
+return 2147483647;
+$$ LANGUAGE pldotnet;
+SELECT maxInteger();
+ maxinteger 
+------------
+ 2147483647
+(1 row)
+
+CREATE OR REPLACE FUNCTION sum2Integer(a integer, b integer) RETURNS integer AS $$
+return a+b;
+$$ LANGUAGE pldotnet;
+SELECT sum2Integer(32770, 100);
+ sum2integer 
+-------------
+       32870
+(1 row)
+
+CREATE OR REPLACE FUNCTION maxBigInt() RETURNS bigint AS $$
+return 9223372036854775807;
+$$ LANGUAGE pldotnet;
+SELECT maxBigInt();
+      maxbigint      
+---------------------
+ 9223372036854775807
+(1 row)
+
+CREATE OR REPLACE FUNCTION sum2BigInt(a bigint, b bigint) RETURNS bigint AS $$
+return a+b;
+$$ LANGUAGE pldotnet;
+SELECT sum2BigInt(9223372036854775707, 100);
+     sum2bigint      
+---------------------
+ 9223372036854775807
+(1 row)
+
+CREATE OR REPLACE FUNCTION mixedBigInt(a integer, b integer, c bigint) RETURNS bigint AS $$
+return (long)a+(long)b+c;
+$$ LANGUAGE pldotnet;
+SELECT mixedBigInt(32767,  2147483647, 100);
+ mixedbigint 
+-------------
+  2147516514
+(1 row)
+
+CREATE OR REPLACE FUNCTION mixedInt(a smallint, b smallint, c integer) RETURNS integer AS $$
+return (int)a+(int)b+c;
+$$ LANGUAGE pldotnet;
+SELECT mixedInt(CAST(32767 AS smallint),  CAST(32767 AS smallint), 100);
+ mixedint 
+----------
+    65634
+(1 row)
+
+-- FIX: the results are incorrect when mixing smallints with bigint 
+--CREATE OR REPLACE FUNCTION mixedBigInt8(b smallint, c bigint) RETURNS smallint AS $$
+--return (short)(b+c);
+--$$ LANGUAGE pldotnet;
+--SELECT mixedBigInt8(CAST(32 AS SMALLINT), CAST(100 AS BIGINT));

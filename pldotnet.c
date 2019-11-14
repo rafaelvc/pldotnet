@@ -279,7 +279,7 @@ pldotnet_build_block2(Form_pg_proc procst)
             pldotnet_public_decl(rettype),
             pldotnet_getNetTypeName(rettype, true), result, semicon);
 
-    elog(WARNING, "%s", block2str);
+    /* elog(WARNING, "%s", block2str);*/
     return block2str;
 }
 
@@ -370,7 +370,7 @@ pldotnet_build_block4(Form_pg_proc procst)
         sprintf(pStr, "%s%s%s", endFun, strConvert, semicolon);
     else
         sprintf(pStr, "%s%s", endFun, semicolon);
-    elog(WARNING, "%s", block2str);
+    /*elog(WARNING, "%s", block2str);*/
     return block2str;
 
 }
@@ -638,7 +638,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         curSize = strlen(block2str);
     }
 
-    elog(WARNING, "%s", block2str);
+    /*elog(WARNING, "%s", block2str);*/
     return block2str;
 
 }
@@ -737,7 +737,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
         if(is_nullable(argtype[i]))
             nullable_arg_flag = true;
-        elog(WARNING, "%d", dotnet_info.typeSizeOfParams );
+        /*elog(WARNING, "%d", dotnet_info.typeSizeOfParams );*/
     }
 
     if(nullable_arg_flag)
@@ -821,8 +821,8 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 static Datum
 pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo)
 {
-    elog(WARNING, "nullflags size %d", dotnet_info.typeSizeNullFlags);
-    elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);
+    /*elog(WARNING, "nullflags size %d", dotnet_info.typeSizeNullFlags);*/
+    /*elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);*/
     Datum retval = 0;
     unsigned long * retP;
     VarChar * resVarChar; //For Unicode/UTF8 support
@@ -890,7 +890,7 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
             retP = *(long *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags);
 //          lenStr = pg_mbstrlen(retP);
             lenStr = strlen(retP);
-            elog(WARNING, "Result size %d", lenStr);
+            /*elog(WARNING, "Result size %d", lenStr);*/
             char * encodedStr =
             pg_do_encoding_conversion( retP,
                                        lenStr,
@@ -980,7 +980,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
                                              block_call4, block_call5, block_call6);
 
-        elog(WARNING, "[pldotnet] %s", source_code);
+        /*elog(WARNING, "[pldotnet] %s", source_code);*/
 
         rettype = procst->prorettype;
 
@@ -1102,11 +1102,11 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 #endif
-        elog(WARNING, "start create c struc");
+        /*elog(WARNING, "start create c struc");*/
 
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
-        elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
+        /*elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
+            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);*/
         csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         retval = pldotnet_getResultFromDotNet( libArgs, rettype, fcinfo );

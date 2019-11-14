@@ -1,0 +1,108 @@
+CREATE OR REPLACE FUNCTION returnNullBool() RETURNS boolean AS $$
+return null;
+$$ LANGUAGE pldotnet;
+SELECT returnNullBool();
+ returnnullbool 
+----------------
+ 
+(1 row)
+
+CREATE OR REPLACE FUNCTION BooleanNullAnd(a boolean, b boolean) RETURNS boolean AS $$
+return a&b;
+$$ LANGUAGE pldotnet;
+SELECT BooleanNullAnd(true, null);
+ booleannulland 
+----------------
+ 
+(1 row)
+
+SELECT BooleanNullAnd(null, true);
+ booleannulland 
+----------------
+ 
+(1 row)
+
+SELECT BooleanNullAnd(false, null);
+ booleannulland 
+----------------
+ f
+(1 row)
+
+SELECT BooleanNullAnd(null, false);
+ booleannulland 
+----------------
+ f
+(1 row)
+
+SELECT BooleanNullAnd(null, null);
+ booleannulland 
+----------------
+ 
+(1 row)
+
+CREATE OR REPLACE FUNCTION BooleanNullOr(a boolean, b boolean) RETURNS boolean AS $$
+return a|b;
+$$ LANGUAGE pldotnet;
+SELECT BooleanNullOr(true, null);
+ booleannullor 
+---------------
+ t
+(1 row)
+
+SELECT BooleanNullOr(null, true);
+ booleannullor 
+---------------
+ t
+(1 row)
+
+SELECT BooleanNullOr(false, null);
+ booleannullor 
+---------------
+ 
+(1 row)
+
+SELECT BooleanNullOr(null, false);
+ booleannullor 
+---------------
+ 
+(1 row)
+
+SELECT BooleanNullOr(null, null);
+ booleannullor 
+---------------
+ 
+(1 row)
+
+CREATE OR REPLACE FUNCTION BooleanNullXor(a boolean, b boolean) RETURNS boolean AS $$
+return a^b;
+$$ LANGUAGE pldotnet;
+SELECT BooleanNullXor(true, null);
+ booleannullxor 
+----------------
+ 
+(1 row)
+
+SELECT BooleanNullXor(null, true);
+ booleannullxor 
+----------------
+ 
+(1 row)
+
+SELECT BooleanNullXor(false, null);
+ booleannullxor 
+----------------
+ 
+(1 row)
+
+SELECT BooleanNullXor(null, false);
+ booleannullxor 
+----------------
+ 
+(1 row)
+
+SELECT BooleanNullXor(null, null);
+ booleannullxor 
+----------------
+ 
+(1 row)
+

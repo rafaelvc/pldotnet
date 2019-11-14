@@ -1,0 +1,106 @@
+CREATE OR REPLACE FUNCTION retVarChar(fname varchar) RETURNS varchar AS $$
+return fname + " Cabral";
+$$ LANGUAGE pldotnet;
+SELECT retVarChar('Rafael');
+  retvarchar   
+---------------
+ Rafael Cabral
+(1 row)
+
+CREATE OR REPLACE FUNCTION retConcatVarChar(fname varchar, lname varchar) RETURNS varchar AS $$
+return fname + lname;
+$$ LANGUAGE pldotnet;
+SELECT retConcatVarChar('João ', 'da Silva');
+ retconcatvarchar 
+------------------
+ João da Silva
+(1 row)
+
+CREATE OR REPLACE FUNCTION retConcatText(fname text, lname text) RETURNS text AS $$
+return "Hello " + fname + lname + "!";
+$$ LANGUAGE pldotnet;
+SELECT retConcatText('João ', 'da Silva');
+    retconcattext     
+----------------------
+ Hello João da Silva!
+(1 row)
+
+CREATE OR REPLACE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
+return "Hello " + fname + lname + "!";
+$$ LANGUAGE pldotnet;
+SELECT retVarCharText('Homer Jay ', 'Simpson');
+      retvarchartext      
+--------------------------
+ Hello Homer Jay Simpson!
+(1 row)
+
+CREATE OR REPLACE FUNCTION retChar(argchar character) RETURNS character AS $$
+return argchar;
+$$ LANGUAGE pldotnet;
+SELECT retChar('R');
+ retchar 
+---------
+ R
+(1 row)
+
+CREATE OR REPLACE FUNCTION retConcatLetters(a character, b character) RETURNS varchar AS $$
+return a + b;
+$$ LANGUAGE pldotnet;
+SELECT retConcatLetters('R', 'C');
+ retconcatletters 
+------------------
+ RC
+(1 row)
+
+-- Problem here it is neither padding and truncating
+CREATE OR REPLACE FUNCTION retConcatChars(a char(5), b char(7)) RETURNS char(5) AS $$
+return a + b;
+$$ LANGUAGE pldotnet;
+SELECT retConcatChars('H.', 'Simpson');
+ retconcatchars 
+----------------
+ H.Simpson
+(1 row)
+
+CREATE OR REPLACE FUNCTION retConcatVarChars(a varchar(5), b varchar(7)) RETURNS varchar(5) AS $$
+return a + b;
+$$ LANGUAGE pldotnet;
+SELECT retConcatVarChars('H.', 'Simpson');
+ retconcatvarchars 
+-------------------
+ H.Simpson
+(1 row)
+
+SELECT retConcatVarChars('H. あ', 'Simpson');
+ retconcatvarchars 
+-------------------
+ H. あSimpson
+(1 row)
+
+CREATE OR REPLACE FUNCTION retNonRegularEncoding(a varchar) RETURNS varchar AS $$
+return a;
+$$ LANGUAGE pldotnet;
+SELECT retNonRegularEncoding('漢字');
+ retnonregularencoding 
+-----------------------
+ 漢字
+(1 row)
+
+SELECT retNonRegularEncoding('ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃ');
+ retnonregularencoding 
+-----------------------
+ ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃ
+(1 row)
+
+SELECT retNonRegularEncoding('ŁĄŻĘĆŃŚŹ');
+ retnonregularencoding 
+-----------------------
+ ŁĄŻĘĆŃŚŹ
+(1 row)
+
+SELECT retNonRegularEncoding('Unicode, которая состоится 10-12 марта 1997 года в Майнце в Германии.');
+                         retnonregularencoding                         
+-----------------------------------------------------------------------
+ Unicode, которая состоится 10-12 марта 1997 года в Майнце в Германии.
+(1 row)
+
