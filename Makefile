@@ -30,6 +30,7 @@ testnumeric \
 testfloats \
 testchar \
 testmixedtypes \
+testrecursive \
 
 OBJS = \
 pldotnet.o \
