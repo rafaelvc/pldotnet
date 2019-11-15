@@ -98,5 +98,9 @@ SELECT retNonRegularEncoding('ŁĄŻĘĆŃŚŹ');
  ŁĄŻĘĆŃŚŹ
 (1 row)
 
--- Review: This is returning different results in different calls
---SELECT retNonRegularEncoding('Unicode, которая состоится 10-12 марта 1997 года в Майнце в Германии.');
+SELECT retNonRegularEncoding('Unicode, которая состоится 10-12 марта 1997 года в Майнце в Германии.');
+                         retnonregularencoding                         
+-----------------------------------------------------------------------
+ Unicode, которая состоится 10-12 марта 1997 года в Майнце в Германии.
+(1 row)
+
