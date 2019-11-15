@@ -896,11 +896,11 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
                                        lenStr,
                                        PG_UTF8,
                                        GetDatabaseEncoding() );
-            resVarChar = (VarChar *)palloc0(lenStr + 1 + VARHDRSZ);
+            resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
 #if PG_VERSION_NUM < 80300
-            VARATT_SIZEP(resVarChar) = lenStr+1 + VARHDRSZ;    /* Total size of structure, not just data */
+            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
 #else
-            SET_VARSIZE(resVarChar, lenStr+1 + VARHDRSZ);      /* Total size of structure, not just data */
+            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
 #endif
             memcpy(VARDATA(resVarChar), encodedStr , lenStr);
             //pfree(encodedStr);
