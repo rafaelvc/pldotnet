@@ -14,7 +14,8 @@
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
 
-#define STR(s) s
+#define QUOTE(name) #name
+#define STR(macro) QUOTE(macro)
 #define CH(c) c
 #define DIR_SEPARATOR '/'
 #define MAX_PATH PATH_MAX
@@ -935,8 +936,6 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
     Datum retval = 0;
     Oid rettype;
 
-    char default_dnldir[] = "/var/lib/DotNetLib/";
-
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
     istrigger = CALLED_AS_TRIGGER(fcinfo);
@@ -982,8 +981,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         pfree(block_call4);
         pfree(block_call5);
 
-        char *dnldir = getenv("DNLDIR");
-        if (dnldir == nullptr) dnldir = &default_dnldir[0];
+        char dnldir[] = STR(PLNET_ENGINE_DIR);
 
 #ifdef USE_DOTNETBUILD
         SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
@@ -1000,15 +998,15 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
 
-        setenv("DOTNET_CLI_HOME", default_dnldir, 1);
+        setenv("DOTNET_CLI_HOME", dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
 
         char* root_path = strdup(dnldir);
-        char *last_separator = rindex(root_path, DIR_SEPARATOR);
-        if(last_separator != NULL) *(last_separator+1) = 0;
+        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+            root_path[strlen(root_path) - 1] = 0;
 
         //
         // STEP 1: Load HostFxr and get exported hosting functions
@@ -1165,20 +1163,18 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
 
         //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 
-	char*  block_inline3 = CODEBLOCK;
+	    char*  block_inline3 = CODEBLOCK;
 
-	char* source_code = (char*) palloc0(strlen(block_inline1) + strlen(block_inline2)
+	    char* source_code = (char*) palloc0(strlen(block_inline1) + strlen(block_inline2)
 			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
 
-	sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
+	    sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
 
-	//elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);	
-	//
+	    //elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);
+	    //
         // STEP 0: Compile C# source code
         //
-        char default_dnldir[] = "/var/lib/DotNetLib/";
-        char *dnldir = getenv("DNLDIR");
-	if (dnldir == nullptr) dnldir = &default_dnldir[0];
+        char dnldir[] = STR(PLNET_ENGINE_DIR);
 
 #ifdef USE_DOTNETBUILD
         SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
@@ -1195,15 +1191,15 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
 
-        setenv("DOTNET_CLI_HOME", default_dnldir, 1);
+        setenv("DOTNET_CLI_HOME", dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
 #endif
         char* root_path = strdup(dnldir);
-        char *last_separator = rindex(root_path, DIR_SEPARATOR);
-        if(last_separator != NULL) *(last_separator+1) = 0;
+        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+            root_path[strlen(root_path) - 1] = 0;
 
         //
         // STEP 1: Load HostFxr and get exported hosting functions
@@ -1276,8 +1272,8 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         csharp_method(&args, sizeof(args));
         // </SnippetCallManaged>
 
-	bzero(dotnet_type_method,sizeof(dotnet_type_method));
-	strcpy(dotnet_type_method,"Run");	
+	    bzero(dotnet_type_method,sizeof(dotnet_type_method));
+	    strcpy(dotnet_type_method,"Run");
 
         // <SnippetLoadAndGet>
         // Function pointer to managed delegate
