@@ -8,6 +8,8 @@ services:
         DOTNET_VERSION: 3.0
     environment:
       USE_DOTNETBUILD: "FALSE"
+      #Custom location for dotnet compiler/source code -- default = /var/lib
+      #PLNET_ENGINE_ROOT: "/var"
     volumes:
       - $PWD/:/home/app
 
