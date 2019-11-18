@@ -4,11 +4,13 @@
 DOTNET_HOSTDIR ?= $(shell find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g')
 DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR)
 DOTNET_HOSTLIB ?= -L$(DOTNET_HOSTDIR) -lnethost
-DOTNET_SOURCE_LIB := /var/lib
+DOTNET_ROOT_DIR ?= /var/lib
+DOTNET_SRC_DIR := -D DOTNET_SRC_DIR=$(DOTNET_ROOT_DIR)/DotNetLib
+
 ifeq ("$(shell echo $(USE_DOTNETBUILD) | tr A-Z a-z)", "true")
 	DEFINE_DOTNET_BUILD := -D USE_DOTNETBUILD
 else
-	GENERATE_BUILD_FILES := dotnet build $(DOTNET_SOURCE_LIB)/DotNetLib/src
+	GENERATE_BUILD_FILES := dotnet build $(DOTNET_ROOT_DIR)/DotNetLib/src
 endif
 
 PG_CONFIG ?= pg_config
@@ -36,7 +38,10 @@ OBJS = \
 pldotnet.o \
 #pldotnet_debug.o \
 
-PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) -Iinc -D LINUX $(DEFINE_DOTNET_BUILD) -g -Wl,-rpath,'$$ORIGIN',--disable-new-dtags
+PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) \
+			  -Iinc -D LINUX $(DEFINE_DOTNET_BUILD) $(DOTNET_SRC_DIR) \
+			  -g -Wl,-rpath,'$$ORIGIN',--disable-new-dtags
+
 SHLIB_LINK = $(DOTNET_HOSTLIB)
 
 PGXS := $(shell $(PG_CONFIG) --pgxs)
@@ -45,8 +50,8 @@ include $(PGXS)
 
 plnet-install: install
 	echo "$$(find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g' 2> /dev/null)"  > /etc/ld.so.conf.d/nethost.conf && ldconfig
-	cp -r DotNetLib $(DOTNET_SOURCE_LIB) && chown -R postgres $(DOTNET_SOURCE_LIB)/DotNetLib
+	cp -r DotNetLib $(DOTNET_ROOT_DIR) && chown -R postgres $(DOTNET_ROOT_DIR)/DotNetLib
 	$(GENERATE_BUILD_FILES)
 
 plnet-uninstall: uninstall
-	rm -rf $(DOTNET_SOURCE_LIB)/DotNetLib
+	rm -rf $(DOTNET_ROOT_DIR)/DotNetLib
