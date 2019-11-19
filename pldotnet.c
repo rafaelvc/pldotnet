@@ -1,7 +1,5 @@
 #include "pldotnet.h"
 
-//// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
-// Provided by the AppHost NuGet package and installed as an SDK pack
 #include <assert.h>
 #include <math.h>
 
@@ -40,7 +38,6 @@ static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const 
         fprintf(stderr, "String too long: " #name);     \
         exit(-1);                                       \
     }
-//// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 
 PG_MODULE_MAGIC;
 
