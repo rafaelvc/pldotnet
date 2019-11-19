@@ -729,7 +729,6 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     dotnet_info.typeSizeOfParams = 0;
     dotnet_info.typeSizeNullFlags = 0;
 
-
     for (i = 0; i < fcinfo->nargs; i++) {
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
         if(is_nullable(argtype[i]))
@@ -827,38 +826,41 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
     Numeric numRes;
     char * numStr;
     bool resunull;
+    char * resultP = libArgs
+                    + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags;
+    char * resultNullP = libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool));
 
     switch (rettype){
         case BOOLOID:
             /* Recover flag for null result*/
-            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            fcinfo->isnull = *(bool *) (resultNullP);
             if(fcinfo->isnull)
                 return (Datum) 0;
-            return  BoolGetDatum  ( *(bool *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
+            return  BoolGetDatum  ( *(bool *)(resultP) );
         case INT4OID:
             /* Recover flag for null result*/
-            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            fcinfo->isnull = *(bool *) (resultNullP);
             if(fcinfo->isnull)
                 return (Datum) 0;
-            return  Int32GetDatum ( *(int *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
+            return  Int32GetDatum ( *(int *)(resultP) );
         case INT8OID:
             /* Recover flag for null result*/
-            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            fcinfo->isnull = *(bool *) (resultNullP);
             if(fcinfo->isnull)
                 return (Datum) 0;
-            return  Int64GetDatum ( *(long *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
+            return  Int64GetDatum ( *(long *)(resultP) );
         case INT2OID:
             /* Recover flag for null result*/
-            fcinfo->isnull = *(bool *) (libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool)));
+            fcinfo->isnull = *(bool *) (resultNullP);
             if(fcinfo->isnull)
                 return (Datum) 0;
-            return  Int16GetDatum ( *(short *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
+            return  Int16GetDatum ( *(short *)(resultP) );
         case FLOAT4OID:
-            return  Float4GetDatum ( *(float *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
+            return  Float4GetDatum ( *(float *)(resultP) );
         case FLOAT8OID:
-            return  Float8GetDatum ( *(double *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags ) );
+            return  Float8GetDatum ( *(double *)(resultP) );
         case NUMERICOID:
-            numStr = (char *)*(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags);
+            numStr = (char *)*(unsigned long *)(resultP);
             return DatumGetNumeric(
                                    DirectFunctionCall3(numeric_in,
                                          CStringGetDatum(numStr),
