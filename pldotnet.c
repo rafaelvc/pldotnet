@@ -559,10 +559,12 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        header_size += get_size_nullable_header(strlen(argNm),argtype[i],i);
 
         if(is_nullable(argtype[i]))
-            strcat(argNm,"_nullable");
+        {
+            header_size += get_size_nullable_header(strlen(argNm),argtype[i],i);
+            argNm = strcat(argNm,"_nullable");
+        }
 
         argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
@@ -594,12 +596,14 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        header_nullableP = (char *) (header_nullable + cur_header_size);
-        build_nullable_header(header_nullableP,argNm,argtype[i],i);
-        cur_header_size = strlen(header_nullable);
 
         if(is_nullable(argtype[i]))
-            strcat(argNm,"_nullable");
+        {
+            header_nullableP = (char *) (header_nullable + cur_header_size);
+            build_nullable_header(header_nullableP,argNm,argtype[i],i);
+            cur_header_size = strlen(header_nullable);
+            argNm = strcat(argNm,"_nullable");
+        }
 
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
@@ -629,7 +633,6 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         build_nullable_footer(footer_nullable, rettype);
         pStr = (char *)(block2str + curSize);
         sprintf(pStr, "%s", footer_nullable);
-        curSize = strlen(block2str);
     }
 
     /*elog(WARNING, "%s", block2str);*/
