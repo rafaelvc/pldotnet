@@ -186,13 +186,13 @@ static char * pldotnet_public_decl(Oid type)
     switch (type)
     {
         case BOOLOID:
-            return &public_bool;
+            return (char *)&public_bool;
         case BPCHAROID:
         case VARCHAROID:
         case TEXTOID:
-            return &public_string_utf8;
+            return (char *)&public_string_utf8;
         default:
-            return &public_;
+            return (char *)&public_;
     }
     return  0;
 }
@@ -211,6 +211,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     /* nullable related*/
     bool nullable_arg_flag = false;
     int null_flags_size = 0, return_null_flag_size = 0;
+    char *return_null_flag_str;
 
 
     if (!pldotnet_type_supported(rettype))
@@ -256,7 +257,7 @@ pldotnet_build_block2(Form_pg_proc procst)
         curSize += strlen(pStr);
     }
 
-    char *return_null_flag_str = (char *)palloc0(return_null_flag_size);
+    return_null_flag_str = (char *)palloc0(return_null_flag_size);
     sprintf(return_null_flag_str,"%s%s",public_bool, resu_flag_str);
     pStr = (char *)(block2str + curSize);
     sprintf(pStr,"%s",return_null_flag_str);
@@ -596,7 +597,6 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-
         if(is_nullable(argtype[i]))
         {
             header_nullableP = (char *) (header_nullable + cur_header_size);
@@ -827,6 +827,7 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
     char * resultP = libArgs
                     + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags;
     char * resultNullP = libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool));
+    char * encodedStr;
 
     switch (rettype){
         case BOOLOID:
@@ -884,15 +885,12 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
              //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
 
             // UTF8 encoding
-            retP = *(long *)(libArgs + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags);
+            retP = *(unsigned long *)(resultP);
 //          lenStr = pg_mbstrlen(retP);
             lenStr = strlen(retP);
             /*elog(WARNING, "Result size %d", lenStr);*/
-            char * encodedStr =
-            pg_do_encoding_conversion( retP,
-                                       lenStr,
-                                       PG_UTF8,
-                                       GetDatabaseEncoding() );
+            encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
+                                                    GetDatabaseEncoding() );
             resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
 #if PG_VERSION_NUM < 80300
             VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
@@ -939,6 +937,22 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
     Datum retval = 0;
     Oid rettype;
 
+    // .NET HostFxr declarations
+#ifdef USE_DOTNETBUILD
+    char dotnet_type[]  = "DotNetLib.ProcedureClass, DotNetLib";
+    char dotnet_type_method[64] = "ProcedureMethod";
+    FILE *output_file;
+#else
+    char dotnet_type[] = "DotNetLib.Lib, DotNetLib";
+    char dotnet_type_method[64] = "Compile";
+#endif
+    char dnldir[] = STR(PLNET_ENGINE_DIR);
+    char *root_path;
+    int rc;
+    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+    component_entry_point_fn csharp_method = nullptr;
+    args_source args_source;
+
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
     istrigger = CALLED_AS_TRIGGER(fcinfo);
@@ -984,30 +998,25 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         pfree(block_call4);
         pfree(block_call5);
 
-        char dnldir[] = STR(PLNET_ENGINE_DIR);
-
 #ifdef USE_DOTNETBUILD
         SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
-
-        FILE *output_file = fopen(filename, "w");
+        output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
             exit(-1);
         }
-
         if(fputs(source_code, output_file) == EOF){
             fprintf(stderr, "Cannot write to file: '%s'\n", filename);
             exit(-1);
         }
         fclose(output_file);
-
         setenv("DOTNET_CLI_HOME", dnldir, 1);
         SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
 
-        char* root_path = strdup(dnldir);
+        root_path = strdup(dnldir);
         if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
             root_path[strlen(root_path) - 1] = 0;
 
@@ -1022,8 +1031,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
-        load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = \
-            get_dotnet_load_assembly(config_path);
+        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
             "Failure: get_dotnet_load_assembly()");
 
@@ -1031,58 +1039,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
-
-#ifdef USE_DOTNETBUILD
-        char dotnet_type[]        = "DotNetLib.ProcedureClass, DotNetLib";
-        char dotnet_type_method[64] = "ProcedureMethod";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
-
-        // <SnippetLoadAndGet>
-        // Function pointer to managed delegate
-        component_entry_point_fn csharp_method = nullptr;
-        int rc = load_assembly_and_get_function_pointer(
-            dotnetlib_path,
-            dotnet_type,
-            dotnet_type_method,
-            nullptr /*delegate_type_name*/,
-            nullptr,
-            (void**)&csharp_method);
-        // </SnippetLoadAndGet>
-
-        assert(rc == 0 && csharp_method != nullptr && \
-            "Failure: load_assembly_and_get_function_pointer()");
-#else
-        char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-        char dotnet_type_method[64] = "Compile";
-        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
-
-        // <SnippetLoadAndGet>
-        // Function pointer to managed delegate
-        component_entry_point_fn csharp_method = nullptr;
-        int rc = load_assembly_and_get_function_pointer(
-            dotnetlib_path,
-            dotnet_type,
-            dotnet_type_method,
-            nullptr /*delegate_type_name*/,
-            nullptr,
-            (void**)&csharp_method);
-        // </SnippetLoadAndGet>
-
-        assert(rc == 0 && csharp_method != nullptr && \
-            "Failure: load_assembly_and_get_function_pointer()");
-
-        //
-        // STEP 4: Run managed code
-        //
-
-        args_source args_source =  { .SourceCode = source_code, .Result = 1,
-                                     .FuncOid = (int) fcinfo->flinfo->fn_oid };
-        csharp_method(&args_source, sizeof(args_source));
-
-        bzero(dotnet_type_method,sizeof(dotnet_type_method));
-        strcpy(dotnet_type_method,"Run");
-
-        // <SnippetLoadAndGet>
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
@@ -1091,7 +1048,27 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
             nullptr /*delegate_type_name*/,
             nullptr,
             (void**)&csharp_method);
-        // </SnippetLoadAndGet>
+        assert(rc == 0 && csharp_method != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+        args_source.SourceCode = source_code;
+        args_source.Result = 1;
+#ifndef USE_DOTNETBUILD
+        //
+        // STEP 4: Run managed code (Roslyn compiler)
+        //
+        args_source.FuncOid = (int) fcinfo->flinfo->fn_oid;
+        csharp_method(&args_source, sizeof(args_source));
+        bzero(dotnet_type_method,sizeof(dotnet_type_method));
+        strcpy(dotnet_type_method,"Run");
+
+        // Function pointer to managed delegate
+        rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_method);
 
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
@@ -1160,47 +1137,53 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // This sample assumes the managed assembly to load and its
         // runtime configuration file are next to the host
         int i;
+	    char* block_inline3;
+        char* source_code;
 
-        // char* resolved = realpath(argv[0], host_path);
-        // assert(resolved != nullptr);
+        // .NET Hostfxr declarations
+#ifdef USE_DOTNETBUILD
+        char dotnet_type[] = "DotNetLib.ProcedureClass, DotNetLib";
+        char dotnet_type_method[64] = "ProcedureMethod";
+        FILE *output_file;
+        int compile_resp;
+#else
+        char dotnet_type[] = "DotNetLib.Lib, DotNetLib";
+        char dotnet_type_method[64] = "Compile";
+#endif
+        char dnldir[] = STR(PLNET_ENGINE_DIR);
+        char* root_path;
+        int rc;
+        load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+        component_entry_point_fn csharp_method = nullptr;
+        args_source args;
 
-        //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
-
-	    char*  block_inline3 = CODEBLOCK;
-
-	    char* source_code = (char*) palloc0(strlen(block_inline1) + strlen(block_inline2)
+        block_inline3 = CODEBLOCK;
+        source_code = (char*) palloc0(strlen(block_inline1) + strlen(block_inline2)
 			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
-
 	    sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
 
 	    //elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);
 	    //
         // STEP 0: Compile C# source code
         //
-        char dnldir[] = STR(PLNET_ENGINE_DIR);
-
 #ifdef USE_DOTNETBUILD
         SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
-
-        FILE *output_file = fopen(filename, "w");
+        output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
             exit(-1);
         }
-
         if(fputs(source_code, output_file) == EOF){
             fprintf(stderr, "Cannot write to file: '%s'\n", filename);
             exit(-1);
         }
         fclose(output_file);
-
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
-        int compile_resp = system(cmd);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
-
 #endif
-        char* root_path = strdup(dnldir);
+        root_path = strdup(dnldir);
         if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
             root_path[strlen(root_path) - 1] = 0;
 
@@ -1215,8 +1198,7 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
-        load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = \
-            get_dotnet_load_assembly(config_path);
+        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
             "Failure: get_dotnet_load_assembly()");
 
@@ -1224,61 +1206,27 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
         SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
-
-#ifdef USE_DOTNETBUILD
-        char dotnet_type[]        = "DotNetLib.ProcedureClass, DotNetLib";
-        char dotnet_type_method[64] = "ProcedureMethod";
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
-
-        // <SnippetLoadAndGet>
         // Function pointer to managed delegate
-        component_entry_point_fn csharp_method = nullptr;
-        int rc = load_assembly_and_get_function_pointer(
-            dotnetlib_path,
-            dotnet_type,
-            dotnet_type_method,
-            nullptr /*delegate_type_name*/,
-            nullptr,
-            (void**)&csharp_method);
-        // </SnippetLoadAndGet>
-
-        assert(rc == 0 && csharp_method != nullptr && \
-            "Failure: load_assembly_and_get_function_pointer()");
-        args_source args =  { .SourceCode = source_code, .Result = 1 };
-
-#else
-        char dotnet_type[]        = "DotNetLib.Lib, DotNetLib";
-        char dotnet_type_method[64] = "Compile";
-        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
-
-        // <SnippetLoadAndGet>
-        // Function pointer to managed delegate
-        component_entry_point_fn csharp_method = nullptr;
-        int rc = load_assembly_and_get_function_pointer(
+        rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
             dotnet_type,
             dotnet_type_method,
             nullptr,//delegate_type_name
             nullptr,
             (void**)&csharp_method);
-        // </SnippetLoadAndGet>
-
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
-
+        args.SourceCode = source_code;
+        args.Result = 1;
+#ifndef USE_DOTNETBUILD
         //
-        // STEP 4: Run managed code
+        // STEP 4: Run managed code (Roslyn compiler)
         //
-        // <SnippetCallManaged>
-
-        args_source args =  { .SourceCode = source_code, .Result = 1 };
         csharp_method(&args, sizeof(args));
-        // </SnippetCallManaged>
 
 	    bzero(dotnet_type_method,sizeof(dotnet_type_method));
 	    strcpy(dotnet_type_method,"Run");
-
-        // <SnippetLoadAndGet>
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
@@ -1287,14 +1235,15 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
             nullptr /*delegate_type_name*/,
             nullptr,
             (void**)&csharp_method);
-        // </SnippetLoadAndGet>
 
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
 #endif
+        //
+        // STEP 4: Run managed code (Roslyn compiler)
+        //
         csharp_method(&args, sizeof(args));
-        //// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
         pfree(source_code);
     }
     PG_CATCH();
@@ -1309,11 +1258,9 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
     PG_RETURN_VOID();
 }
 
-//// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 /********************************************************************************************
  * Function used to load and activate .NET Core
  ********************************************************************************************/
-
 // Forward declarations
 static void *pldotnet_load_library(const char_t *);
 static void *pldotnet_get_export(void *, const char *);
@@ -1338,7 +1285,6 @@ pldotnet_get_export(void *h, const char *name)
     return f;
 }
 
-// <SnippetLoadHostFxr>
 // Using the nethost library, discover the location of hostfxr and get exports
 static int
 load_hostfxr()
@@ -1347,11 +1293,12 @@ load_hostfxr()
     char_t buffer[MAX_PATH];
     size_t buffer_size = sizeof(buffer) / sizeof(char_t);
     int rc = get_hostfxr_path(buffer, &buffer_size, nullptr);
+    void *lib;
     if (rc != 0)
         return 0;
 
     // Load hostfxr and get desired exports
-    void *lib = pldotnet_load_library(buffer);
+    lib = pldotnet_load_library(buffer);
     init_fptr = (hostfxr_initialize_for_runtime_config_fn)pldotnet_get_export( \
         lib, "hostfxr_initialize_for_runtime_config");
     get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)pldotnet_get_export( \
@@ -1360,9 +1307,7 @@ load_hostfxr()
 
     return (init_fptr && get_delegate_fptr && close_fptr);
 }
-// </SnippetLoadHostFxr>
 
-// <SnippetInitialize>
 // Load and initialize .NET Core and get desired function pointer for scenario
 static load_assembly_and_get_function_pointer_fn
 get_dotnet_load_assembly(const char_t *config_path)
@@ -1388,7 +1333,4 @@ get_dotnet_load_assembly(const char_t *config_path)
     close_fptr(cxt);
     return (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer;
 }
-
-// </SnippetInitialize>
-//// DOTNET-HOST-SAMPLE STUFF ///////////////////////////////////////
 #endif
