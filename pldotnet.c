@@ -1008,7 +1008,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > nul", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
