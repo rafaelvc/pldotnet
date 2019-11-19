@@ -823,9 +823,7 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo
     unsigned long * retP;
     VarChar * resVarChar; //For Unicode/UTF8 support
     int lenStr;
-    Numeric numRes;
     char * numStr;
-    bool resunull;
     char * resultP = libArgs
                     + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags;
     char * resultNullP = libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool));
