@@ -803,12 +803,67 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                                               GetDatabaseEncoding(), PG_UTF8);
                 break;
 
+            case TYPTYPE_DOMAIN:
+
+                HeapTuple typeTuple;
+                Form_pg_type typeinfo;
+                /* query system */
+                typeTuple = SearchSysCache(TYPEOID, ObjectIdGetDatum(type), 0, 0, 0);
+                if (!HeapTupleIsValid(typeTuple))
+                    elog(ERROR, "[pldotnet]: cache lookup failed for type %u", type);
+                typeinfo = (Form_pg_type) GETSTRUCT(typeTuple);
+                if (typeinfo->typelem != 0 && typeinfo->typlen == -1) // array?
+                {
+                    ArrayType *arr = DatumGetArrayTypeP(fcinfo->arg[i]);
+                    char *p = ARR_DATA_PTR(arr);
+                    if (ARR_NDIM(arr) == 1)
+                    { /* vector? */
+                        for (i = 0; i < (*ARR_DIMS(arr)); i++)
+                        {
+                            Datum arrayElement = fetch_att(p, typeinfo->typbyval, typeinfo->typelen);
+
+                            pldotnet_setArrayScalarValue(curArg, arrayElement, typeinfo->typtype);
+
+                            p = att_addlength_pointer(p, typeinfo->typlen, p);
+                            p = (char *) att_align_nominal(p, typeinfo->typalign);
+                            curSize += pldotnet_getTypeSize(arrayElement);
+                            curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags + curSize;
+                        }
+                   }
+                }
+
+
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags + curSize;
     }
 
     return ptrToLibArgs;
+}
+
+static void pldotnet_setArrayScalarValue(unsigned long * curArg, Datum dt, Oid type)
+{
+     switch (type)
+     {
+        case BOOLOID:
+            *(bool *)curArg = DatumGetBool(dt);
+            break;
+        case INT4OID:
+            *(int *)curArg = DatumGetInt32(dt);
+            break;
+        case INT8OID:
+            *(long *)curArg = DatumGetInt64(dt);
+            break;
+        case INT2OID:
+            *(short *)curArg = DatumGetInt16(dt);
+            break;
+        case FLOAT4OID:
+            *(float *)curArg = DatumGetFloat4(dt);
+            break;
+        case FLOAT8OID:
+            *(double *)curArg = DatumGetFloat8(dt);
+        break;
+    }
 }
 
 static Datum
