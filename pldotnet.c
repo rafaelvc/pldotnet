@@ -55,10 +55,10 @@ PGDLLEXPORT Datum pldotnet_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
 static char * pldotnet_build_block2(Form_pg_proc procst);
-static char * pldotnet_build_block4(Form_pg_proc procst);
-static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
-static int get_size_nullable_header(int argNm_size, Oid arg_type, int narg);
-static void build_nullable_header(char* src,char* argname, Oid argtype, int narg);
+static char * pldotnet_build_block4(Form_pg_proc procst, bool has_null_arg);
+static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc, bool* argnull, bool has_null_arg);
+static int get_size_nullable_header(int argNm_size, Oid arg_type, int narg, bool is_null);
+static void build_nullable_header(char* src,char* argname, Oid argtype, int narg, bool is_null);
 static int get_size_nullable_footer(Oid ret_type);
 static void build_nullable_footer(char* src, Oid rettype);
 static bool is_nullable(Oid type);
@@ -285,7 +285,7 @@ pldotnet_build_block2(Form_pg_proc procst)
 }
 
 static char *
-pldotnet_build_block4(Form_pg_proc procst)
+pldotnet_build_block4(Form_pg_proc procst, bool has_null_arg)
 {
     char *block2str, *pStr, *resu_var;
     int curSize, i, totalSize;
@@ -305,7 +305,7 @@ pldotnet_build_block4(Form_pg_proc procst)
     // Function name
     func = NameStr(procst->proname);
 
-    if (is_nullable(rettype))
+    if (is_nullable(rettype) && has_null_arg)
     {
         const char nullable_result[] = "resu_nullable=";
         resu_var = (char *)palloc0(strlen(pldotnet_getNetNullableTypeName(rettype)) + strlen(nullable_result));
@@ -401,7 +401,7 @@ build_args_null_array_str(char *dest, int nargs)
  * a struct argument to a nullable C# type argument
  */
 static int
-get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
+get_size_nullable_header(int argNm_size, Oid arg_type, int narg, bool is_null)
 {
     int total_size = 0;
     char *question_mark = "?";
@@ -425,12 +425,13 @@ get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
         case INT8OID:
         case BOOLOID:
             /* template: bool? <arg>=argsnull[i]? (bool?)null : <arg>_nullable; */
-            total_size = strlen(pldotnet_getNetNullableTypeName(arg_type)) + argNm_size
-                + strlen(equal_char) + strlen(argsnull_str) + strlen(square_bracket_char) + n_digits_arg +
-                + strlen(square_bracket_char) + strlen(question_mark) + strlen(parenthesis_char)
-                + strlen(pldotnet_getNetNullableTypeName(arg_type)) + strlen(parenthesis_char)
-                + strlen(null_str) + strlen(colon_char) + argNm_size + strlen(nullable_suffix)
-                + strlen(semicolon_char);
+            if(is_null)
+                total_size = strlen(pldotnet_getNetNullableTypeName(arg_type)) + argNm_size
+                    + strlen(equal_char) + strlen(argsnull_str) + strlen(square_bracket_char) + n_digits_arg +
+                    + strlen(square_bracket_char) + strlen(question_mark) + strlen(parenthesis_char)
+                    + strlen(pldotnet_getNetNullableTypeName(arg_type)) + strlen(parenthesis_char)
+                    + strlen(null_str) + strlen(colon_char) + argNm_size + strlen(nullable_suffix)
+                    + strlen(semicolon_char);
             break;
     }
 
@@ -442,7 +443,7 @@ get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
  * a struct to a nullable C# type
  */
 static void
-build_nullable_header(char* dest,char* argname, Oid argtype, int narg)
+build_nullable_header(char* dest,char* argname, Oid argtype, int narg, bool is_null)
 {
     /* template:
      *     bool? <arg>=argsnull[i]? (bool?)null : <arg>_nullable;
@@ -452,9 +453,10 @@ build_nullable_header(char* dest,char* argname, Oid argtype, int narg)
          case INT4OID:
          case INT8OID:
          case BOOLOID:
-             sprintf(dest,"%s%s=%s[%d]?(%s)null:%s%s;", pldotnet_getNetNullableTypeName(argtype)
-                 , argname, argsnull_str, narg, pldotnet_getNetNullableTypeName(argtype)
-                 , argname, nullable_suffix);
+             if(is_null)       
+                sprintf(dest,"%s%s=%s[%d]?(%s)null:%s%s;", pldotnet_getNetNullableTypeName(argtype)
+                    , argname, argsnull_str, narg, pldotnet_getNetNullableTypeName(argtype)
+                    , argname, nullable_suffix);
      }
 }
 
@@ -507,10 +509,10 @@ build_nullable_footer(char* src, Oid rettype)
 }
 
 static char *
-pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
+pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc, bool* argsnull, bool has_null_arg)
 {
     char *block2str, *pStr, *argNm, *source_text;
-    int argNmSize, i, nnames, curSize, source_size, totalSize;
+    int argNmSize, i, nnames, curSize, source_size, totalSize=0;
     bool isnull;
     const char beginFunDec[] = "(";
     char * func;
@@ -542,27 +544,18 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
       deconstruct_array(DatumGetArrayTypeP(argnames), TEXTOID, -1, false,
           'i', &argname, NULL, &nnames);
 
-    // Caculates the total amount in bytes of C# src text for 
-    // the function declaration according nr of arguments 
-    // their types and the function return type
-    if(is_nullable(rettype))
-    {
-        totalSize = strlen(pldotnet_getNetNullableTypeName(rettype))
-                    + strlen(" ") + strlen(func) + strlen(beginFunDec);
-    } else{
-        totalSize = strlen(pldotnet_getNetTypeName(rettype, false))
-                    + strlen(" ") + strlen(func) + strlen(beginFunDec);
-    }
 
     for (i = 0; i < nargs; i++) 
     {
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        header_size += get_size_nullable_header(strlen(argNm),argtype[i],i);
-
-        if(is_nullable(argtype[i]))
-            strcat(argNm,"_nullable");
+        if(is_nullable(argtype[i])) 
+        {
+            header_size += get_size_nullable_header(strlen(argNm),argtype[i],i,argsnull[i]);
+            if(argsnull[i])
+                strcat(argNm,"_nullable");
+        }
 
         argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
@@ -571,13 +564,25 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
      if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma); // commas size
 
+    // Caculates the total amount in bytes of C# src text for 
+    // the function declaration according nr of arguments 
+    // their types and the function return type
+    if(is_nullable(rettype) && has_null_arg)
+    {
+        totalSize += strlen(pldotnet_getNetNullableTypeName(rettype))
+                    + strlen(" ") + strlen(func) + strlen(beginFunDec);
+    } else{
+        totalSize += strlen(pldotnet_getNetTypeName(rettype, false))
+                    + strlen(" ") + strlen(func) + strlen(beginFunDec);
+    }
+
     footer_size = get_size_nullable_footer(rettype);
 
     totalSize += strlen(endFunDec) + header_size + source_size + strlen(endFun) + footer_size + 1;
 
     block2str = (char *)palloc0(totalSize);
 
-    if(is_nullable(rettype))
+    if(is_nullable(rettype) && has_null_arg)
     {
         sprintf(block2str, "%s %s%s",pldotnet_getNetNullableTypeName(rettype), func, beginFunDec);
     } else {
@@ -594,12 +599,14 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        header_nullableP = (char *) (header_nullable + cur_header_size);
-        build_nullable_header(header_nullableP,argNm,argtype[i],i);
-        cur_header_size = strlen(header_nullable);
-
-        if(is_nullable(argtype[i]))
-            strcat(argNm,"_nullable");
+        if(is_nullable(argtype[i])) 
+        {
+            header_nullableP = (char *) (header_nullable + cur_header_size);
+            build_nullable_header(header_nullableP,argNm,argtype[i],i,argsnull[i]);
+            cur_header_size = strlen(header_nullable);
+            if(argsnull[i])
+                strcat(argNm,"_nullable");
+        }
 
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
@@ -624,7 +631,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     sprintf(pStr, "%s%s", source_text, endFun);
     curSize = strlen(block2str);
 
-    if (footer_size > 0) {
+    if (footer_size > 0 && has_null_arg) {
         footer_nullable = (char *)palloc0(footer_size);
         build_nullable_footer(footer_nullable, rettype);
         pStr = (char *)(block2str + curSize);
@@ -935,6 +942,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
     Form_pg_proc procst;
     Datum retval = 0;
     Oid rettype;
+    bool has_null_arg = false;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -959,13 +967,23 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
             elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
+        /* Checking for null defined argument */
+        for (i = 0; i < procst->pronargs ; i++)
+        {
+            if(fcinfo->argnull[i])
+            {
+                has_null_arg = true;
+                break;
+            }
+        }
+
     // Build the source code
         block_call2 = pldotnet_build_block2( procst );
 	//elog(ERROR, "[pldotnet] %s", block_call2);
-        block_call4 = pldotnet_build_block4( procst );
+        block_call4 = pldotnet_build_block4( procst, has_null_arg );
 	//elog(ERROR, "[pldotnet] %s", block_call4);
-        block_call5 = pldotnet_build_block5( procst , proc );
-	//elog(ERROR, "[pldotnet] %s", block_call5);
+        block_call5 = pldotnet_build_block5( procst , proc, fcinfo->argnull, has_null_arg );
+	elog(ERROR, "[pldotnet] %s", block_call5);
         source_code = palloc0(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
                              + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
 
