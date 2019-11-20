@@ -7,7 +7,7 @@ else if (age >= 18 && age < 40)
 else
     res = $" Hey {name} {lname}! You are getting experienced!";
 return res.ToString();
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 
 SELECT ageTest('Billy', 10, 'The KID');
 SELECT ageTest('John', 33, 'Smith');

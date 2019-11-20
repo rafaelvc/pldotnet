@@ -1,24 +1,24 @@
 /**************** Null return test functions ***************************/
 CREATE OR REPLACE FUNCTION returnNullInt() RETURNS integer AS $$
 return null;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT returnNullInt();
 
 CREATE OR REPLACE FUNCTION returnNullSmallInt() RETURNS smallint AS $$
 return null;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT returnNullSmallInt();
 
 CREATE OR REPLACE FUNCTION returnNullBigInt() RETURNS bigint AS $$
 return null;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT returnNullBigInt();
 
 /**************** Null operations test functions ***************************/
 CREATE OR REPLACE FUNCTION sumNullArgInt(a integer, b integer) RETURNS integer AS $$
 return a + b;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT sumNullArgInt(null,null);
 SELECT sumNullArgInt(null,3);
 SELECT sumNullArgInt(3,null);
@@ -27,7 +27,7 @@ SELECT sumNullArgInt(3,3);
 CREATE OR REPLACE FUNCTION sumNullArgSmallInt(a smallint, b smallint) RETURNS smallint AS $$
 return (short?)(a + b);
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT sumNullArgSmallInt(null,null);
 SELECT sumNullArgSmallInt(null,CAST(101 AS smallint));
 SELECT sumNullArgSmallInt(CAST(101 AS smallint),null);
@@ -36,7 +36,7 @@ SELECT sumNullArgSmallInt(CAST(101 AS smallint),CAST(101 AS smallint));
 CREATE OR REPLACE FUNCTION sumNullArgBigInt(a bigint, b bigint) RETURNS bigint AS $$
 return a + b;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT sumNullArgBigInt(null,null);
 SELECT sumNullArgBigInt(null,100);
 SELECT sumNullArgBigInt(9223372036854775707,null);
@@ -49,7 +49,7 @@ if(!a.HasValue || !b.HasValue)
 else
     return a + b;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT checkedSumNullArgInt(null,null);
 SELECT checkedSumNullArgInt(null,3);
 SELECT checkedSumNullArgInt(3,null);
@@ -61,7 +61,7 @@ if(!a.HasValue || !b.HasValue)
 else
     return (short?)(a + b);
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT checkedSumNullArgSmallInt(null,null);
 SELECT checkedSumNullArgSmallInt(null,CAST(133 AS smallint));
 SELECT checkedSumNullArgSmallInt(CAST(133 AS smallint),null);
@@ -73,7 +73,7 @@ if(!a.HasValue || !b.HasValue)
 else
     return a + b;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT checkedSumNullArgBigInt(null,null);
 SELECT checkedSumNullArgBigInt(null,100);
 SELECT checkedSumNullArgBigInt(9223372036854775707,null);
@@ -86,7 +86,7 @@ if(!a.HasValue || !b.HasValue || !c.HasValue)
 else
     return (long)a + (long)b + c;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT checkedSumNullArgMixed(null,null,null);
 SELECT checkedSumNullArgMixed(null,CAST(1313 as smallint),null);
 SELECT checkedSumNullArgMixed(1313,null,null);
