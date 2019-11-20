@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION returnNullBool() RETURNS boolean AS $$
 return null;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT returnNullBool() is NULL;
  ?column? 
 ----------
@@ -9,7 +9,7 @@ SELECT returnNullBool() is NULL;
 
 CREATE OR REPLACE FUNCTION BooleanNullAnd(a boolean, b boolean) RETURNS boolean AS $$
 return a&b;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT BooleanNullAnd(true, null) is NULL;
  ?column? 
 ----------
@@ -42,7 +42,7 @@ SELECT BooleanNullAnd(null, null) is NULL;
 
 CREATE OR REPLACE FUNCTION BooleanNullOr(a boolean, b boolean) RETURNS boolean AS $$
 return a|b;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT BooleanNullOr(true, null) is true;
  ?column? 
 ----------
@@ -75,7 +75,7 @@ SELECT BooleanNullOr(null, null) is NULL;
 
 CREATE OR REPLACE FUNCTION BooleanNullXor(a boolean, b boolean) RETURNS boolean AS $$
 return a^b;
-$$ LANGUAGE pldotnet;
+$$ LANGUAGE plcsharp;
 SELECT BooleanNullXor(true, null) is NULL;
  ?column? 
 ----------
