@@ -45,10 +45,15 @@ PG_MODULE_MAGIC;
 
 PGDLLEXPORT Datum _PG_init(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum _PG_fini(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pldotnet_call_handler(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pldotnet_validator(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum plcsharp_call_handler(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 #if PG_VERSION_NUM >= 90000
-PGDLLEXPORT Datum pldotnet_inline_handler(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
+#endif
+PGDLLEXPORT Datum plfsharp_call_handler(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
+#if PG_VERSION_NUM >= 90000
+PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
 static char * pldotnet_build_block2(Form_pg_proc procst);
@@ -928,8 +933,8 @@ Datum _PG_fini(PG_FUNCTION_ARGS)
     PG_RETURN_VOID();
 }
 
-PG_FUNCTION_INFO_V1(pldotnet_call_handler);
-Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(plcsharp_call_handler);
+Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 {
 //    return DotNET_callhandler( /* additional args, */ fcinfo);
     bool istrigger;
@@ -1104,8 +1109,8 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
     return retval;
 }
 
-PG_FUNCTION_INFO_V1(pldotnet_validator);
-Datum pldotnet_validator(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(plcsharp_validator);
+Datum plcsharp_validator(PG_FUNCTION_ARGS)
 {
 //    return DotNET_validator(/* additional args, */ PG_GETARG_OID(0));
     if (SPI_connect() != SPI_OK_CONNECT)
@@ -1126,8 +1131,8 @@ Datum pldotnet_validator(PG_FUNCTION_ARGS)
 }
 
 
-PG_FUNCTION_INFO_V1(pldotnet_inline_handler);
-Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(plcsharp_inline_handler);
+Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 {
     //  return DotNET_inlinehandler( /* additional args, */ CODEBLOCK);
     if (SPI_connect() != SPI_OK_CONNECT)
@@ -1249,6 +1254,80 @@ Datum pldotnet_inline_handler(PG_FUNCTION_ARGS)
         //
         csharp_method(&args, sizeof(args));
         pfree(source_code);
+    }
+    PG_CATCH();
+    {
+        // Exception handling
+        PG_RE_THROW();
+    }
+    PG_END_TRY();
+
+    if (SPI_finish() != SPI_OK_FINISH)
+        elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
+    PG_RETURN_VOID();
+}
+
+//////////// FSharp handlers
+PG_FUNCTION_INFO_V1(plfsharp_call_handler);
+Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
+{
+    bool istrigger;
+    Datum retval = 0;
+    if (SPI_connect() != SPI_OK_CONNECT)
+        elog(ERROR, "[pldotnet]: could not connect to SPI manager");
+    istrigger = CALLED_AS_TRIGGER(fcinfo);
+    if (istrigger) {
+        ereport(ERROR,
+              (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+               errmsg("[pldotnet]: dotnet trigger not supported")));
+    }
+    PG_TRY();
+    {
+        // Do F# handler here
+	}
+    PG_CATCH();
+    {
+        // Do the excption handling
+        elog(WARNING, "Exception");
+        PG_RE_THROW();
+    }
+    PG_END_TRY();
+    if (SPI_finish() != SPI_OK_FINISH)
+        elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
+    return retval;
+}
+
+PG_FUNCTION_INFO_V1(plfsharp_validator);
+Datum plfsharp_validator(PG_FUNCTION_ARGS)
+{
+//    return DotNET_validator(/* additional args, */ PG_GETARG_OID(0));
+    if (SPI_connect() != SPI_OK_CONNECT)
+        elog(ERROR, "[pldotnet]: could not connect to SPI manager");
+    PG_TRY();
+    {
+        // Do some dotnet checking ??
+    }
+    PG_CATCH();
+    {
+        // Do the excption handling
+        PG_RE_THROW();
+    }
+    PG_END_TRY();
+    if (SPI_finish() != SPI_OK_FINISH)
+        elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
+    return 0; /* VOID */
+}
+
+PG_FUNCTION_INFO_V1(plfsharp_inline_handler);
+Datum plfsharp_inline_handler(PG_FUNCTION_ARGS)
+{
+    //  return DotNET_inlinehandler( /* additional args, */ CODEBLOCK);
+    if (SPI_connect() != SPI_OK_CONNECT)
+        elog(ERROR, "[plldotnet]: could not connect to SPI manager");
+
+    PG_TRY();
+    {
+        // Do F# handler here
     }
     PG_CATCH();
     {
