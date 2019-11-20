@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION fibbb(n integer) RETURNS integer AS $$
         return ret;
     return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
 $$ LANGUAGE pldotnet;
-SELECT fibbb(30);
+SELECT fibbb(30) = integer '832040';
 
 CREATE OR REPLACE FUNCTION fact(n integer) RETURNS integer AS $$
     int? ret = 1;
@@ -23,7 +23,7 @@ CREATE OR REPLACE FUNCTION fact(n integer) RETURNS integer AS $$
     else
     	return n*fact(n.GetValueOrDefault()-1);
 $$ LANGUAGE pldotnet;
-SELECT fact(5);
+SELECT fact(5) = integer '120';
 
 CREATE OR REPLACE FUNCTION natural(n numeric) RETURNS numeric AS $$
     if (n < 0) 
@@ -33,5 +33,5 @@ CREATE OR REPLACE FUNCTION natural(n numeric) RETURNS numeric AS $$
     else
     	return natural(n-1);
 $$ LANGUAGE pldotnet;
-SELECT natural(10);
-SELECT natural(10.5);
+SELECT natural(10) =  numeric '1';
+SELECT natural(10.5) = numeric '0';
