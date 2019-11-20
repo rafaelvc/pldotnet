@@ -1,6 +1,6 @@
 # pldotnet extension
 default_version = '0.0.1'
-comment = '.NET C# as a procedural language'
+comment = '.NET C# and F# as procedural languages'
 module_pathname = '$libdir/pldotnet'
 relocatable = false
 schema = 'pldotnet'
