@@ -1,31 +1,31 @@
 CREATE OR REPLACE FUNCTION returnNullBool() RETURNS boolean AS $$
 return null;
 $$ LANGUAGE pldotnet;
-SELECT returnNullBool();
+SELECT returnNullBool() is NULL;
 
 CREATE OR REPLACE FUNCTION BooleanNullAnd(a boolean, b boolean) RETURNS boolean AS $$
 return a&b;
 $$ LANGUAGE pldotnet;
-SELECT BooleanNullAnd(true, null);
-SELECT BooleanNullAnd(null, true);
-SELECT BooleanNullAnd(false, null);
-SELECT BooleanNullAnd(null, false);
-SELECT BooleanNullAnd(null, null);
+SELECT BooleanNullAnd(true, null) is NULL;
+SELECT BooleanNullAnd(null, true) is NULL;
+SELECT BooleanNullAnd(false, null) is false;
+SELECT BooleanNullAnd(null, false) is false;
+SELECT BooleanNullAnd(null, null) is NULL;
 
 CREATE OR REPLACE FUNCTION BooleanNullOr(a boolean, b boolean) RETURNS boolean AS $$
 return a|b;
 $$ LANGUAGE pldotnet;
-SELECT BooleanNullOr(true, null);
-SELECT BooleanNullOr(null, true);
-SELECT BooleanNullOr(false, null);
-SELECT BooleanNullOr(null, false);
-SELECT BooleanNullOr(null, null);
+SELECT BooleanNullOr(true, null) is true;
+SELECT BooleanNullOr(null, true) is true;
+SELECT BooleanNullOr(false, null) is NULL;
+SELECT BooleanNullOr(null, false) is NULL;
+SELECT BooleanNullOr(null, null) is NULL;
 
 CREATE OR REPLACE FUNCTION BooleanNullXor(a boolean, b boolean) RETURNS boolean AS $$
 return a^b;
 $$ LANGUAGE pldotnet;
-SELECT BooleanNullXor(true, null);
-SELECT BooleanNullXor(null, true);
-SELECT BooleanNullXor(false, null);
-SELECT BooleanNullXor(null, false);
-SELECT BooleanNullXor(null, null);
+SELECT BooleanNullXor(true, null) is NULL;
+SELECT BooleanNullXor(null, true) is NULL;
+SELECT BooleanNullXor(false, null) is NULL;
+SELECT BooleanNullXor(null, false) is NULL;
+SELECT BooleanNullXor(null, null) is NULL;
