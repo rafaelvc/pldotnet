@@ -720,8 +720,9 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     int lenBuff;
     char * newArgVl;
     /* nullable related*/
-    bool nullable_arg_flag = false;
+    bool nullable_arg_flag = false, fcinfo_null_flag;
     bool *argsnullP;
+    Datum argDatum;
 
     dotnet_info.typeSizeOfParams = 0;
     dotnet_info.typeSizeNullFlags = 0;
@@ -749,54 +750,60 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     for (i = 0; i < fcinfo->nargs; i++)
     {
         type = argtype[i];
+#if PG_VERSION_NUM >= 120000
+        fcinfo_null_flag=fcinfo->args[i].isnull;
+        argDatum = fcinfo->args[i].value;
+#else
+        fcinfo_null_flag=fcinfo->argnull[i];
+        argDatum = fcinfo->arg[i];
+#endif
         switch (type)
         {
             case BOOLOID:
-                *(bool *)curArg = DatumGetBool(fcinfo->arg[i]);
-                argsnullP[i]=fcinfo->argnull[i];
-                //TODO: Address arg conversion for different PGVERSION
+                *(bool *)curArg = DatumGetBool(argDatum);
+                argsnullP[i] = fcinfo_null_flag;
                 break;
             case INT4OID:
-                *(int *)curArg = DatumGetInt32(fcinfo->arg[i]);
-                argsnullP[i]=fcinfo->argnull[i];
+                *(int *)curArg = DatumGetInt32(argDatum);
+                argsnullP[i] = fcinfo_null_flag;
                 break;
             case INT8OID:
-                *(long *)curArg = DatumGetInt64(fcinfo->arg[i]);
-                argsnullP[i]=fcinfo->argnull[i];
+                *(long *)curArg = DatumGetInt64(argDatum);
+                argsnullP[i] = fcinfo_null_flag;
                 break;
             case INT2OID:
-                *(short *)curArg = DatumGetInt16(fcinfo->arg[i]);
-                argsnullP[i]=fcinfo->argnull[i];
+                *(short *)curArg = DatumGetInt16(argDatum);
+                argsnullP[i] = fcinfo_null_flag;
                 break;
             case FLOAT4OID:
-                *(float *)curArg = DatumGetFloat4(fcinfo->arg[i]);
+                *(float *)curArg = DatumGetFloat4(argDatum);
                 break;
             case FLOAT8OID:
-                *(double *)curArg = DatumGetFloat8(fcinfo->arg[i]);
+                *(double *)curArg = DatumGetFloat8(argDatum);
                 break;
             case NUMERICOID:
                 // C String encoding
                 *(unsigned long *)curArg =
-                    DatumGetCString(DirectFunctionCall1(numeric_out, fcinfo->arg[i]));
+                    DatumGetCString(DirectFunctionCall1(numeric_out, argDatum));
                 break;
             case BPCHAROID:
                 // C String encoding
                 //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(bpcharout, DatumGetCString(fcinfo->arg[i]));
+                //    DirectFunctionCall1(bpcharout, DatumGetCString(argDatum));
                 //break;
             case TEXTOID:
                 // C String encoding
                 //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(textout, DatumGetCString(fcinfo->arg[i]));
+                //    DirectFunctionCall1(textout, DatumGetCString(argDatum));
                 //break;
             case VARCHAROID:
                 // C String encoding
                 //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(varcharout, DatumGetCString(fcinfo->arg[i]));
+                //    DirectFunctionCall1(varcharout, DatumGetCString(argDatum));
                // UTF8 encoding
-               lenBuff = VARSIZE( fcinfo->arg[i] ) - VARHDRSZ;
+               lenBuff = VARSIZE( argDatum ) - VARHDRSZ;
                newArgVl = (char *)palloc0(lenBuff + 1);
-               memcpy(newArgVl, VARDATA( fcinfo->arg[i] ), lenBuff);
+               memcpy(newArgVl, VARDATA( argDatum ), lenBuff);
                *(unsigned long *)curArg = (char *)
                     pg_do_encoding_conversion(newArgVl,
                                               lenBuff+1,
@@ -812,7 +819,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 static Datum
-pldotnet_getResultFromDotNet(char * libArgs, Oid rettype,FunctionCallInfo fcinfo)
+pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
 {
     /*elog(WARNING, "nullflags size %d", dotnet_info.typeSizeNullFlags);*/
     /*elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);*/

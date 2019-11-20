@@ -19,7 +19,7 @@ RUN wget -q https://packages.microsoft.com/config/ubuntu/16.04/packages-microsof
     && apt-get install -y dotnet-sdk-"$DOTNET_VERSION" 
 
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
-    && sh -c "echo deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main $PG_VERSION \ 
+    && sh -c "echo deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main $PG_VERSION \ 
               >> /etc/apt/sources.list.d/postgresql.list" \
     && apt-get update -qq \
     && apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::="--force-confnew" install \ 
