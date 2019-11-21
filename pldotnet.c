@@ -88,12 +88,12 @@ typedef struct args_source
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text
 
-const char public_bool[] = "[MarshalAs(UnmanagedType.U1)]public ";
-const char public_string_utf8[] = "[MarshalAs(UnmanagedType.LPUTF8Str)]public ";
-const char public_[] = "public ";
+const char public_bool[] = "\n[MarshalAs(UnmanagedType.U1)]public ";
+const char public_string_utf8[] = "\n[MarshalAs(UnmanagedType.LPUTF8Str)]public ";
+const char public_[] = "\npublic ";
 /* nullable related constants */
-const char resu_nullable_value[] = "libArgs.resu = resu_nullable.GetValueOrDefault();";
-const char resu_nullable_flag[] = "libArgs.resunull = !resu_nullable.HasValue;";
+const char resu_nullable_value[] = "libArgs.resu = resu_nullable.GetValueOrDefault();\n";
+const char resu_nullable_flag[] = "libArgs.resunull = !resu_nullable.HasValue;\n";
 const char argsnull_str[] = "libArgs.argsnull";
 const char nullable_suffix[] = "_nullable";
 const char resu_flag_str[] = "bool resunull;";
@@ -120,7 +120,7 @@ char block_call3[] = "                            \n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
-            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);";
+            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n";
 //block_call4 libArgs.resu = FUNC(libArgs.argName1, libArgs.argName2, ...);
 //block_call5    //returnT FUNC(argType1 argName1, argType2 argName2, ...)
 	        //{
@@ -271,7 +271,7 @@ pldotnet_build_block2(Form_pg_proc procst)
     }
 
     // result
-    pStr = (char *)(block2str + curSize);
+            pStr = (char *)(block2str + curSize);
 
 
     sprintf(pStr, "%s%s%s%s",
@@ -317,7 +317,8 @@ pldotnet_build_block4(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         block2str = (char *)palloc0(strlen(resu_var) + strlen(func) + strlen(beginFun) + strlen(endFun) + 1);
+         block2str = (char *)palloc0(strlen(resu_var) + strlen(func) + strlen(beginFun) 
+                         + strlen(endFun) + strlen(semicolon));
          if (rettype == NUMERICOID)
             sprintf(block2str, "%s%s%s%s%s%s",resu_var, func, beginFun, endFun, strConvert, semicolon);
          else
@@ -378,7 +379,7 @@ static int
 get_size_args_null_array(int nargs)
 {
     const char public_bool_array[] =
-        "[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=)]public ";
+        "\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=)]public ";
     int n_digits_args = 0;
 
     if(nargs > 0)
@@ -390,7 +391,7 @@ get_size_args_null_array(int nargs)
 static void
 build_args_null_array_str(char *dest, int nargs)
 {
-    sprintf(dest,"[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=%d)]public %s",
+    sprintf(dest,"\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=%d)]public %s",
         nargs, arg_flag_str);
 }
 
@@ -408,6 +409,7 @@ get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
     char *square_bracket_char = "["; /* same for ']' */
     char *colon_char = ":";
     char *semicolon_char = ";";
+    char *newline_char = "\n";
     char *null_str = "null";
     int n_digits_arg = 0;
 
@@ -428,7 +430,7 @@ get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
                 + strlen(square_bracket_char) + strlen(question_mark) + strlen(parenthesis_char)
                 + strlen(pldotnet_getNetNullableTypeName(arg_type)) + strlen(parenthesis_char)
                 + strlen(null_str) + strlen(colon_char) + argNm_size + strlen(nullable_suffix)
-                + strlen(semicolon_char);
+                + strlen(semicolon_char) + strlen(newline_char);
             break;
     }
 
@@ -450,7 +452,7 @@ build_nullable_header(char* dest,char* argname, Oid argtype, int narg)
          case INT4OID:
          case INT8OID:
          case BOOLOID:
-             sprintf(dest,"%s%s=%s[%d]?(%s)null:%s%s;", pldotnet_getNetNullableTypeName(argtype)
+             sprintf(dest,"%s%s=%s[%d]?(%s)null:%s%s;\n", pldotnet_getNetNullableTypeName(argtype)
                  , argname, argsnull_str, narg, pldotnet_getNetNullableTypeName(argtype)
                  , argname, nullable_suffix);
      }
@@ -515,6 +517,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     const char comma[] = ",";
     const char endFunDec[] = "){\n";
     const char endFun[] = "}\n";
+    const char newLine[] = "\n";
     int nargs = procst->pronargs;
     Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
@@ -545,10 +548,10 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     // their types and the function return type
     if(is_nullable(rettype))
     {
-        totalSize = strlen(pldotnet_getNetNullableTypeName(rettype))
+        totalSize = strlen(newLine) + strlen(pldotnet_getNetNullableTypeName(rettype))
                     + strlen(" ") + strlen(func) + strlen(beginFunDec);
     } else{
-        totalSize = strlen(pldotnet_getNetTypeName(rettype, false))
+        totalSize = strlen(newLine) + strlen(pldotnet_getNetTypeName(rettype, false))
                     + strlen(" ") + strlen(func) + strlen(beginFunDec);
     }
 
@@ -579,9 +582,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
     if(is_nullable(rettype))
     {
-        sprintf(block2str, "%s %s%s",pldotnet_getNetNullableTypeName(rettype), func, beginFunDec);
+        sprintf(block2str, "%s%s %s%s",newLine, pldotnet_getNetNullableTypeName(rettype), func, beginFunDec);
     } else {
-        sprintf(block2str, "%s %s%s", pldotnet_getNetTypeName(rettype, false), func, beginFunDec);
+        sprintf(block2str, "%s%s %s%s",newLine,  pldotnet_getNetTypeName(rettype, false), func, beginFunDec);
     }
 
     curSize = strlen(block2str);
