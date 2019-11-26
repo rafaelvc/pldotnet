@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION get_sum(
 RETURNS NUMERIC(4,1) AS $$
 return a + b;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT get_sum(1.3333333, 10) =  numeric '11.3333333';
  ?column? 
 ----------
@@ -38,7 +38,7 @@ SELECT get_sum(1999999999999.555555555555555, -10.99999999) = numeric '199999999
 CREATE OR REPLACE FUNCTION getbigNum(a NUMERIC) RETURNS NUMERIC AS $$
 return a;
 $$
-LANGUAGE pldotnet;
+LANGUAGE plcsharp;
 SELECT getbigNum(999999999999999999991.9999991) = numeric '999999999999999999991.9999991'; -- Sextllion at 7 scale (10 power 28 precision)
  ?column? 
 ----------
