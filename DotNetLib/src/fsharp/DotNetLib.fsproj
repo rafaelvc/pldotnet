@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Lib.fs" />
+  </ItemGroup>
+
+  <Target Name="SetupForDemo"
+    AfterTargets="Build">
+
+    <ItemGroup>
+      <AllOutputs Include="$(OutputPath)$(MSBuildProjectName).dll" />
+      <AllOutputs Include="$(OutputPath)$(MSBuildProjectName).pdb" />
+      <AllOutputs Include="$(OutputPath)$(MSBuildProjectName).runtimeconfig.json" />
+      <AllOutputs Include="$(OutputPath)$(MSBuildProjectName).deps.json" />
+    </ItemGroup>
+
+    <!-- Copy the project outputs to the demo directory -->
+    <Copy SourceFiles="@(AllOutputs)"
+	    DestinationFolder="./" />
+  </Target>
+
+</Project>
