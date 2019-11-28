@@ -1008,7 +1008,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         pfree(block_call5);
 
 #ifdef USE_DOTNETBUILD
-        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+        SNPRINTF(filename, 1024, "%s/src/csharp/Lib.cs", dnldir);
         output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
@@ -1020,7 +1020,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src/csharp > null", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
@@ -1176,7 +1176,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         // STEP 0: Compile C# source code
         //
 #ifdef USE_DOTNETBUILD
-        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+        SNPRINTF(filename, 1024, "%s/src/csharp/Lib.cs", dnldir);
         output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
@@ -1188,7 +1188,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src/csharp > null", dnldir);
         compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
@@ -1204,7 +1204,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         //
         // STEP 2: Initialize and start the .NET Core runtime
         //
-        SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
+        SNPRINTF(config_path, 1024, "%s/src/csharp/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
         load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
@@ -1214,7 +1214,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
-        SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+        SNPRINTF(dotnetlib_path, 1024, "%s/src/csharp/DotNetLib.dll", root_path);
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
@@ -1776,7 +1776,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         pfree(fs_block_call6);
 
 #ifdef USE_DOTNETBUILD
-        SNPRINTF(filename, 1024, "%s/src/Lib.fs", dnldir);
+        SNPRINTF(filename, 1024, "%s/src/fsharp/Lib.fs", dnldir);
         output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
@@ -1788,7 +1788,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src/fsharp > null", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
@@ -1805,7 +1805,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 2: Initialize and start the .NET Core runtime
         //
-        SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
+        SNPRINTF(config_path, 1024, "%s/src/fsharp/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
         load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
@@ -1815,7 +1815,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
-        SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+        SNPRINTF(dotnetlib_path, 1024, "%s/src/fsharp/DotNetLib.dll", root_path);
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
