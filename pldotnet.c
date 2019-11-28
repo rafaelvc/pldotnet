@@ -900,7 +900,7 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
             /*elog(WARNING, "Result size %d", lenStr);*/
             encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
                                                     GetDatabaseEncoding() );
-            resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
+             resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
 #if PG_VERSION_NUM < 80300
             VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
 #else
@@ -1267,12 +1267,469 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
     PG_RETURN_VOID();
 }
 
+char fs_block_call1[] = "\n\
+namespace DotNetLib      \n\
+    open System.Runtime.InteropServices\n\
+    [<Struct>]           \n\
+    [<StructLayout (LayoutKind.Sequential)>]\n\
+    type LibArgs =\n";
+/****** fs_block_call2 ******
+ *      val mutable arg1:int
+ *      val mutable arg2:int
+ *      ...
+ *      val mutable resu:int
+ */      
+char fs_block_call3[] = "\n\
+    type Lib =\n";
+/********* fs_block_call4 ******
+ *         static member <function_name> =
+ *             <function_body>
+ */      
+char fs_block_call5[] = "\n\
+        static member ProcedureMethod (arg:System.IntPtr) (argLength:int) = \n\
+           let mutable libArgs = Marshal.PtrToStructure<LibArgs> arg\n";
+
+char fs_block_call7[] = "\n\
+           Marshal.StructureToPtr(libArgs, arg, false)\n\
+           System.Console.WriteLine(\"Result from F#: {0}\", libArgs.arg0);\n\ 
+           System.Console.WriteLine(\"Result from F#: {0}\", libArgs.arg1);\n\ 
+           0";
+
+static char *
+plfsharp_build_block2(Form_pg_proc procst)
+{
+    char *block2str, *pStr;
+    Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    Oid rettype = procst->prorettype; // Indicates the return type
+    int nargs = procst->pronargs;
+    const char val[] = "        val mutable";
+    const char semicon[] = ":";
+    char argName[] = " argN";
+    char result[] = " resu"; // have to be same size argN
+    int i, curSize = 0, totalSize = 0, public_size;
+    /* nullable related*/
+    bool nullable_arg_flag = false;
+    int null_flags_size = 0, return_null_flag_size = 0;
+    char *return_null_flag_str;
+
+
+    if (!pldotnet_type_supported(rettype))
+    {
+        elog(ERROR, "[pldotnet]: unsupported type on return");
+        return 0;
+    }
+
+    for (i = 0; i < nargs; i++)
+    {
+        if (!pldotnet_type_supported(argtype[i]))
+        {
+            elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
+            return 0;
+        }
+
+        totalSize += strlen(val) + strlen(argName) + strlen(semicon)
+                        + strlen(pldotnet_getNetTypeName(argtype[i], true));
+    }
+    
+    totalSize += strlen(val) + strlen(result) + strlen(semicon) 
+                    + strlen(pldotnet_getNetTypeName(rettype, true)) + 1;
+
+    block2str = (char *) palloc0(totalSize);
+
+    for (i = 0; i < nargs; i++)
+    {
+        sprintf(argName, " arg%d", i); // Review for nargs > 9
+        pStr = (char *)(block2str + curSize);
+        sprintf(pStr, "%s%s%s%s\n",
+            val, argName, semicon,
+            pldotnet_getNetTypeName(argtype[i], true) );
+        curSize += strlen(pStr);
+    }
+
+    // result
+    pStr = (char *)(block2str + curSize);
+
+
+    sprintf(pStr, "%s%s%s%s",
+            val, result, semicon,
+            pldotnet_getNetTypeName(rettype, true));
+
+    /* elog(WARNING, "%s", block2str);*/
+    return block2str;
+}
+
+static char *
+plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
+{
+    char *block2str, *pStr, *argNm, *source_text;
+    int argNmSize, i, nnames, curSize, source_size, totalSize;
+    bool isnull;
+    const char beginFunDec[] = "(";
+    char * func;
+    //exp - Begin
+    const char member[] = "static member ";
+    const char equal[] = " =\n";
+    //exp - Final 
+    const char func_sign_ident[] = "        ";
+    const char func_body_ident[] = "            ";
+    char *user_line;
+    const char endFunDec[] = " =\n";
+    const char endFun[] = "\n";
+    int nargs = procst->pronargs;
+    Oid rettype = procst->prorettype;
+    Datum *argname, argnames, prosrc;
+    text * t;
+    Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    /* nullable related */
+    char *header_nullable, *footer_nullable, *header_nullableP;
+    int header_size=0, cur_header_size, footer_size=0;
+
+    // Function name
+    func = NameStr(procst->proname);
+
+    // Source code
+    prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
+    t = DatumGetTextP(prosrc);
+    source_text = DirectFunctionCall1(textout, DatumGetCString(t));
+    source_size = strlen(source_text);
+
+    argnames = SysCacheGetAttr(PROCOID, proc,
+        Anum_pg_proc_proargnames, &isnull);
+
+    if (!isnull)
+      deconstruct_array(DatumGetArrayTypeP(argnames), TEXTOID, -1, false,
+          'i', &argname, NULL, &nnames);
+
+    // Caculates the total amount in bytes of C# src text for 
+    // the function declaration according nr of arguments 
+    // their types and the function return type
+
+    //exp
+    totalSize = strlen(func_sign_ident) + strlen(member) + strlen(func) + strlen(" ");
+
+    for (i = 0; i < nargs; i++) 
+    {
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+
+        argNmSize = strlen(argNm);
+        /*+1 here is the space between type" "argname declaration*/
+        totalSize +=  1 + argNmSize;
+    }
+
+    user_line = strtok(source_text,"\n");
+    while(user_line != NULL){
+        elog(WARNING,"\n\nUSER_LINE_SIZE: %d",strlen(func_body_ident)+strlen(user_line));
+        user_line = strtok(NULL,"\n");
+    }
+
+    totalSize +=  strlen(endFunDec) + source_size + strlen(endFun);
+
+    block2str = (char *)palloc0(totalSize);
+
+    //exp
+    sprintf(block2str, "%s%s%s ",func_sign_ident, member, func);
+
+    curSize = strlen(block2str);
+
+    for (i = 0; i < nargs; i++)
+    {
+        argNm = DirectFunctionCall1(textout,
+                DatumGetCString(DatumGetTextP(argname[i])) );
+
+        argNmSize = strlen(argNm);
+        pStr = (char *)(block2str + curSize);
+
+        sprintf(pStr, " %s",argNm);
+        curSize = strlen(block2str);
+    }
+
+
+    pStr = (char *)(block2str + curSize);
+    sprintf(pStr, "%s", endFunDec);
+    curSize = strlen(block2str);
+
+    user_line = strtok(source_text,"\n");
+    int printed_num;
+    while(user_line != NULL){
+        pStr = (char *)(block2str + curSize);
+        printed_num = sprintf(pStr,"%s%s",func_body_ident,user_line);
+        elog(WARNING,"\n\nUSER_LINE_PRINTED: %d", printed_num);
+        user_line = strtok(NULL,"\n");
+        curSize = strlen(block2str);
+    }
+    elog(WARNING,"\n\nUSER_LINE_FINAL: %s",source_text);
+
+    pStr = (char *)(block2str + curSize);
+    sprintf(pStr, "%s", endFun);
+
+    /*elog(WARNING, "%s", block2str);*/
+    return block2str;
+
+}
+
+static char *
+plfsharp_build_block6(Form_pg_proc procst)
+{
+    char *block2str, *pStr, *resu_var;
+    int curSize, i, totalSize;
+    const char beginFun[] = "(";
+    char * func;
+    const char libArgs[] = " libArgs.";
+    const char strConvert[] = ".ToString()"; // Converts func return
+    const char toDecimal[] = "Convert.ToDecimal(";
+    const char comma[] = ",";
+    char argName[] = "argN";
+    const char endFun[] = "\n";
+    const char semicolon[] = ";";
+    const char func_line_indent[] = "           ";
+    int nargs = procst->pronargs;
+    Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    Oid rettype = procst->prorettype; // Indicates the return type
+
+    // Function name
+    func = NameStr(procst->proname);
+
+    const char result[] = "libArgs.resu <- Lib.";
+
+    // TODO:  review for nargs > 9
+    if (nargs == 0)
+    {
+         block2str = (char *)palloc0(strlen(func_line_indent) + strlen(result) + strlen(func) + strlen(endFun));
+         sprintf(block2str, "%s%s%s%s",func_line_indent,resu_var, func, endFun);
+    }
+
+    totalSize = strlen(func_line_indent) +strlen(result) + strlen(func) 
+                    + (strlen(libArgs) + strlen(argName)) * nargs
+                    + strlen(endFun);
+
+    block2str = (char *) palloc0(totalSize);
+    sprintf(block2str, "%s%s%s",func_line_indent, result, func);
+    curSize = strlen(block2str);
+
+    for (i = 0; i < nargs; i++)
+    {
+        sprintf(argName, "arg%d", i); // review nargs > 9
+        pStr = (char *)(block2str + curSize);
+        sprintf(pStr, "%s%s", libArgs, argName);
+        curSize = strlen(block2str);
+    }
+
+    pStr = (char *)(block2str + curSize);
+    sprintf(pStr, "%s", endFun);
+
+    return block2str;
+
+}
+
+static char *
+plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
+{
+    int i;
+    int curSize = 0;
+    char *ptrToLibArgs = NULL;
+    char *curArg = NULL;
+    Oid *argtype = procst->proargtypes.values;
+    Oid rettype = procst->prorettype;
+    Oid type;
+    int lenBuff;
+    char * newArgVl;
+    /* nullable related*/
+    bool nullable_arg_flag = false, fcinfo_null_flag;
+    bool *argsnullP;
+    Datum argDatum;
+
+    dotnet_info.typeSizeOfParams = 0;
+    dotnet_info.typeSizeNullFlags = 0;
+
+    for (i = 0; i < fcinfo->nargs; i++) {
+        dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
+        /*elog(WARNING, "%d", dotnet_info.typeSizeOfParams );*/
+    }
+
+    dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
+
+    ptrToLibArgs = (char *) palloc0(dotnet_info.typeSizeOfParams +
+                                  dotnet_info.typeSizeOfResult);
+
+    curArg = ptrToLibArgs;
+
+    for (i = 0; i < fcinfo->nargs; i++)
+    {
+        type = argtype[i];
+#if PG_VERSION_NUM >= 120000
+        fcinfo_null_flag=fcinfo->args[i].isnull;
+        argDatum = fcinfo->args[i].value;
+#else
+        fcinfo_null_flag=fcinfo->argnull[i];
+        argDatum = fcinfo->arg[i];
+#endif
+        switch (type)
+        {
+            case BOOLOID:
+                *(bool *)curArg = DatumGetBool(argDatum);
+                break;
+            case INT4OID:
+                *(int *)curArg = DatumGetInt32(argDatum);
+                break;
+            case INT8OID:
+                *(long *)curArg = DatumGetInt64(argDatum);
+                break;
+            case INT2OID:
+                *(short *)curArg = DatumGetInt16(argDatum);
+                break;
+            case FLOAT4OID:
+                *(float *)curArg = DatumGetFloat4(argDatum);
+                break;
+            case FLOAT8OID:
+                *(double *)curArg = DatumGetFloat8(argDatum);
+                break;
+            case NUMERICOID:
+                // C String encoding
+                *(unsigned long *)curArg =
+                    DatumGetCString(DirectFunctionCall1(numeric_out, argDatum));
+                break;
+            case BPCHAROID:
+                // C String encoding
+                //*(unsigned long *)curArg =
+                //    DirectFunctionCall1(bpcharout, DatumGetCString(argDatum));
+                //break;
+            case TEXTOID:
+                // C String encoding
+                //*(unsigned long *)curArg =
+                //    DirectFunctionCall1(textout, DatumGetCString(argDatum));
+                //break;
+            case VARCHAROID:
+                // C String encoding
+                //*(unsigned long *)curArg =
+                //    DirectFunctionCall1(varcharout, DatumGetCString(argDatum));
+               // UTF8 encoding
+               lenBuff = VARSIZE( argDatum ) - VARHDRSZ;
+               newArgVl = (char *)palloc0(lenBuff + 1);
+               memcpy(newArgVl, VARDATA( argDatum ), lenBuff);
+               *(unsigned long *)curArg = (char *)
+                    pg_do_encoding_conversion(newArgVl,
+                                              lenBuff+1,
+                                              GetDatabaseEncoding(), PG_UTF8);
+                break;
+
+        }
+        curSize += pldotnet_getTypeSize(argtype[i]);
+        curArg = ptrToLibArgs + curSize;
+    }
+
+    return ptrToLibArgs;
+}
+
+static Datum
+plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
+{
+    /*elog(WARNING, "nullflags size %d", dotnet_info.typeSizeNullFlags);*/
+    /*elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);*/
+    Datum retval = 0;
+    unsigned long * retP;
+    VarChar * resVarChar; //For Unicode/UTF8 support
+    int lenStr;
+    char * numStr;
+    char * resultP = libArgs
+                    + dotnet_info.typeSizeOfParams;
+    char * encodedStr;
+
+    switch (rettype){
+        case BOOLOID:
+            /* Recover flag for null result*/
+            return  BoolGetDatum  ( *(bool *)(resultP) );
+        case INT4OID:
+            /* Recover flag for null result*/
+            return  Int32GetDatum ( *(int *)(resultP) );
+        case INT8OID:
+            /* Recover flag for null result*/
+            return  Int64GetDatum ( *(long *)(resultP) );
+        case INT2OID:
+            /* Recover flag for null result*/
+            return  Int16GetDatum ( *(short *)(resultP) );
+        case FLOAT4OID:
+            return  Float4GetDatum ( *(float *)(resultP) );
+        case FLOAT8OID:
+            return  Float8GetDatum ( *(double *)(resultP) );
+        case NUMERICOID:
+            numStr = (char *)*(unsigned long *)(resultP);
+            return DatumGetNumeric(
+                                   DirectFunctionCall3(numeric_in,
+                                         CStringGetDatum(numStr),
+                                         ObjectIdGetDatum(InvalidOid),
+                                         Int32GetDatum(-1)));
+        case TEXTOID:
+             // C String encoding
+             //retval = DirectFunctionCall1(textin,
+             //               CStringGetDatum(
+             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
+        case BPCHAROID:
+        // https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
+        // We should try to get atttymod which is n size in char(n)
+        // and use it in bpcharin (I did not find a way to get it)
+        // case BPCHAROID:
+        //    retval = DirectFunctionCall1(bpcharin,
+        //                           CStringGetDatum(
+        //                            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)), attypmod);
+        case VARCHAROID:
+             // C String encoding
+             //retval = DirectFunctionCall1(varcharin,
+             //               CStringGetDatum(
+             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
+
+            // UTF8 encoding
+            retP = *(unsigned long *)(resultP);
+//          lenStr = pg_mbstrlen(retP);
+            lenStr = strlen(retP);
+            /*elog(WARNING, "Result size %d", lenStr);*/
+            encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
+                                                    GetDatabaseEncoding() );
+             resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
+#if PG_VERSION_NUM < 80300
+            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
+#else
+            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
+#endif
+            memcpy(VARDATA(resVarChar), encodedStr , lenStr);
+            //pfree(encodedStr);
+            PG_RETURN_VARCHAR_P(resVarChar);
+    }
+    return retval;
+}
+
 //////////// FSharp handlers
 PG_FUNCTION_INFO_V1(plfsharp_call_handler);
 Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 {
     bool istrigger;
+    char *source_code, 
+         *fs_block_call2,
+         *fs_block_call4,
+         *fs_block_call6;
+    char *libArgs;
+    int i;
+    HeapTuple proc;
+    Form_pg_proc procst;
     Datum retval = 0;
+    Oid rettype;
+
+    // .NET HostFxr declarations
+#ifdef USE_DOTNETBUILD
+    char dotnet_type[]  = "DotNetLib.Lib, DotNetLib";
+    char dotnet_type_method[64] = "ProcedureMethod";
+    FILE *output_file;
+#else
+    char dotnet_type[] = "DotNetLib.Lib, DotNetLib";
+    char dotnet_type_method[64] = "Compile";
+#endif
+    char dnldir[] = STR(PLNET_ENGINE_DIR);
+    char *root_path;
+    int rc;
+    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+    component_entry_point_fn csharp_method = nullptr;
+    args_source args_source;
+
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
     istrigger = CALLED_AS_TRIGGER(fcinfo);
@@ -1284,6 +1741,129 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     PG_TRY();
     {
         // Do F# handler here
+        MemoryContext oldcontext = CurrentMemoryContext;
+        MemoryContext func_cxt = NULL;
+        func_cxt = AllocSetContextCreate(TopMemoryContext,
+                                    "PL/NET func_exec_ctx",
+                                    ALLOCSET_SMALL_SIZES);
+        MemoryContextSwitchTo(func_cxt);
+        proc = SearchSysCache(PROCOID, ObjectIdGetDatum(fcinfo->flinfo->fn_oid), 0, 0, 0);
+        if (!HeapTupleIsValid(proc))
+            elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
+        procst = (Form_pg_proc) GETSTRUCT(proc);
+
+    // Build the source code
+        fs_block_call2 = plfsharp_build_block2( procst );
+//	elog(ERROR, "[pldotnet] %s", block_call2);
+       fs_block_call4 = plfsharp_build_block4( procst , proc );
+	//elog(ERROR, "[pldotnet] %s", block_call4);
+        fs_block_call6 = plfsharp_build_block6( procst);
+	//elog(ERROR, "[pldotnet] %s", block_call5);
+        source_code = palloc0(strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
+                             + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
+                             + strlen(fs_block_call7) + 1);
+
+        sprintf(source_code, "%s%s%s%s%s%s%s",fs_block_call1, fs_block_call2, fs_block_call3,
+                                            fs_block_call4, fs_block_call5, fs_block_call6, fs_block_call7);
+
+       elog(WARNING, "[pldotnet] %s", source_code);
+
+        rettype = procst->prorettype;
+
+        ReleaseSysCache(proc);
+        pfree(fs_block_call2);
+        pfree(fs_block_call4);
+        pfree(fs_block_call6);
+
+#ifdef USE_DOTNETBUILD
+        SNPRINTF(filename, 1024, "%s/src/Lib.fs", dnldir);
+        output_file = fopen(filename, "w");
+        if (!output_file) {
+            fprintf(stderr, "Cannot open file: '%s'\n", filename);
+            exit(-1);
+        }
+        if(fputs(source_code, output_file) == EOF){
+            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+            exit(-1);
+        }
+        fclose(output_file);
+        setenv("DOTNET_CLI_HOME", dnldir, 1);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        int compile_resp = system(cmd);
+        assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
+#endif
+
+        root_path = strdup(dnldir);
+        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+            root_path[strlen(root_path) - 1] = 0;
+
+        //
+        // STEP 1: Load HostFxr and get exported hosting functions
+        //
+        if (!load_hostfxr()) assert(0 && "Failure: load_hostfxr()");
+
+        //
+        // STEP 2: Initialize and start the .NET Core runtime
+        //
+        SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
+        fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
+
+        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
+        assert(load_assembly_and_get_function_pointer != nullptr && \
+            "Failure: get_dotnet_load_assembly()");
+
+        //
+        // STEP 3: Load managed assembly and get function pointer to a managed method
+        //
+        SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
+        // Function pointer to managed delegate
+        rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_method);
+        assert(rc == 0 && csharp_method != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+        args_source.SourceCode = source_code;
+        args_source.Result = 1;
+#ifndef USE_DOTNETBUILD
+        //
+        // STEP 4: Run managed code (Roslyn compiler)
+        //
+        args_source.FuncOid = (int) fcinfo->flinfo->fn_oid;
+        csharp_method(&args_source, sizeof(args_source));
+        bzero(dotnet_type_method,sizeof(dotnet_type_method));
+        strcpy(dotnet_type_method,"Run");
+
+        // Function pointer to managed delegate
+        rc = load_assembly_and_get_function_pointer(
+            dotnetlib_path,
+            dotnet_type,
+            dotnet_type_method,
+            nullptr /*delegate_type_name*/,
+            nullptr,
+            (void**)&csharp_method);
+
+        assert(rc == 0 && csharp_method != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+#endif
+        /*elog(WARNING, "start create c struc");*/
+
+        libArgs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
+        /*elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
+            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);*/
+        csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
+            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
+        retval = plfsharp_getResultFromDotNet( libArgs, rettype, fcinfo );
+        if (libArgs != NULL)
+            pfree(libArgs);
+        pfree(source_code);
+        MemoryContextSwitchTo(oldcontext);
+        if (func_cxt)
+            MemoryContextDelete(func_cxt);
 	}
     PG_CATCH();
     {
