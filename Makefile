@@ -10,7 +10,7 @@ PLNET_ENGINE_DIR := -D PLNET_ENGINE_DIR=$(PLNET_ENGINE_ROOT)/DotNetLib
 ifeq ("$(shell echo $(USE_DOTNETBUILD) | tr A-Z a-z)", "true")
 	DEFINE_DOTNET_BUILD := -D USE_DOTNETBUILD
 else
-	GENERATE_BUILD_FILES := dotnet build $(PLNET_ENGINE_ROOT)/DotNetLib/src
+	GENERATE_BUILD_FILES := dotnet build $(PLNET_ENGINE_ROOT)/DotNetLib/src/csharp
 endif
 
 PG_CONFIG ?= pg_config
@@ -36,6 +36,8 @@ testrecursive \
 
 OBJS = \
 pldotnet.o \
+pldotnet_utils.o \
+plfsharp.o
 #pldotnet_debug.o \
 
 PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) \

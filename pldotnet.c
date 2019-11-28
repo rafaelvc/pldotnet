@@ -1,5 +1,5 @@
 #include "pldotnet.h"
-
+#include "pldotnet_utils.h"
 #include <assert.h>
 #include <math.h>
 
@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
+#include "plfsharp.h"
 
 #define QUOTE(name) #name
 #define STR(macro) QUOTE(macro)
@@ -66,21 +67,9 @@ static void build_nullable_footer(char* src, Oid rettype);
 static bool is_nullable(Oid type);
 static const char * pldotnet_getNetNullableTypeName(Oid id);
 static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static int pldotnet_getTypeSize(Oid id);
-static const char * pldotnet_getNetTypeName(Oid id, bool hasTypeConversion);
 static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo);
-static bool pldotnet_type_supported(Oid type);
 static int get_size_args_null_array(int nargs);
 static void build_args_null_array_str(char *dest, int nargs);
-
-typedef struct pldotnet_info
-{
-    char * libArgs;
-    int    typeSizeNullFlags;
-    int    typeSizeOfParams;
-    int    typeSizeOfResult;
-}pldotnet_info;
-pldotnet_info dotnet_info;
 
 typedef struct args_source
 {
@@ -156,16 +145,6 @@ char  block_inline4[] = "                   \n\
 	}                                   \n\
      }                                      \n\
 }";
-
-// Check for all supported types
-static bool pldotnet_type_supported(Oid type)
-{
-    return (type == INT4OID || type == INT8OID
-       || type == INT2OID   || type == FLOAT4OID
-       || type == FLOAT8OID || type == VARCHAROID
-       || type == BOOLOID   || type == TEXTOID
-       || type == BPCHAROID || type == NUMERICOID);
-}
 
 static int pldotnet_public_decl_size(Oid type)
 {
@@ -645,59 +624,6 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
 }
 
-// Size in bytes 
-static int
-pldotnet_getTypeSize(Oid id)
-{
-    switch (id){
-        case BOOLOID:
-            return sizeof(bool);
-        case INT4OID:
-            return sizeof(int);
-        case INT8OID:
-            return sizeof(long);
-        case INT2OID:
-            return sizeof(short);
-        case FLOAT4OID:
-            return sizeof(float);
-        case FLOAT8OID:
-            return sizeof(double);
-        case NUMERICOID:
-        case BPCHAROID:
-        case TEXTOID:
-        case VARCHAROID:
-            return sizeof(char *);
-    }
-    return -1;
-}
-
-// Postgres Datum type to C# type name
-static const char *
-pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
-{
-    switch (id){
-        case BOOLOID:
-            return "bool"; // System.Boolean
-        case INT4OID:
-            return "int"; // System.Int32
-        case INT8OID:
-            return "long"; // System.Int64
-        case INT2OID:
-            return "short"; // System.Int16
-        case FLOAT4OID:
-            return "float"; // System.Single
-        case FLOAT8OID:
-            return "double"; // System.Double
-        case NUMERICOID:
-            return hasTypeConversion ? "string" : "decimal"; // System.Decimal
-        case BPCHAROID:
-        case TEXTOID:
-        case VARCHAROID:
-            return "string"; // System.String
-    }
-    return "";
-}
-
 // Postgres Datum type to C# nullable type name
 static const char *
 pldotnet_getNetNullableTypeName(Oid id)
@@ -903,7 +829,7 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
             /*elog(WARNING, "Result size %d", lenStr);*/
             encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
                                                     GetDatabaseEncoding() );
-            resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
+             resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
 #if PG_VERSION_NUM < 80300
             VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
 #else
@@ -1011,7 +937,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         pfree(block_call5);
 
 #ifdef USE_DOTNETBUILD
-        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+        SNPRINTF(filename, 1024, "%s/src/csharp/Lib.cs", dnldir);
         output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
@@ -1023,7 +949,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src/csharp > null", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
@@ -1040,7 +966,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 2: Initialize and start the .NET Core runtime
         //
-        SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
+        SNPRINTF(config_path, 1024, "%s/src/csharp/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
         load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
@@ -1050,7 +976,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
-        SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+        SNPRINTF(dotnetlib_path, 1024, "%s/src/csharp/DotNetLib.dll", root_path);
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
@@ -1179,7 +1105,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         // STEP 0: Compile C# source code
         //
 #ifdef USE_DOTNETBUILD
-        SNPRINTF(filename, 1024, "%s/src/Lib.cs", dnldir);
+        SNPRINTF(filename, 1024, "%s/src/csharp/Lib.cs", dnldir);
         output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
@@ -1191,7 +1117,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src > null", dnldir);
+        SNPRINTF(cmd, 1024, "dotnet build %s/src/csharp > null", dnldir);
         compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
@@ -1207,7 +1133,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         //
         // STEP 2: Initialize and start the .NET Core runtime
         //
-        SNPRINTF(config_path, 1024, "%s/src/DotNetLib.runtimeconfig.json", root_path);
+        SNPRINTF(config_path, 1024, "%s/src/csharp/DotNetLib.runtimeconfig.json", root_path);
         fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
 
         load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
@@ -1217,7 +1143,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
-        SNPRINTF(dotnetlib_path, 1024, "%s/src/DotNetLib.dll", root_path);
+        SNPRINTF(dotnetlib_path, 1024, "%s/src/csharp/DotNetLib.dll", root_path);
         fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
