@@ -1,25 +1,7 @@
 #include "pldotnet.h"
-#include "pldotnet_utils.h"
-#include <assert.h>
 #include <math.h>
-
-#include <nethost.h>
-// Header files copied from https://github.com/dotnet/core-setup
-#include <coreclr_delegates.h>
-#include <hostfxr.h>
-#include <dlfcn.h>
-#include <limits.h>
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
-#include "plfsharp.h"
-
-#define QUOTE(name) #name
-#define STR(macro) QUOTE(macro)
-#define CH(c) c
-#define DIR_SEPARATOR '/'
-#define MAX_PATH PATH_MAX
-// Null pointer constant definition
-#define nullptr ((void*)0)
 
 // Statics to hold hostfxr exports
 void *h;
@@ -30,6 +12,8 @@ static hostfxr_close_fn close_fptr;
 // Forward declarations
 static int load_hostfxr();
 static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const char_t *assembly);
+
+pldotnet_info dotnet_info;
 
 // TODO: Check how Postgres API do this or shoud we use C lib
 #define SNPRINTF(name, size, fmt, ...)                  \
@@ -43,18 +27,12 @@ static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const 
 PG_MODULE_MAGIC;
 
 // Declare extension variables/structs here
-
 PGDLLEXPORT Datum _PG_init(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum _PG_fini(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plcsharp_call_handler(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 #if PG_VERSION_NUM >= 90000
 PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
-#endif
-PGDLLEXPORT Datum plfsharp_call_handler(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
-#if PG_VERSION_NUM >= 90000
-PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
 static char * pldotnet_build_block2(Form_pg_proc procst);
@@ -70,13 +48,6 @@ static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc
 static Datum pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo);
 static int get_size_args_null_array(int nargs);
 static void build_args_null_array_str(char *dest, int nargs);
-
-typedef struct args_source
-{
-    char* SourceCode;
-    int Result;
-    int FuncOid;
-}args_source;
 
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
@@ -1196,199 +1167,6 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
     PG_RETURN_VOID();
 }
 
-//////////// FSharp handlers
-PG_FUNCTION_INFO_V1(plfsharp_call_handler);
-Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
-{
-    bool istrigger;
-    char *source_code,
-         *fs_block_call2,
-         *fs_block_call4,
-         *fs_block_call6;
-    char *libArgs;
-    int i;
-    HeapTuple proc;
-    Form_pg_proc procst;
-    Datum retval = 0;
-    Oid rettype;
-
-    // .NET HostFxr declarations
-    char dotnet_type[]  = "DotNetLib.Lib, DotNetLib";
-    char dotnet_type_method[64] = "ProcedureMethod";
-    FILE *output_file;
-    char dnldir[] = STR(PLNET_ENGINE_DIR);
-    char *root_path;
-    int rc;
-    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
-    component_entry_point_fn csharp_method = nullptr;
-    args_source args_source;
-
-    if (SPI_connect() != SPI_OK_CONNECT)
-        elog(ERROR, "[pldotnet]: could not connect to SPI manager");
-    istrigger = CALLED_AS_TRIGGER(fcinfo);
-    if (istrigger) {
-        ereport(ERROR,
-              (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-               errmsg("[pldotnet]: dotnet trigger not supported")));
-    }
-    PG_TRY();
-    {
-        // Do F# handler here
-        MemoryContext oldcontext = CurrentMemoryContext;
-        MemoryContext func_cxt = NULL;
-        func_cxt = AllocSetContextCreate(TopMemoryContext,
-                                    "PL/NET func_exec_ctx",
-                                    ALLOCSET_SMALL_SIZES);
-        MemoryContextSwitchTo(func_cxt);
-        proc = SearchSysCache(PROCOID, ObjectIdGetDatum(fcinfo->flinfo->fn_oid), 0, 0, 0);
-        if (!HeapTupleIsValid(proc))
-            elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
-        procst = (Form_pg_proc) GETSTRUCT(proc);
-
-    // Build the source code
-        fs_block_call2 = plfsharp_build_block2( procst );
-//	elog(ERROR, "[pldotnet] %s", block_call2);
-       fs_block_call4 = plfsharp_build_block4( procst , proc );
-	//elog(ERROR, "[pldotnet] %s", block_call4);
-        fs_block_call6 = plfsharp_build_block6( procst);
-	//elog(ERROR, "[pldotnet] %s", block_call5);
-        source_code = palloc0(strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
-                             + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
-                             + strlen(fs_block_call7) + 1);
-
-        sprintf(source_code, "%s%s%s%s%s%s%s",fs_block_call1, fs_block_call2, fs_block_call3,
-                                            fs_block_call4, fs_block_call5, fs_block_call6, fs_block_call7);
-
-        rettype = procst->prorettype;
-
-        ReleaseSysCache(proc);
-        pfree(fs_block_call2);
-        pfree(fs_block_call4);
-        pfree(fs_block_call6);
-
-        SNPRINTF(filename, 1024, "%s/src/fsharp/Lib.fs", dnldir);
-        output_file = fopen(filename, "w");
-        if (!output_file) {
-            fprintf(stderr, "Cannot open file: '%s'\n", filename);
-            exit(-1);
-        }
-        if(fputs(source_code, output_file) == EOF){
-            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
-            exit(-1);
-        }
-        fclose(output_file);
-        setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src/fsharp > null", dnldir);
-        int compile_resp = system(cmd);
-        assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
-
-        root_path = strdup(dnldir);
-        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
-            root_path[strlen(root_path) - 1] = 0;
-
-        //
-        // STEP 1: Load HostFxr and get exported hosting functions
-        //
-        if (!load_hostfxr()) assert(0 && "Failure: load_hostfxr()");
-
-        //
-        // STEP 2: Initialize and start the .NET Core runtime
-        //
-        SNPRINTF(config_path, 1024, "%s/src/fsharp/DotNetLib.runtimeconfig.json", root_path);
-        fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
-
-        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
-        assert(load_assembly_and_get_function_pointer != nullptr && \
-            "Failure: get_dotnet_load_assembly()");
-
-        //
-        // STEP 3: Load managed assembly and get function pointer to a managed method
-        //
-        SNPRINTF(dotnetlib_path, 1024, "%s/src/fsharp/DotNetLib.dll", root_path);
-        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
-        // Function pointer to managed delegate
-        rc = load_assembly_and_get_function_pointer(
-            dotnetlib_path,
-            dotnet_type,
-            dotnet_type_method,
-            nullptr /*delegate_type_name*/,
-            nullptr,
-            (void**)&csharp_method);
-        assert(rc == 0 && csharp_method != nullptr && \
-            "Failure: load_assembly_and_get_function_pointer()");
-        args_source.SourceCode = source_code;
-        args_source.Result = 1;
-        /*elog(WARNING, "start create c struc");*/
-
-        libArgs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
-        /*elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);*/
-        csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = plfsharp_getResultFromDotNet( libArgs, rettype, fcinfo );
-        if (libArgs != NULL)
-            pfree(libArgs);
-        pfree(source_code);
-        MemoryContextSwitchTo(oldcontext);
-        if (func_cxt)
-            MemoryContextDelete(func_cxt);
-	}
-    PG_CATCH();
-    {
-        // Do the excption handling
-        elog(WARNING, "Exception");
-        PG_RE_THROW();
-    }
-    PG_END_TRY();
-    if (SPI_finish() != SPI_OK_FINISH)
-        elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
-    return retval;
-}
-
-PG_FUNCTION_INFO_V1(plfsharp_validator);
-Datum plfsharp_validator(PG_FUNCTION_ARGS)
-{
-//    return DotNET_validator(/* additional args, */ PG_GETARG_OID(0));
-    if (SPI_connect() != SPI_OK_CONNECT)
-        elog(ERROR, "[pldotnet]: could not connect to SPI manager");
-    PG_TRY();
-    {
-        // Do some dotnet checking ??
-    }
-    PG_CATCH();
-    {
-        // Do the excption handling
-        PG_RE_THROW();
-    }
-    PG_END_TRY();
-    if (SPI_finish() != SPI_OK_FINISH)
-        elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
-    return 0; /* VOID */
-}
-
-PG_FUNCTION_INFO_V1(plfsharp_inline_handler);
-Datum plfsharp_inline_handler(PG_FUNCTION_ARGS)
-{
-    //  return DotNET_inlinehandler( /* additional args, */ CODEBLOCK);
-    if (SPI_connect() != SPI_OK_CONNECT)
-        elog(ERROR, "[plldotnet]: could not connect to SPI manager");
-
-    PG_TRY();
-    {
-        // Do F# handler here
-    }
-    PG_CATCH();
-    {
-        // Exception handling
-        PG_RE_THROW();
-    }
-    PG_END_TRY();
-
-    if (SPI_finish() != SPI_OK_FINISH)
-        elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
-    PG_RETURN_VOID();
-}
-
 /********************************************************************************************
  * Function used to load and activate .NET Core
  ********************************************************************************************/
@@ -1464,4 +1242,6 @@ get_dotnet_load_assembly(const char_t *config_path)
     close_fptr(cxt);
     return (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer;
 }
+
+
 #endif
