@@ -37,8 +37,8 @@ testfsintegers
 
 OBJS = \
 pldotnet.o \
-pldotnet_utils.o \
-plfsharp.o
+pldotnet_common.o \
+pldotnet_fsharp.o
 #pldotnet_debug.o \
 
 PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) \
