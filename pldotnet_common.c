@@ -1,5 +1,4 @@
-#include "pldotnetcommon.h"
-#include "pldotnet_utils.h"
+#include "pldotnet_common.h"
 
 bool
 pldotnet_type_supported(Oid type)
