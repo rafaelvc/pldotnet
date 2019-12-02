@@ -5,6 +5,7 @@
 
 // Statics to hold hostfxr exports
 void *h;
+static bool plfsharp_type_supported(Oid type);
 static hostfxr_initialize_for_runtime_config_fn init_fptr;
 static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 static hostfxr_close_fn close_fptr;
@@ -62,6 +63,12 @@ char fs_block_call7[] = "\n\
            Marshal.StructureToPtr(libArgs, arg, false)\n\
            0";
 
+static bool
+plfsharp_type_supported(Oid type)
+{
+    return type == INT4OID;
+}
+
 char *
 plfsharp_build_block2(Form_pg_proc procst)
 {
@@ -75,7 +82,7 @@ plfsharp_build_block2(Form_pg_proc procst)
     char result[] = " resu"; // have to be same size argN
     int i, curSize = 0, totalSize = 0;
 
-    if (!pldotnet_type_supported(rettype))
+    if (!plfsharp_type_supported(rettype))
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -83,7 +90,7 @@ plfsharp_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        if (!pldotnet_type_supported(argtype[i]))
+        if (!plfsharp_type_supported(argtype[i]))
         {
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             return 0;
@@ -121,21 +128,18 @@ char *
 plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *pStr, *argNm, *source_text;
-    int argNmSize, i, nnames, curSize, source_size, totalSize;
+    int argNmSize, i, nnames, curSize, totalSize;
     bool isnull;
     char *func;
     const char member[] = "static member ";
-    const char equal[] = " =\n";
     const char func_sign_indent[] = "        ";
     const char func_body_indent[] = "            ";
     char *user_line;
     const char endFunDec[] = " =\n";
     const char endFun[] = "\n";
     int nargs = procst->pronargs;
-    Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
     text * t;
-    Oid *argtype = procst->proargtypes.values; // Indicates the args type
 
     // Function name
     func = NameStr(procst->proname);
@@ -144,7 +148,6 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
     t = DatumGetTextP(prosrc);
     source_text = DirectFunctionCall1(textout, DatumGetCString(t));
-    source_size = strlen(source_text);
 
     argnames = SysCacheGetAttr(PROCOID, proc,
         Anum_pg_proc_proargnames, &isnull);
@@ -153,9 +156,9 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
       deconstruct_array(DatumGetArrayTypeP(argnames), TEXTOID, -1, false,
           'i', &argname, NULL, &nnames);
 
-    // Caculates the total amount in bytes of C# src text for 
+    // Caculates the total amount in bytes of F# src text for 
     // the function declaration according nr of arguments 
-    // their types and the function return type
+    // and function body necessary indentation 
 
     totalSize = strlen(func_sign_indent) + strlen(member) + strlen(func) + strlen(" ");
 
@@ -172,10 +175,11 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     /* tokenizes source_code into its lines for indentation insertion*/
     user_line = strtok(source_text,"\n");
     while(user_line != NULL){
+        totalSize += strlen(func_body_indent) + strlen(user_line);
         user_line = strtok(NULL,"\n");
     }
 
-    totalSize +=  strlen(endFunDec) + source_size + strlen(endFun);
+    totalSize += strlen(endFunDec) + strlen(endFun);
 
     block2str = (char *)palloc0(totalSize);
 
@@ -226,8 +230,6 @@ plfsharp_build_block6(Form_pg_proc procst)
     const char func_line_indent[] = "           ";
     const char result[] = "libArgs.resu <- Lib.";
     int nargs = procst->pronargs;
-    Oid *argtype = procst->proargtypes.values; // Indicates the args type
-    Oid rettype = procst->prorettype; // Indicates the return type
 
     // Function name
     func = NameStr(procst->proname);
@@ -271,9 +273,6 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     Oid *argtype = procst->proargtypes.values;
     Oid rettype = procst->prorettype;
     Oid type;
-    int lenBuff;
-    char * newArgVl;
-    bool fcinfo_null_flag;
     Datum argDatum;
 
     dotnet_info.typeSizeOfParams = 0;
@@ -293,61 +292,15 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     {
         type = argtype[i];
 #if PG_VERSION_NUM >= 120000
-        fcinfo_null_flag=fcinfo->args[i].isnull;
         argDatum = fcinfo->args[i].value;
 #else
-        fcinfo_null_flag=fcinfo->argnull[i];
         argDatum = fcinfo->arg[i];
 #endif
         switch (type)
         {
-            case BOOLOID:
-                *(bool *)curArg = DatumGetBool(argDatum);
-                break;
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(argDatum);
                 break;
-            case INT8OID:
-                *(long *)curArg = DatumGetInt64(argDatum);
-                break;
-            case INT2OID:
-                *(short *)curArg = DatumGetInt16(argDatum);
-                break;
-            case FLOAT4OID:
-                *(float *)curArg = DatumGetFloat4(argDatum);
-                break;
-            case FLOAT8OID:
-                *(double *)curArg = DatumGetFloat8(argDatum);
-                break;
-            case NUMERICOID:
-                // C String encoding
-                *(unsigned long *)curArg =
-                    DatumGetCString(DirectFunctionCall1(numeric_out, argDatum));
-                break;
-            case BPCHAROID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(bpcharout, DatumGetCString(argDatum));
-                //break;
-            case TEXTOID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(textout, DatumGetCString(argDatum));
-                //break;
-            case VARCHAROID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(varcharout, DatumGetCString(argDatum));
-               // UTF8 encoding
-               lenBuff = VARSIZE( argDatum ) - VARHDRSZ;
-               newArgVl = (char *)palloc0(lenBuff + 1);
-               memcpy(newArgVl, VARDATA( argDatum ), lenBuff);
-               *(unsigned long *)curArg = (char *)
-                    pg_do_encoding_conversion(newArgVl,
-                                              lenBuff+1,
-                                              GetDatabaseEncoding(), PG_UTF8);
-                break;
-
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + curSize;
@@ -360,73 +313,13 @@ Datum
 plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
-    unsigned long * retP;
-    VarChar * resVarChar; //For Unicode/UTF8 support
-    int lenStr;
-    char * numStr;
     char * resultP = libArgs
                     + dotnet_info.typeSizeOfParams;
-    char * encodedStr;
 
     switch (rettype){
-        case BOOLOID:
-            /* Recover flag for null result*/
-            return  BoolGetDatum  ( *(bool *)(resultP) );
         case INT4OID:
             /* Recover flag for null result*/
             return  Int32GetDatum ( *(int *)(resultP) );
-        case INT8OID:
-            /* Recover flag for null result*/
-            return  Int64GetDatum ( *(long *)(resultP) );
-        case INT2OID:
-            /* Recover flag for null result*/
-            return  Int16GetDatum ( *(short *)(resultP) );
-        case FLOAT4OID:
-            return  Float4GetDatum ( *(float *)(resultP) );
-        case FLOAT8OID:
-            return  Float8GetDatum ( *(double *)(resultP) );
-        case NUMERICOID:
-            numStr = (char *)*(unsigned long *)(resultP);
-            return DatumGetNumeric(
-                                   DirectFunctionCall3(numeric_in,
-                                         CStringGetDatum(numStr),
-                                         ObjectIdGetDatum(InvalidOid),
-                                         Int32GetDatum(-1)));
-        case TEXTOID:
-             // C String encoding
-             //retval = DirectFunctionCall1(textin,
-             //               CStringGetDatum(
-             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
-        case BPCHAROID:
-        // https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
-        // We should try to get atttymod which is n size in char(n)
-        // and use it in bpcharin (I did not find a way to get it)
-        // case BPCHAROID:
-        //    retval = DirectFunctionCall1(bpcharin,
-        //                           CStringGetDatum(
-        //                            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)), attypmod);
-        case VARCHAROID:
-             // C String encoding
-             //retval = DirectFunctionCall1(varcharin,
-             //               CStringGetDatum(
-             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
-
-            // UTF8 encoding
-            retP = *(unsigned long *)(resultP);
-//          lenStr = pg_mbstrlen(retP);
-            lenStr = strlen(retP);
-            /*elog(WARNING, "Result size %d", lenStr);*/
-            encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
-                                                    GetDatabaseEncoding() );
-             resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
-#if PG_VERSION_NUM < 80300
-            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
-#else
-            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
-#endif
-            memcpy(VARDATA(resVarChar), encodedStr , lenStr);
-            //pfree(encodedStr);
-            PG_RETURN_VARCHAR_P(resVarChar);
     }
     return retval;
 }
@@ -456,7 +349,6 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     int rc;
     load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
     component_entry_point_fn csharp_method = nullptr;
-    args_source args_source;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -482,11 +374,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 
     // Build the source code
         fs_block_call2 = plfsharp_build_block2( procst );
-//	elog(ERROR, "[pldotnet] %s", block_call2);
-       fs_block_call4 = plfsharp_build_block4( procst , proc );
-	//elog(ERROR, "[pldotnet] %s", block_call4);
+        fs_block_call4 = plfsharp_build_block4( procst , proc );
         fs_block_call6 = plfsharp_build_block6( procst);
-	//elog(ERROR, "[pldotnet] %s", block_call5);
         source_code = palloc0(strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
                              + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
                              + strlen(fs_block_call7) + 1);
@@ -551,13 +440,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
             (void**)&csharp_method);
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
-        args_source.SourceCode = source_code;
-        args_source.Result = 1;
-        /*elog(WARNING, "start create c struc");*/
 
         libArgs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
-        /*elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);*/
         csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         retval = plfsharp_getResultFromDotNet( libArgs, rettype, fcinfo );

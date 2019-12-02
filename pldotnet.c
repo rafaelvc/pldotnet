@@ -233,7 +233,6 @@ pldotnet_build_block2(Form_pg_proc procst)
             pldotnet_public_decl(rettype),
             pldotnet_getNetTypeName(rettype, true), result, semicon);
 
-    /* elog(WARNING, "%s", block2str);*/
     return block2str;
 }
 
@@ -325,7 +324,7 @@ pldotnet_build_block4(Form_pg_proc procst)
         sprintf(pStr, "%s%s%s", endFun, strConvert, semicolon);
     else
         sprintf(pStr, "%s%s", endFun, semicolon);
-    /*elog(WARNING, "%s", block2str);*/
+
     return block2str;
 
 }
@@ -590,7 +589,6 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         sprintf(pStr, "%s", footer_nullable);
     }
 
-    /*elog(WARNING, "%s", block2str);*/
     return block2str;
 
 }
@@ -636,7 +634,6 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
         if(is_nullable(argtype[i]))
             nullable_arg_flag = true;
-        /*elog(WARNING, "%d", dotnet_info.typeSizeOfParams );*/
     }
 
     if(nullable_arg_flag)
@@ -726,8 +723,6 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 static Datum
 pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
 {
-    /*elog(WARNING, "nullflags size %d", dotnet_info.typeSizeNullFlags);*/
-    /*elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);*/
     Datum retval = 0;
     unsigned long * retP;
     VarChar * resVarChar; //For Unicode/UTF8 support
@@ -797,7 +792,6 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
             retP = *(unsigned long *)(resultP);
 //          lenStr = pg_mbstrlen(retP);
             lenStr = strlen(retP);
-            /*elog(WARNING, "Result size %d", lenStr);*/
             encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
                                                     GetDatabaseEncoding() );
              resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
@@ -887,18 +881,14 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 
     // Build the source code
         block_call2 = pldotnet_build_block2( procst );
-	//elog(ERROR, "[pldotnet] %s", block_call2);
         block_call4 = pldotnet_build_block4( procst );
-	//elog(ERROR, "[pldotnet] %s", block_call4);
         block_call5 = pldotnet_build_block5( procst , proc );
-	//elog(ERROR, "[pldotnet] %s", block_call5);
+
         source_code = palloc0(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
                              + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
 
         sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
                                              block_call4, block_call5, block_call6);
-
-        /*elog(WARNING, "[pldotnet] %s", source_code);*/
 
         rettype = procst->prorettype;
 
@@ -982,18 +972,18 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 #endif
-        /*elog(WARNING, "start create c struc");*/
 
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
-        /*elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);*/
         csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         retval = pldotnet_getResultFromDotNet( libArgs, rettype, fcinfo );
+
         if (libArgs != NULL)
             pfree(libArgs);
+
         pfree(source_code);
         MemoryContextSwitchTo(oldcontext);
+
         if (func_cxt)
             MemoryContextDelete(func_cxt);
     }
@@ -1004,8 +994,10 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         PG_RE_THROW();
     }
     PG_END_TRY();
+
     if (SPI_finish() != SPI_OK_FINISH)
         elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
+
     return retval;
 }
 
@@ -1071,8 +1063,6 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
 	    sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
 
-	    //elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);
-	    //
         // STEP 0: Compile C# source code
         //
 #ifdef USE_DOTNETBUILD
