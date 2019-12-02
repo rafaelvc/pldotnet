@@ -1,5 +1,21 @@
+CREATE OR REPLACE FUNCTION returnInt() RETURNS integer AS $$
+10
+$$ LANGUAGE plfsharp;
+SELECT returnInt() = integer '10';
+
+/*
 CREATE OR REPLACE FUNCTION sum2Integer(a integer, b integer) RETURNS integer AS $$
 a+b
 $$ LANGUAGE plfsharp;
 SELECT sum2Integer(1000, 1) = integer '1001';
 
+CREATE OR REPLACE FUNCTION mult3Integer(a integer, b integer, c integer) RETURNS integer AS $$
+a*b*c
+$$ LANGUAGE plfsharp;
+SELECT mult3Integer(5, 2, 3) = integer '30';
+
+CREATE OR REPLACE FUNCTION sum1Integer(a integer) RETURNS integer AS $$
+a+10
+$$ LANGUAGE plfsharp;
+SELECT sum1Integer(5) = integer '15';
+*/
