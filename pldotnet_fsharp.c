@@ -5,6 +5,7 @@
 
 // Statics to hold hostfxr exports
 void *h;
+static bool plfsharp_type_supported(Oid type);
 static hostfxr_initialize_for_runtime_config_fn init_fptr;
 static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 static hostfxr_close_fn close_fptr;
@@ -62,6 +63,12 @@ char fs_block_call7[] = "\n\
            Marshal.StructureToPtr(libArgs, arg, false)\n\
            0";
 
+static bool
+plfsharp_type_supported(Oid type)
+{
+    return type == INT4OID;
+}
+
 char *
 plfsharp_build_block2(Form_pg_proc procst)
 {
@@ -75,7 +82,7 @@ plfsharp_build_block2(Form_pg_proc procst)
     char result[] = " resu"; // have to be same size argN
     int i, curSize = 0, totalSize = 0;
 
-    if (!pldotnet_type_supported(rettype))
+    if (!plfsharp_type_supported(rettype))
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -83,7 +90,7 @@ plfsharp_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        if (!pldotnet_type_supported(argtype[i]))
+        if (!plfsharp_type_supported(argtype[i]))
         {
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             return 0;
@@ -301,53 +308,9 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 #endif
         switch (type)
         {
-            case BOOLOID:
-                *(bool *)curArg = DatumGetBool(argDatum);
-                break;
             case INT4OID:
                 *(int *)curArg = DatumGetInt32(argDatum);
                 break;
-            case INT8OID:
-                *(long *)curArg = DatumGetInt64(argDatum);
-                break;
-            case INT2OID:
-                *(short *)curArg = DatumGetInt16(argDatum);
-                break;
-            case FLOAT4OID:
-                *(float *)curArg = DatumGetFloat4(argDatum);
-                break;
-            case FLOAT8OID:
-                *(double *)curArg = DatumGetFloat8(argDatum);
-                break;
-            case NUMERICOID:
-                // C String encoding
-                *(unsigned long *)curArg =
-                    DatumGetCString(DirectFunctionCall1(numeric_out, argDatum));
-                break;
-            case BPCHAROID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(bpcharout, DatumGetCString(argDatum));
-                //break;
-            case TEXTOID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(textout, DatumGetCString(argDatum));
-                //break;
-            case VARCHAROID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(varcharout, DatumGetCString(argDatum));
-               // UTF8 encoding
-               lenBuff = VARSIZE( argDatum ) - VARHDRSZ;
-               newArgVl = (char *)palloc0(lenBuff + 1);
-               memcpy(newArgVl, VARDATA( argDatum ), lenBuff);
-               *(unsigned long *)curArg = (char *)
-                    pg_do_encoding_conversion(newArgVl,
-                                              lenBuff+1,
-                                              GetDatabaseEncoding(), PG_UTF8);
-                break;
-
         }
         curSize += pldotnet_getTypeSize(argtype[i]);
         curArg = ptrToLibArgs + curSize;
@@ -369,64 +332,9 @@ plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
     char * encodedStr;
 
     switch (rettype){
-        case BOOLOID:
-            /* Recover flag for null result*/
-            return  BoolGetDatum  ( *(bool *)(resultP) );
         case INT4OID:
             /* Recover flag for null result*/
             return  Int32GetDatum ( *(int *)(resultP) );
-        case INT8OID:
-            /* Recover flag for null result*/
-            return  Int64GetDatum ( *(long *)(resultP) );
-        case INT2OID:
-            /* Recover flag for null result*/
-            return  Int16GetDatum ( *(short *)(resultP) );
-        case FLOAT4OID:
-            return  Float4GetDatum ( *(float *)(resultP) );
-        case FLOAT8OID:
-            return  Float8GetDatum ( *(double *)(resultP) );
-        case NUMERICOID:
-            numStr = (char *)*(unsigned long *)(resultP);
-            return DatumGetNumeric(
-                                   DirectFunctionCall3(numeric_in,
-                                         CStringGetDatum(numStr),
-                                         ObjectIdGetDatum(InvalidOid),
-                                         Int32GetDatum(-1)));
-        case TEXTOID:
-             // C String encoding
-             //retval = DirectFunctionCall1(textin,
-             //               CStringGetDatum(
-             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
-        case BPCHAROID:
-        // https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
-        // We should try to get atttymod which is n size in char(n)
-        // and use it in bpcharin (I did not find a way to get it)
-        // case BPCHAROID:
-        //    retval = DirectFunctionCall1(bpcharin,
-        //                           CStringGetDatum(
-        //                            *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)), attypmod);
-        case VARCHAROID:
-             // C String encoding
-             //retval = DirectFunctionCall1(varcharin,
-             //               CStringGetDatum(
-             //                       *(unsigned long *)(libArgs + dotnet_info.typeSizeOfParams)));
-
-            // UTF8 encoding
-            retP = *(unsigned long *)(resultP);
-//          lenStr = pg_mbstrlen(retP);
-            lenStr = strlen(retP);
-            /*elog(WARNING, "Result size %d", lenStr);*/
-            encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
-                                                    GetDatabaseEncoding() );
-             resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
-#if PG_VERSION_NUM < 80300
-            VARATT_SIZEP(resVarChar) = lenStr + VARHDRSZ;    /* Total size of structure, not just data */
-#else
-            SET_VARSIZE(resVarChar, lenStr + VARHDRSZ);      /* Total size of structure, not just data */
-#endif
-            memcpy(VARDATA(resVarChar), encodedStr , lenStr);
-            //pfree(encodedStr);
-            PG_RETURN_VARCHAR_P(resVarChar);
     }
     return retval;
 }
