@@ -1,18 +1,6 @@
-#include "pldotnet_common.h"
+#include "pldotnet_fsharp.h"
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
-#include "pldotnet_fsharp.h"
-
-// Statics to hold hostfxr exports
-void *h;
-static bool plfsharp_type_supported(Oid type);
-static hostfxr_initialize_for_runtime_config_fn init_fptr;
-static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
-static hostfxr_close_fn close_fptr;
-
-// Forward declarations
-static int load_hostfxr();
-static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const char_t *assembly);
 
 PGDLLEXPORT Datum plfsharp_call_handler(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
@@ -132,7 +120,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     bool isnull;
     char *func;
     const char member[] = "static member ";
-    const char func_sign_indent[] = "        ";
+    const char func_signature_indent[] = "        ";
     const char func_body_indent[] = "            ";
     char *user_line;
     const char endFunDec[] = " =\n";
@@ -160,7 +148,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     // the function declaration according nr of arguments 
     // and function body necessary indentation 
 
-    totalSize = strlen(func_sign_indent) + strlen(member) + strlen(func) + strlen(" ");
+    totalSize = strlen(func_signature_indent) + strlen(member) + strlen(func) + strlen(" ");
 
     for (i = 0; i < nargs; i++) 
     {
@@ -183,7 +171,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 
     block2str = (char *)palloc0(totalSize);
 
-    sprintf(block2str, "%s%s%s ",func_sign_indent, member, func);
+    sprintf(block2str, "%s%s%s ",func_signature_indent, member, func);
 
     curSize = strlen(block2str);
 
@@ -506,81 +494,5 @@ Datum plfsharp_inline_handler(PG_FUNCTION_ARGS)
     if (SPI_finish() != SPI_OK_FINISH)
         elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
     PG_RETURN_VOID();
-}
-
-/********************************************************************************************
- * Function used to load and activate .NET Core
- ********************************************************************************************/
-// Forward declarations
-static void *pldotnet_load_library(const char_t *);
-static void *pldotnet_get_export(void *, const char *);
-
-static void *
-pldotnet_load_library(const char_t *path)
-{
-    fprintf(stderr, "# DEBUG: doing dlopen(%s).\n", path);
-    h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-    assert(h != nullptr);
-    return h;
-}
-
-static void *
-pldotnet_get_export(void *h, const char *name)
-{
-    void *f = dlsym(h, name);
-    if(f == nullptr){
-        fprintf(stderr, "Can't dlsym(%s); exiting.\n", name);
-        exit(-1);
-    }
-    return f;
-}
-
-// Using the nethost library, discover the location of hostfxr and get exports
-static int
-load_hostfxr()
-{
-    // Pre-allocate a large buffer for the path to hostfxr
-    char_t buffer[MAX_PATH];
-    size_t buffer_size = sizeof(buffer) / sizeof(char_t);
-    int rc = get_hostfxr_path(buffer, &buffer_size, nullptr);
-    void *lib;
-    if (rc != 0)
-        return 0;
-
-    // Load hostfxr and get desired exports
-    lib = pldotnet_load_library(buffer);
-    init_fptr = (hostfxr_initialize_for_runtime_config_fn)pldotnet_get_export( \
-        lib, "hostfxr_initialize_for_runtime_config");
-    get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)pldotnet_get_export( \
-        lib, "hostfxr_get_runtime_delegate");
-    close_fptr = (hostfxr_close_fn)pldotnet_get_export(lib, "hostfxr_close");
-
-    return (init_fptr && get_delegate_fptr && close_fptr);
-}
-
-// Load and initialize .NET Core and get desired function pointer for scenario
-static load_assembly_and_get_function_pointer_fn
-get_dotnet_load_assembly(const char_t *config_path)
-{
-    // Load .NET Core
-    void *load_assembly_and_get_function_pointer = nullptr;
-    hostfxr_handle cxt = nullptr;
-    int rc = init_fptr(config_path, nullptr, &cxt);
-    if (rc > 1 || rc < 0 || cxt == nullptr)
-    {
-        fprintf(stderr, "Init failed: %x\n", rc);
-        close_fptr(cxt);
-        return nullptr;
-    }
-
-    // Get the load assembly function pointer
-    rc = get_delegate_fptr(
-        cxt,
-        hdt_load_assembly_and_get_function_pointer,
-        &load_assembly_and_get_function_pointer);
-    if (rc != 0 || load_assembly_and_get_function_pointer == nullptr)
-        fprintf(stderr, "Get delegate failed: %x\n", rc);
-    close_fptr(cxt);
-    return (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer;
 }
 

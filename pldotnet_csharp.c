@@ -1,17 +1,7 @@
-#include "pldotnet.h"
+#include "pldotnet_csharp.h"
 #include <math.h>
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
-
-// Statics to hold hostfxr exports
-void *h;
-static hostfxr_initialize_for_runtime_config_fn init_fptr;
-static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
-static hostfxr_close_fn close_fptr;
-
-// Forward declarations
-static int load_hostfxr();
-static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const char_t *assembly);
 
 pldotnet_info dotnet_info;
 
@@ -35,9 +25,9 @@ PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-static char * pldotnet_build_block2(Form_pg_proc procst);
-static char * pldotnet_build_block4(Form_pg_proc procst);
-static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
+static char * plcsharp_build_block2(Form_pg_proc procst);
+static char * plcsharp_build_block4(Form_pg_proc procst);
+static char * plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc);
 static int get_size_nullable_header(int argNm_size, Oid arg_type, int narg);
 static void build_nullable_header(char* src,char* argname, Oid argtype, int narg);
 static int get_size_nullable_footer(Oid ret_type);
@@ -65,7 +55,7 @@ const char resu_flag_str[] = "bool resunull;";
 const char arg_flag_str[] = "bool[] argsnull;";
 
 // C# CODE TEMPLATE
-char block_call1[] = "                           \n\
+char cs_block_call1[] = "                           \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
 namespace DotNetLib                       \n\
@@ -75,23 +65,23 @@ namespace DotNetLib                       \n\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs                \n\
         {";
-//block_call2    //public argType1 argName1;
+//cs_block_call2    //public argType1 argName1;
             //public argType2 argName2;
             //...
 	        //public returnT resu;//result
-char block_call3[] = "                            \n\
+char cs_block_call3[] = "                            \n\
         }                                    \n\
         public static int ProcedureMethod(IntPtr arg, int argLength)\n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n";
-//block_call4 libArgs.resu = FUNC(libArgs.argName1, libArgs.argName2, ...);
-//block_call5    //returnT FUNC(argType1 argName1, argType2 argName2, ...)
+//cs_block_call4 libArgs.resu = FUNC(libArgs.argName1, libArgs.argName2, ...);
+//cs_block_call5    //returnT FUNC(argType1 argName1, argType2 argName2, ...)
 	        //{
 		          // What is in the SQL function code here
             //}
-char  block_call6[] = "                            \n\
+char  cs_block_call6[] = "                            \n\
             Console.WriteLine($\"\\n\\n\\n resu: {libArgs.resu}\");\n\
             Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
             return 0;                         \n\
@@ -150,7 +140,7 @@ static char * pldotnet_public_decl(Oid type)
 }
 
 static char *
-pldotnet_build_block2(Form_pg_proc procst)
+plcsharp_build_block2(Form_pg_proc procst)
 {
     char *block2str, *pStr;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
@@ -233,11 +223,12 @@ pldotnet_build_block2(Form_pg_proc procst)
             pldotnet_public_decl(rettype),
             pldotnet_getNetTypeName(rettype, true), result, semicon);
 
+    /* elog(WARNING, "%s", block2str);*/
     return block2str;
 }
 
 static char *
-pldotnet_build_block4(Form_pg_proc procst)
+plcsharp_build_block4(Form_pg_proc procst)
 {
     char *block2str, *pStr, *resu_var;
     int curSize, i, totalSize;
@@ -324,7 +315,7 @@ pldotnet_build_block4(Form_pg_proc procst)
         sprintf(pStr, "%s%s%s", endFun, strConvert, semicolon);
     else
         sprintf(pStr, "%s%s", endFun, semicolon);
-
+    /*elog(WARNING, "%s", block2str);*/
     return block2str;
 
 }
@@ -461,7 +452,7 @@ build_nullable_footer(char* src, Oid rettype)
 }
 
 static char *
-pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
+plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *pStr, *argNm, *source_text;
     int argNmSize, i, nnames, curSize, source_size, totalSize;
@@ -589,6 +580,7 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
         sprintf(pStr, "%s", footer_nullable);
     }
 
+    /*elog(WARNING, "%s", block2str);*/
     return block2str;
 
 }
@@ -634,6 +626,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
         if(is_nullable(argtype[i]))
             nullable_arg_flag = true;
+        /*elog(WARNING, "%d", dotnet_info.typeSizeOfParams );*/
     }
 
     if(nullable_arg_flag)
@@ -723,6 +716,8 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 static Datum
 pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
 {
+    /*elog(WARNING, "nullflags size %d", dotnet_info.typeSizeNullFlags);*/
+    /*elog(WARNING, "params size %d", dotnet_info.typeSizeOfParams);*/
     Datum retval = 0;
     unsigned long * retP;
     VarChar * resVarChar; //For Unicode/UTF8 support
@@ -792,6 +787,7 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
             retP = *(unsigned long *)(resultP);
 //          lenStr = pg_mbstrlen(retP);
             lenStr = strlen(retP);
+            /*elog(WARNING, "Result size %d", lenStr);*/
             encodedStr = pg_do_encoding_conversion( retP, lenStr, PG_UTF8,
                                                     GetDatabaseEncoding() );
              resVarChar = (VarChar *)SPI_palloc(lenStr + VARHDRSZ);
@@ -832,7 +828,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 {
 //    return DotNET_callhandler( /* additional args, */ fcinfo);
     bool istrigger;
-    char *source_code, *block_call2, *block_call4, *block_call5;
+    char *source_code, *cs_block_call2, *cs_block_call4, *cs_block_call5;
     char *libArgs;
     int i;
     HeapTuple proc;
@@ -880,22 +876,26 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
     // Build the source code
-        block_call2 = pldotnet_build_block2( procst );
-        block_call4 = pldotnet_build_block4( procst );
-        block_call5 = pldotnet_build_block5( procst , proc );
+        cs_block_call2 = plcsharp_build_block2( procst );
+	//elog(ERROR, "[pldotnet] %s", cs_block_call2);
+        cs_block_call4 = plcsharp_build_block4( procst );
+	//elog(ERROR, "[pldotnet] %s", cs_block_call4);
+        cs_block_call5 = plcsharp_build_block5( procst , proc );
+	//elog(ERROR, "[pldotnet] %s", cs_block_call5);
+        source_code = palloc0(strlen(cs_block_call1) + strlen(cs_block_call2) + strlen(cs_block_call3)
+                             + strlen(cs_block_call4) + strlen(cs_block_call5) + strlen(cs_block_call6) + 1);
 
-        source_code = palloc0(strlen(block_call1) + strlen(block_call2) + strlen(block_call3)
-                             + strlen(block_call4) + strlen(block_call5) + strlen(block_call6) + 1);
+        sprintf(source_code, "%s%s%s%s%s%s", cs_block_call1, cs_block_call2, cs_block_call3,
+                                             cs_block_call4, cs_block_call5, cs_block_call6);
 
-        sprintf(source_code, "%s%s%s%s%s%s", block_call1, block_call2, block_call3,
-                                             block_call4, block_call5, block_call6);
+        /*elog(WARNING, "[pldotnet] %s", source_code);*/
 
         rettype = procst->prorettype;
 
         ReleaseSysCache(proc);
-        pfree(block_call2);
-        pfree(block_call4);
-        pfree(block_call5);
+        pfree(cs_block_call2);
+        pfree(cs_block_call4);
+        pfree(cs_block_call5);
 
 #ifdef USE_DOTNETBUILD
         SNPRINTF(filename, 1024, "%s/src/csharp/Lib.cs", dnldir);
@@ -972,18 +972,18 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 #endif
+        /*elog(WARNING, "start create c struc");*/
 
         libArgs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
+        /*elog(WARNING, "libargs size: %d", dotnet_info.typeSizeNullFlags +
+            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);*/
         csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         retval = pldotnet_getResultFromDotNet( libArgs, rettype, fcinfo );
-
         if (libArgs != NULL)
             pfree(libArgs);
-
         pfree(source_code);
         MemoryContextSwitchTo(oldcontext);
-
         if (func_cxt)
             MemoryContextDelete(func_cxt);
     }
@@ -994,10 +994,8 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         PG_RE_THROW();
     }
     PG_END_TRY();
-
     if (SPI_finish() != SPI_OK_FINISH)
         elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
-
     return retval;
 }
 
@@ -1063,6 +1061,8 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 			                   + strlen(block_inline3) + strlen(block_inline4) + 1);
 	    sprintf(source_code, "%s%s%s%s", block_inline1, block_inline2, block_inline3, block_inline4);
 
+	    //elog(WARNING,"AFTERSPF: %s\n\n\n",source_code);
+	    //
         // STEP 0: Compile C# source code
         //
 #ifdef USE_DOTNETBUILD
@@ -1156,82 +1156,4 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
     PG_RETURN_VOID();
 }
-
-/********************************************************************************************
- * Function used to load and activate .NET Core
- ********************************************************************************************/
-// Forward declarations
-static void *pldotnet_load_library(const char_t *);
-static void *pldotnet_get_export(void *, const char *);
-
-static void *
-pldotnet_load_library(const char_t *path)
-{
-    fprintf(stderr, "# DEBUG: doing dlopen(%s).\n", path);
-    h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-    assert(h != nullptr);
-    return h;
-}
-
-static void *
-pldotnet_get_export(void *h, const char *name)
-{
-    void *f = dlsym(h, name);
-    if(f == nullptr){
-        fprintf(stderr, "Can't dlsym(%s); exiting.\n", name);
-        exit(-1);
-    }
-    return f;
-}
-
-// Using the nethost library, discover the location of hostfxr and get exports
-static int
-load_hostfxr()
-{
-    // Pre-allocate a large buffer for the path to hostfxr
-    char_t buffer[MAX_PATH];
-    size_t buffer_size = sizeof(buffer) / sizeof(char_t);
-    int rc = get_hostfxr_path(buffer, &buffer_size, nullptr);
-    void *lib;
-    if (rc != 0)
-        return 0;
-
-    // Load hostfxr and get desired exports
-    lib = pldotnet_load_library(buffer);
-    init_fptr = (hostfxr_initialize_for_runtime_config_fn)pldotnet_get_export( \
-        lib, "hostfxr_initialize_for_runtime_config");
-    get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)pldotnet_get_export( \
-        lib, "hostfxr_get_runtime_delegate");
-    close_fptr = (hostfxr_close_fn)pldotnet_get_export(lib, "hostfxr_close");
-
-    return (init_fptr && get_delegate_fptr && close_fptr);
-}
-
-// Load and initialize .NET Core and get desired function pointer for scenario
-static load_assembly_and_get_function_pointer_fn
-get_dotnet_load_assembly(const char_t *config_path)
-{
-    // Load .NET Core
-    void *load_assembly_and_get_function_pointer = nullptr;
-    hostfxr_handle cxt = nullptr;
-    int rc = init_fptr(config_path, nullptr, &cxt);
-    if (rc > 1 || rc < 0 || cxt == nullptr)
-    {
-        fprintf(stderr, "Init failed: %x\n", rc);
-        close_fptr(cxt);
-        return nullptr;
-    }
-
-    // Get the load assembly function pointer
-    rc = get_delegate_fptr(
-        cxt,
-        hdt_load_assembly_and_get_function_pointer,
-        &load_assembly_and_get_function_pointer);
-    if (rc != 0 || load_assembly_and_get_function_pointer == nullptr)
-        fprintf(stderr, "Get delegate failed: %x\n", rc);
-    close_fptr(cxt);
-    return (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer;
-}
-
-
 #endif
