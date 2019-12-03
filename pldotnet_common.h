@@ -27,10 +27,7 @@
 #include <utils/typcache.h>
 
 #include <assert.h>
-#include <nethost.h>
-// Header files copied from https://github.com/dotnet/core-setup
-#include <coreclr_delegates.h>
-#include <hostfxr.h>
+#include "pldotnet_hostfxr.h"
 
 #include <dlfcn.h>
 #include <limits.h>
