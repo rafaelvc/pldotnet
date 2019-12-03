@@ -1,18 +1,6 @@
-#include "pldotnet_common.h"
+#include "pldotnet_fsharp.h"
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
-#include "pldotnet_fsharp.h"
-
-// Statics to hold hostfxr exports
-void *h;
-static bool plfsharp_type_supported(Oid type);
-static hostfxr_initialize_for_runtime_config_fn init_fptr;
-static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
-static hostfxr_close_fn close_fptr;
-
-// Forward declarations
-static int load_hostfxr();
-static load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const char_t *assembly);
 
 PGDLLEXPORT Datum plfsharp_call_handler(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
@@ -29,15 +17,15 @@ PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
         exit(-1);                                       \
     }
 
-pldotnet_info dotnet_info;
+static pldotnet_info dotnet_info;
 
-char * plfsharp_build_block2(Form_pg_proc procst);
-char * plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
-char * plfsharp_build_block6(Form_pg_proc procst);
-char * plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-Datum plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo);
+static char * plfsharp_build_block2(Form_pg_proc procst);
+static char * plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
+static char * plfsharp_build_block6(Form_pg_proc procst);
+static char * plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static Datum plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo);
 
-char fs_block_call1[] = "\n\
+static char fs_block_call1[] = "\n\
 namespace DotNetLib      \n\
     open System.Runtime.InteropServices\n\
     [<Struct>]           \n\
@@ -49,17 +37,17 @@ namespace DotNetLib      \n\
  *      ...
  *      val mutable resu:int
  */
-char fs_block_call3[] = "\n\
+static char fs_block_call3[] = "\n\
     type Lib =\n";
 /********* fs_block_call4 ******
  *         static member <function_name> =
  *             <function_body>
  */
-char fs_block_call5[] = "\n\
+static char fs_block_call5[] = "\n\
         static member ProcedureMethod (arg:System.IntPtr) (argLength:int) = \n\
            let mutable libArgs = Marshal.PtrToStructure<LibArgs> arg\n";
 
-char fs_block_call7[] = "\n\
+static char fs_block_call7[] = "\n\
            Marshal.StructureToPtr(libArgs, arg, false)\n\
            0";
 
@@ -69,7 +57,7 @@ plfsharp_type_supported(Oid type)
     return type == INT4OID;
 }
 
-char *
+static char *
 plfsharp_build_block2(Form_pg_proc procst)
 {
     char *block2str, *pStr;
@@ -124,7 +112,7 @@ plfsharp_build_block2(Form_pg_proc procst)
     return block2str;
 }
 
-char *
+static char *
 plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *pStr, *argNm, *source_text;
@@ -132,7 +120,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     bool isnull;
     char *func;
     const char member[] = "static member ";
-    const char func_sign_indent[] = "        ";
+    const char func_signature_indent[] = "        ";
     const char func_body_indent[] = "            ";
     char *user_line;
     const char endFunDec[] = " =\n";
@@ -160,7 +148,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     // the function declaration according nr of arguments 
     // and function body necessary indentation 
 
-    totalSize = strlen(func_sign_indent) + strlen(member) + strlen(func) + strlen(" ");
+    totalSize = strlen(func_signature_indent) + strlen(member) + strlen(func) + strlen(" ");
 
     for (i = 0; i < nargs; i++) 
     {
@@ -183,7 +171,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 
     block2str = (char *)palloc0(totalSize);
 
-    sprintf(block2str, "%s%s%s ",func_sign_indent, member, func);
+    sprintf(block2str, "%s%s%s ",func_signature_indent, member, func);
 
     curSize = strlen(block2str);
 
@@ -218,7 +206,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     return block2str;
 }
 
-char *
+static char *
 plfsharp_build_block6(Form_pg_proc procst)
 {
     char *block2str, *pStr, *resu_var;
@@ -263,7 +251,7 @@ plfsharp_build_block6(Form_pg_proc procst)
     return block2str;
 }
 
-char *
+static char *
 plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
@@ -309,7 +297,7 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     return ptrToLibArgs;
 }
 
-Datum
+static Datum
 plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
@@ -348,7 +336,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     char *root_path;
     int rc;
     load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
-    component_entry_point_fn csharp_method = nullptr;
+    component_entry_point_fn fsharp_method = nullptr;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -372,7 +360,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
             elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
-    // Build the source code
+        // Build the source code
         fs_block_call2 = plfsharp_build_block2( procst );
         fs_block_call4 = plfsharp_build_block4( procst , proc );
         fs_block_call6 = plfsharp_build_block6( procst);
@@ -413,7 +401,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 1: Load HostFxr and get exported hosting functions
         //
-        if (!load_hostfxr()) assert(0 && "Failure: load_hostfxr()");
+        if (!pldotnet_load_hostfxr()) assert(0 && "Failure: pldotnet_load_hostfxr()");
 
         //
         // STEP 2: Initialize and start the .NET Core runtime
@@ -437,12 +425,12 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
             dotnet_type_method,
             nullptr /*delegate_type_name*/,
             nullptr,
-            (void**)&csharp_method);
-        assert(rc == 0 && csharp_method != nullptr && \
+            (void**)&fsharp_method);
+        assert(rc == 0 && fsharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
         libArgs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
-        csharp_method(libArgs,dotnet_info.typeSizeNullFlags +
+        fsharp_method(libArgs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
         retval = plfsharp_getResultFromDotNet( libArgs, rettype, fcinfo );
         if (libArgs != NULL)
@@ -506,81 +494,5 @@ Datum plfsharp_inline_handler(PG_FUNCTION_ARGS)
     if (SPI_finish() != SPI_OK_FINISH)
         elog(ERROR, "[pldotnet]: could not disconnect from SPI manager");
     PG_RETURN_VOID();
-}
-
-/********************************************************************************************
- * Function used to load and activate .NET Core
- ********************************************************************************************/
-// Forward declarations
-static void *pldotnet_load_library(const char_t *);
-static void *pldotnet_get_export(void *, const char *);
-
-static void *
-pldotnet_load_library(const char_t *path)
-{
-    fprintf(stderr, "# DEBUG: doing dlopen(%s).\n", path);
-    h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-    assert(h != nullptr);
-    return h;
-}
-
-static void *
-pldotnet_get_export(void *h, const char *name)
-{
-    void *f = dlsym(h, name);
-    if(f == nullptr){
-        fprintf(stderr, "Can't dlsym(%s); exiting.\n", name);
-        exit(-1);
-    }
-    return f;
-}
-
-// Using the nethost library, discover the location of hostfxr and get exports
-static int
-load_hostfxr()
-{
-    // Pre-allocate a large buffer for the path to hostfxr
-    char_t buffer[MAX_PATH];
-    size_t buffer_size = sizeof(buffer) / sizeof(char_t);
-    int rc = get_hostfxr_path(buffer, &buffer_size, nullptr);
-    void *lib;
-    if (rc != 0)
-        return 0;
-
-    // Load hostfxr and get desired exports
-    lib = pldotnet_load_library(buffer);
-    init_fptr = (hostfxr_initialize_for_runtime_config_fn)pldotnet_get_export( \
-        lib, "hostfxr_initialize_for_runtime_config");
-    get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)pldotnet_get_export( \
-        lib, "hostfxr_get_runtime_delegate");
-    close_fptr = (hostfxr_close_fn)pldotnet_get_export(lib, "hostfxr_close");
-
-    return (init_fptr && get_delegate_fptr && close_fptr);
-}
-
-// Load and initialize .NET Core and get desired function pointer for scenario
-static load_assembly_and_get_function_pointer_fn
-get_dotnet_load_assembly(const char_t *config_path)
-{
-    // Load .NET Core
-    void *load_assembly_and_get_function_pointer = nullptr;
-    hostfxr_handle cxt = nullptr;
-    int rc = init_fptr(config_path, nullptr, &cxt);
-    if (rc > 1 || rc < 0 || cxt == nullptr)
-    {
-        fprintf(stderr, "Init failed: %x\n", rc);
-        close_fptr(cxt);
-        return nullptr;
-    }
-
-    // Get the load assembly function pointer
-    rc = get_delegate_fptr(
-        cxt,
-        hdt_load_assembly_and_get_function_pointer,
-        &load_assembly_and_get_function_pointer);
-    if (rc != 0 || load_assembly_and_get_function_pointer == nullptr)
-        fprintf(stderr, "Get delegate failed: %x\n", rc);
-    close_fptr(cxt);
-    return (load_assembly_and_get_function_pointer_fn)load_assembly_and_get_function_pointer;
 }
 

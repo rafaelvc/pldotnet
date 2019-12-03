@@ -38,14 +38,11 @@ namespace DotNetLib
                     out (string src, MemoryStream builtCode) pair);
                     if  (pair.src == sourceCode) {
                         Lib.memStream = pair.builtCode;
-                        //Console.WriteLine("Func... already built.");
                         return 0;
                     }
                 }catch{}
             }
-            //Console.WriteLine("First time... building func.");
 
-            //Console.WriteLine($"Source Code: {sourceCode}");
             SyntaxTree tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
 
             var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
@@ -84,12 +81,6 @@ namespace DotNetLib
 
             funcBuiltCodeDict[libArgs.FuncOid] = (sourceCode, Lib.memStream);
 
-            //string path = "CompiledProcCode.dll";
-            //using(FileStream stream = new FileStream(path, FileMode.OpenOrCreate))
-            //{
-            //    Microsoft.CodeAnalysis.Emit.EmitResult compileResultFile = compilation.Emit(stream);
-            //}
-                                           
             return 0;
         }
 
