@@ -888,7 +888,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     bool *argsnullP;
 
     char *p;
-    Datum * array_element;
+    Datum array_element;
     ArgArrayInfo * arrinfo;
     ArrayType *arr;
 
@@ -937,7 +937,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                  {
                      array_element = fetch_att(p, arrinfo->typbyval,
                                                      arrinfo->typlen);
-                     pldotnet_SetScalarValue(curArg, *array_element, fcinfo,
+                     pldotnet_SetScalarValue(curArg, array_element, fcinfo,
                                                      i, arrinfo->typelem, NULL);
                      /* Iterate array */
                      p = att_addlength_pointer(p, arrinfo->typlen, p);
