@@ -8,15 +8,6 @@ PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-// TODO: Check how Postgres API do this or shoud we use C lib
-#define SNPRINTF(name, size, fmt, ...)                  \
-    char name[size];                                    \
-    i = snprintf(name, sizeof(name), fmt, __VA_ARGS__); \
-    if(i > sizeof(name)){                               \
-        fprintf(stderr, "String too long: " #name);     \
-        exit(-1);                                       \
-    }
-
 static pldotnet_info dotnet_info;
 
 static char * plfsharp_build_block2(Form_pg_proc procst);
@@ -95,19 +86,19 @@ plfsharp_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        sprintf(argName, " arg%d", i); // Review for nargs > 9
+        SNPRINTF(argName, strlen(argName)+1, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
-        sprintf(pStr, "%s%s%s%s\n",
-            val, argName, colon,
-            pldotnet_getNetTypeName(argtype[i], true) );
+        SNPRINTF(pStr,totalSize - curSize, "%s%s%s%s\n",
+                   val, argName, colon,
+                   pldotnet_getNetTypeName(argtype[i], true) );
         curSize += strlen(pStr);
     }
 
     pStr = (char *)(block2str + curSize);
 
-    sprintf(pStr, "%s%s%s%s",
-            val, result, colon,
-            pldotnet_getNetTypeName(rettype, true));
+    SNPRINTF(pStr, totalSize - curSize, "%s%s%s%s",
+                val, result, colon,
+                pldotnet_getNetTypeName(rettype, true));
 
     return block2str;
 }
@@ -116,7 +107,7 @@ static char *
 plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *pStr, *argNm, *source_text;
-    int argNmSize, i, nnames, curSize, totalSize;
+    int argNmSize, i, nnames, curSize=0, totalSize;
     bool isnull;
     char *func;
     const char member[] = "static member ";
@@ -167,11 +158,11 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
         user_line = strtok(NULL,"\n");
     }
 
-    totalSize += strlen(endFunDec) + strlen(endFun);
+    totalSize += strlen(endFunDec) + strlen(endFun) + 1;
 
     block2str = (char *)palloc0(totalSize);
 
-    sprintf(block2str, "%s%s%s ",func_signature_indent, member, func);
+    SNPRINTF(block2str, totalSize - curSize, "%s%s%s ",func_signature_indent, member, func);
 
     curSize = strlen(block2str);
 
@@ -183,25 +174,25 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
 
-        sprintf(pStr, " %s",argNm);
+        SNPRINTF(pStr, totalSize - curSize, " %s",argNm);
         curSize = strlen(block2str);
     }
 
 
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s", endFunDec);
+    SNPRINTF(pStr, totalSize - curSize, "%s", endFunDec);
     curSize = strlen(block2str);
 
     user_line = strtok(source_text,"\n");
     while(user_line != NULL){
         pStr = (char *)(block2str + curSize);
-        sprintf(pStr,"%s%s",func_body_indent,user_line);
+        SNPRINTF(pStr, totalSize - curSize, "%s%s",func_body_indent,user_line);
         user_line = strtok(NULL,"\n");
         curSize = strlen(block2str);
     }
 
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s", endFun);
+    SNPRINTF(pStr, totalSize - curSize, "%s", endFun);
 
     return block2str;
 }
@@ -210,7 +201,7 @@ static char *
 plfsharp_build_block6(Form_pg_proc procst)
 {
     char *block2str, *pStr, *resu_var;
-    int curSize, i, totalSize;
+    int curSize = 0, i, totalSize;
     char * func;
     const char libArgs[] = " libArgs.";
     char argName[] = "argN";
@@ -225,28 +216,30 @@ plfsharp_build_block6(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         block2str = (char *)palloc0(strlen(func_line_indent) + strlen(result) + strlen(func) + strlen(endFun));
-         sprintf(block2str, "%s%s%s%s",func_line_indent,resu_var, func, endFun);
+         int block_size = strlen(func_line_indent) + strlen(result) + strlen(func) + strlen(endFun) + 1;
+         block2str = (char *)palloc0(block_size);
+         SNPRINTF(block2str, block_size, "%s%s%s%s",func_line_indent,result, func, endFun);
+         return block2str;
     }
 
     totalSize = strlen(func_line_indent) +strlen(result) + strlen(func) 
                     + (strlen(libArgs) + strlen(argName)) * nargs
-                    + strlen(endFun);
+                    + strlen(endFun) + 1;
 
     block2str = (char *) palloc0(totalSize);
-    sprintf(block2str, "%s%s%s",func_line_indent, result, func);
+    SNPRINTF(block2str, totalSize - curSize, "%s%s%s",func_line_indent, result, func);
     curSize = strlen(block2str);
 
     for (i = 0; i < nargs; i++)
     {
-        sprintf(argName, "arg%d", i); // review nargs > 9
+        SNPRINTF(argName, strlen(argName) + 1, "arg%d", i); // review nargs > 9
         pStr = (char *)(block2str + curSize);
-        sprintf(pStr, "%s%s", libArgs, argName);
+        SNPRINTF(pStr, totalSize - curSize, "%s%s", libArgs, argName);
         curSize = strlen(block2str);
     }
 
     pStr = (char *)(block2str + curSize);
-    sprintf(pStr, "%s", endFun);
+    SNPRINTF(pStr, totalSize - curSize, "%s", endFun);
 
     return block2str;
 }
@@ -322,7 +315,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
          *fs_block_call4,
          *fs_block_call6;
     char *libArgs;
-    int i;
+    int i, source_code_size;
     HeapTuple proc;
     Form_pg_proc procst;
     Datum retval = 0;
@@ -364,11 +357,13 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         fs_block_call2 = plfsharp_build_block2( procst );
         fs_block_call4 = plfsharp_build_block4( procst , proc );
         fs_block_call6 = plfsharp_build_block6( procst);
-        source_code = palloc0(strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
-                             + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
-                             + strlen(fs_block_call7) + 1);
 
-        sprintf(source_code, "%s%s%s%s%s%s%s",fs_block_call1, fs_block_call2, fs_block_call3,
+        source_code_size = strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
+                               + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
+                               + strlen(fs_block_call7) + 1;
+
+        source_code = palloc0(source_code_size);
+        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s",fs_block_call1, fs_block_call2, fs_block_call3,
                                             fs_block_call4, fs_block_call5, fs_block_call6, fs_block_call7);
 
         rettype = procst->prorettype;
@@ -378,7 +373,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         pfree(fs_block_call4);
         pfree(fs_block_call6);
 
-        SNPRINTF(filename, 1024, "%s/src/fsharp/Lib.fs", dnldir);
+        char *filename;
+        char fsharp_srccode_path[] = "/src/fsharp/Lib.fs";
+        filename = palloc0(strlen(dnldir) + strlen(fsharp_srccode_path) + 1);
+        SNPRINTF(filename, strlen(dnldir) + strlen(fsharp_srccode_path) + 1
+                        , "%s%s", dnldir, fsharp_srccode_path);
         output_file = fopen(filename, "w");
         if (!output_file) {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
@@ -390,7 +389,10 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        SNPRINTF(cmd, 1024, "dotnet build %s/src/fsharp > null", dnldir);
+        char *cmd;
+        cmd = palloc0(strlen("dotnet build ") + strlen(dnldir) + strlen("/src/csharp > null") + 1);
+        SNPRINTF(cmd, strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
+                    , "dotnet build %s/src/fsharp > null", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
@@ -406,8 +408,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 2: Initialize and start the .NET Core runtime
         //
-        SNPRINTF(config_path, 1024, "%s/src/fsharp/DotNetLib.runtimeconfig.json", root_path);
-        fprintf(stderr, "# DEBUG: config_path is '%s'.\n", config_path);
+        char *config_path;
+        const char fsharp_json_path[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
+        config_path = palloc0(strlen(root_path) + strlen(fsharp_json_path) + 1);
+        SNPRINTF(config_path, strlen(root_path) + strlen(fsharp_json_path) + 1
+                        , "%s%s", root_path, fsharp_json_path);
 
         load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
@@ -416,8 +421,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
         //
-        SNPRINTF(dotnetlib_path, 1024, "%s/src/fsharp/DotNetLib.dll", root_path);
-        fprintf(stderr, "# DEBUG: dotnetlib_path is '%s'.\n", dotnetlib_path);
+        char *dotnetlib_path;
+        const char fsharp_dll_path[] = "/src/fsharp/DotNetLib.dll";
+        dotnetlib_path = palloc0(strlen(root_path) + strlen(fsharp_dll_path) + 1);
+        SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(fsharp_dll_path) + 1
+                        , "%s%s", root_path, fsharp_dll_path);
         // Function pointer to managed delegate
         rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
