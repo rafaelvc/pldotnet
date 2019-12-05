@@ -78,13 +78,13 @@ bool pldotnet_IsArray(int narg);
 typedef struct _ArgArrayInfo
 {
     int ixarray;
-	int typlen;
-	bool  typbyval;
+    int typlen;
+    bool  typbyval;
     char  typtype;
-	Oid	  typelem;
-	char  typalign;
-	int ndim;
-	const int * dims;
+    Oid   typelem;
+    char  typalign;
+    int ndim;
+    const int * dims;
     int   nelems;
     char  csharpdecl[64];
 }ArgArrayInfo;
