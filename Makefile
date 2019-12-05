@@ -33,6 +33,7 @@ testfloats \
 testchar \
 testmixedtypes \
 testrecursive \
+testarray \
 
 OBJS = \
 pldotnet.o \

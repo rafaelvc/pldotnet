@@ -70,9 +70,8 @@ static int get_size_args_null_array(int nargs);
 static void build_args_null_array_str(char *dest, int nargs);
 
 bool pldotnet_CheckArgIsArray(Datum datum, Oid oid, int narg);
-static void pldotnet_SetScalarValue(unsigned long ** argp, Datum datum,
-                                    FunctionCallInfo fcinfo, int narg,
-                                    Oid type, bool * nullp);
+static void pldotnet_SetScalarValue(unsigned long * argp, Datum datum,
+                     FunctionCallInfo fcinfo, int narg, Oid type, bool * nullp);
 static const char * pldotnet_GetUnmanagedTypeName(Oid type);
 bool pldotnet_IsArray(int narg);
 
@@ -938,8 +937,8 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                  {
                      array_element = fetch_att(p, arrinfo->typbyval,
                                                      arrinfo->typlen);
-                     pldotnet_SetScalarValue(&curArg, *array_element, fcinfo,
-                                                i, arrinfo->typelem, NULL);
+                     pldotnet_SetScalarValue(curArg, *array_element, fcinfo,
+                                                     i, arrinfo->typelem, NULL);
                      /* Iterate array */
                      p = att_addlength_pointer(p, arrinfo->typlen, p);
                      p = (char *) att_align_nominal(p, arrinfo->typalign);
@@ -947,13 +946,13 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                      /* Iterate CLibargs */
                      curSize += pldotnet_getTypeSize(arrinfo->typelem);
                      curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags
-                                                                  + curSize;
+                                                                      + curSize;
                  }
             }
         }
         else {
-            pldotnet_SetScalarValue(&curArg, fcinfo->arg[i], fcinfo, i,
-                                                         argtype[i], argsnullP + i);
+            pldotnet_SetScalarValue(curArg, fcinfo->arg[i], fcinfo, i,
+                                                     argtype[i], argsnullP + i);
              /* Iterate CLibargs */
             curSize += pldotnet_getTypeSize(argtype[i]);
             curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags + curSize;
@@ -964,9 +963,8 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 
-static void pldotnet_SetScalarValue(unsigned long ** argp, Datum datum,
-                                    FunctionCallInfo fcinfo, int narg,
-                                    Oid type, bool * nullp)
+static void pldotnet_SetScalarValue(unsigned long * argp, Datum datum,
+                      FunctionCallInfo fcinfo, int narg, Oid type, bool * nullp)
 {
     char * newstr;
     int len;
@@ -983,36 +981,36 @@ static void pldotnet_SetScalarValue(unsigned long ** argp, Datum datum,
     switch (type)
     {
         case BOOLOID:
-            *(bool *)(*argp) = DatumGetBool(datum);
+            *(bool *)(argp) = DatumGetBool(datum);
             if (nullp)
                 *nullp = isnull;
             break;
         case INT4OID:
-            *(int *)(*argp) = DatumGetInt32(datum);
+            *(int *)(argp) = DatumGetInt32(datum);
             //elog(WARNING, "->%d", **argp );
             if (nullp)
                 *nullp = isnull;
             break;
         case INT8OID:
-            *(long *)(*argp) = DatumGetInt64(datum);
+            *(long *)(argp) = DatumGetInt64(datum);
             if (nullp)
                 *nullp = isnull;
             break;
         case INT2OID:
-            *(short *)(*argp) = DatumGetInt16(datum);
+            *(short *)(argp) = DatumGetInt16(datum);
             if (argp)
                 *nullp = isnull;
             break;
         case FLOAT4OID:
-            *(float *)(*argp) = DatumGetFloat4(datum);
+            *(float *)(argp) = DatumGetFloat4(datum);
             break;
         case FLOAT8OID:
-            *(double *)(*argp) = DatumGetFloat8(datum);
+            *(double *)(argp) = DatumGetFloat8(datum);
             break;
         case NUMERICOID:
             /* C String encoding (numeric_out) is used here as it
              is a number. Unlikely to have encoding issues. */
-            *(unsigned long *)(*argp) =
+            *(unsigned long *)(argp) =
                 DatumGetCString(DirectFunctionCall1(numeric_out, datum));
             break;
         case BPCHAROID:
@@ -1023,7 +1021,7 @@ static void pldotnet_SetScalarValue(unsigned long ** argp, Datum datum,
            len = VARSIZE( datum ) - VARHDRSZ;
            newstr = (char *)palloc0(len+1);
            memcpy(newstr, VARDATA( datum ), len);
-           *(unsigned long *)(*argp) = (char *)
+           *(unsigned long *)(argp) = (char *)
                     pg_do_encoding_conversion(newstr,
                                               len+1,
                                               GetDatabaseEncoding(), PG_UTF8);
