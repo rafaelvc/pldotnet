@@ -51,7 +51,8 @@ PGDLLEXPORT Datum pldotnet_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum pldotnet_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-static char * pldotnet_build_block2(Form_pg_proc procst);
+static char * pldotnet_build_block2(FunctionCallInfo fcinfo,
+                                                           Form_pg_proc procst);
 static char * pldotnet_build_block4(Form_pg_proc procst);
 static char * pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc);
 static int get_size_nullable_header(int argNm_size, Oid arg_type, int narg);
@@ -68,13 +69,36 @@ static bool pldotnet_type_supported(Oid type);
 static int get_size_args_null_array(int nargs);
 static void build_args_null_array_str(char *dest, int nargs);
 
+bool pldotnet_CheckArgIsArray(Datum datum, Oid oid, int narg);
+static void pldotnet_SetScalarValue(unsigned long ** argp, Datum datum,
+                                    FunctionCallInfo fcinfo, int narg,
+                                    Oid type, bool * nullp);
+static const char * pldotnet_GetUnmanagedTypeName(Oid type);
+bool pldotnet_IsArray(int narg);
+
+typedef struct _ArgArrayInfo
+{
+    int ixarray;
+	int typlen;
+	bool  typbyval;
+    char  typtype;
+	Oid	  typelem;
+	char  typalign;
+	int ndim;
+	const int * dims;
+    int   nelems;
+    char  csharpdecl[64];
+}ArgArrayInfo;
+
 typedef struct pldotnet_info
 {
     char * libArgs;
     int    typeSizeNullFlags;
     int    typeSizeOfParams;
     int    typeSizeOfResult;
+    ArgArrayInfo arrayinfo[64]; /* check max nr of args */
 }pldotnet_info;
+
 pldotnet_info dotnet_info;
 
 typedef struct args_source
@@ -83,6 +107,7 @@ typedef struct args_source
     int Result;
     int FuncOid;
 }args_source;
+
 
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
@@ -120,7 +145,7 @@ char block_call3[] = "                            \n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
-            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n";
+            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n"
 //block_call4 libArgs.resu = FUNC(libArgs.argName1, libArgs.argName2, ...);
 //block_call5    //returnT FUNC(argType1 argName1, argType2 argName2, ...)
 	        //{
@@ -195,7 +220,7 @@ static char * pldotnet_public_decl(Oid type)
 }
 
 static char *
-pldotnet_build_block2(Form_pg_proc procst)
+pldotnet_build_block2(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     char *block2str, *pStr;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
@@ -209,7 +234,8 @@ pldotnet_build_block2(Form_pg_proc procst)
     bool nullable_arg_flag = false;
     int null_flags_size = 0, return_null_flag_size = 0;
     char *return_null_flag_str;
-
+    bool isarr = false;
+    Oid type;
 
     if (!pldotnet_type_supported(rettype))
     {
@@ -219,7 +245,10 @@ pldotnet_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        if (!pldotnet_type_supported(argtype[i]))
+        isarr = pldotnet_CheckArgIsArray(fcinfo->arg[i], argtype[i], i);
+        type = isarr ? dotnet_info.arrayinfo[i].typelem : argtype[i];
+
+        if (!pldotnet_type_supported(type))
         {
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             return 0;
@@ -228,9 +257,16 @@ pldotnet_build_block2(Form_pg_proc procst)
         if (is_nullable(argtype[i]))
             nullable_arg_flag = true;
 
-        public_size = pldotnet_public_decl_size(argtype[i]);
-        totalSize += public_size + strlen(pldotnet_getNetTypeName(argtype[i], true)) +
-                       + strlen(argName) + strlen(semicon);
+        if (isarr)
+        {
+            totalSize += strlen(dotnet_info.arrayinfo[i].csharpdecl);
+        }
+        else
+        {
+            totalSize += pldotnet_public_decl_size(type) +
+                        strlen(pldotnet_getNetTypeName(type, true)) +
+                        strlen(argName) + strlen(semicon);
+        }
     }
     
     public_size = pldotnet_public_decl_size(rettype);
@@ -240,9 +276,9 @@ pldotnet_build_block2(Form_pg_proc procst)
     if(nullable_arg_flag)
         null_flags_size = get_size_args_null_array(nargs);
 
-    totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype, true)) + 
-                    + null_flags_size + return_null_flag_size
-                    + strlen(result) + strlen(semicon) + 1;
+    totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype, true))
+                             + null_flags_size + return_null_flag_size
+                             + strlen(result) + strlen(semicon) + 1;
 
     block2str = (char *) palloc0(totalSize);
 
@@ -262,23 +298,24 @@ pldotnet_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        sprintf(argName, " arg%d", i); // Review for nargs > 9
         pStr = (char *)(block2str + curSize);
-        sprintf(pStr, "%s%s%s%s",
-            pldotnet_public_decl(argtype[i]),
-            pldotnet_getNetTypeName(argtype[i], true), argName, semicon);
+        if (pldotnet_IsArray(i))
+            sprintf(pStr, "%s", dotnet_info.arrayinfo[i].csharpdecl);
+        else
+        {
+            sprintf(argName, " arg%d", i); // Review for nargs > 9
+            sprintf(pStr, "%s%s%s%s", pldotnet_public_decl(argtype[i]),
+                                      pldotnet_getNetTypeName(argtype[i], true),
+                                      argName, semicon);
+        }
         curSize += strlen(pStr);
     }
 
-    // result
-            pStr = (char *)(block2str + curSize);
-
-
+    pStr = (char *)(block2str + curSize);
     sprintf(pStr, "%s%s%s%s",
             pldotnet_public_decl(rettype),
             pldotnet_getNetTypeName(rettype, true), result, semicon);
 
-    /* elog(WARNING, "%s", block2str);*/
     return block2str;
 }
 
@@ -391,8 +428,118 @@ get_size_args_null_array(int nargs)
 static void
 build_args_null_array_str(char *dest, int nargs)
 {
+
     sprintf(dest,"\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=%d)]public %s",
         nargs, arg_flag_str);
+}
+
+bool pldotnet_CheckArgIsArray(Datum datum, Oid oid, int narg)
+{
+    HeapTuple typetuple;
+    Form_pg_type typeinfo;
+    ArrayType *arr;
+    char argName[] = " argN";
+    bool isarr = false;
+    ArgArrayInfo * parr_info;
+
+    typetuple = SearchSysCache(TYPEOID, ObjectIdGetDatum(oid), 0, 0, 0);
+    if (!HeapTupleIsValid(typetuple)) {
+        elog(ERROR,
+          "[pldotnet]: (CheckArgIsArray) cache lookup failed for type %u", oid);
+    }
+    typeinfo = (Form_pg_type) GETSTRUCT(typetuple);
+
+    isarr = (typeinfo->typelem != 0 && typeinfo->typlen == -1);
+
+    if (isarr)
+    {
+        parr_info = &(dotnet_info.arrayinfo[ narg ]);
+        parr_info->ixarray = narg;
+        parr_info->typlen = typeinfo->typlen;
+        parr_info->typbyval = typeinfo->typbyval;
+        parr_info->typtype = typeinfo->typtype;
+        parr_info->typelem = typeinfo->typelem;
+        parr_info->typalign = typeinfo->typalign;
+
+        arr = DatumGetArrayTypeP(datum);
+        parr_info->ndim = ARR_NDIM(arr);
+        parr_info->dims = ARR_DIMS(arr);
+        parr_info->nelems = ArrayGetNItems(ARR_NDIM(arr), ARR_DIMS(arr));
+
+        /* Review for nargs > 9*/
+        sprintf(argName, " arg%d", narg);
+        sprintf(parr_info->csharpdecl,
+"\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.%s,\
+SizeConst=%d)]public %s[] %s;",
+                    pldotnet_GetUnmanagedTypeName(parr_info->typelem),
+                    parr_info->nelems,
+                    pldotnet_getNetTypeName(parr_info->typelem, false),
+                    argName);
+    }
+    else
+        dotnet_info.arrayinfo[ narg ].ixarray = -1;
+    ReleaseSysCache(typetuple);
+    return isarr;
+}
+
+bool pldotnet_IsArray(int narg)
+{
+   return (dotnet_info.arrayinfo[narg].ixarray == narg);
+}
+
+/*
+case TYPTYPE_DOMAIN:
+    typetuple = SearchSysCache(TYPEOID, ObjectIdGetDatum(id), 0, 0, 0);
+    if (!HeapTupleIsValid(typetuple))
+        elog(ERROR, "[pldotnet]: cache lookup failed for type %u", id);
+    typeinfo = (Form_pg_type) GETSTRUCT(typetuple);
+    typlen = typeinfo->typlen;
+    typelem = typeinfo->typelem;
+    ReleaseSysCache(typetuple);
+    if (typelem != 0 && typlen == -1) // array?
+    {
+        arr = DatumGetArrayTypeP(datum);
+        elemsz =  pldotnet_getTypeSize(typelem, NULL);
+        if (elemsz != -1)
+            return elemsz * ArrayGetNItems(ARR_NDIM(arr),
+                                                        *ARR_DIMS(arr));
+    }
+
+*/
+/*
+static void BuildArgArrayDecl(char *dest, int nelem, char argnm, Oid type)
+{
+    sprintf(dest,"\n[MarshalAs(UnmanagedType.LPArray,\
+                    ArraySubType=UnmanagedType.%s,\
+                    SizeConst=%d)]public []%s;",
+                    pldotnet_getNetTypeName(type, false), nelem, argnm);
+    return dest;
+}*/
+
+static const char * pldotnet_GetUnmanagedTypeName(Oid type)
+{
+    switch (type)
+    {
+        case BOOLOID:
+            return "U1";
+        case INT2OID:
+            return "I2";
+        case INT4OID:
+            return "I4";
+        case INT8OID:
+            return "I8";
+        case FLOAT4OID:
+            return "R4";
+        case FLOAT8OID:
+            return "R8";
+        case NUMERICOID:
+            return "LPStr";
+        case BPCHAROID:
+        case VARCHAROID:
+        case TEXTOID:
+            return "LPUTF8Str";
+    }
+    return  "";
 }
 
 /*
@@ -518,14 +665,17 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
     const char endFunDec[] = "){\n\n";
     const char endFun[] = "}\n";
     const char newLine[] = "\n";
+    const char arrbrackets[] = "[]";
     int nargs = procst->pronargs;
     Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
     text * t;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
+    Oid type;
     /* nullable related */
     char *header_nullable, *footer_nullable, *header_nullableP;
     int header_size=0, cur_header_size, footer_size=0;
+    char  * typename;
 
     // Function name
     func = NameStr(procst->proname);
@@ -557,9 +707,11 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
     for (i = 0; i < nargs; i++) 
     {
+        type = pldotnet_IsArray(i) ?
+                                  dotnet_info.arrayinfo[i].typelem : argtype[i];
+
         argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
-
 
         if(is_nullable(argtype[i]))
         {
@@ -569,7 +721,9 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
         argNmSize = strlen(argNm);
         /*+1 here is the space between type" "argname declaration*/
-        totalSize +=  strlen(pldotnet_getNetTypeName(argtype[i], false)) + 1 + argNmSize;
+        totalSize +=  strlen(pldotnet_getNetTypeName(type, false))
+                      + pldotnet_IsArray(i) ? strlen(arrbrackets) : 0
+                      + 1 + argNmSize;
     }
      if (nargs > 1)
          totalSize += (nargs - 1) * strlen(comma); // commas size
@@ -607,10 +761,20 @@ pldotnet_build_block5(Form_pg_proc procst, HeapTuple proc)
 
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
-        if  (i + 1 == nargs)  // last no comma
-            sprintf(pStr, "%s %s", pldotnet_getNetTypeName(argtype[i], false), argNm);
+
+        typename = pldotnet_getNetTypeName( pldotnet_IsArray(i) ?
+                         dotnet_info.arrayinfo[i].typelem : argtype[i], false );
+
+        if  (i + 1 == nargs) /* last no comma */
+        {
+            sprintf(pStr, "%s%s %s", typename,
+                                 pldotnet_IsArray(i) ? arrbrackets : "", argNm);
+        }
         else
-            sprintf(pStr, "%s %s%s", pldotnet_getNetTypeName(argtype[i], false), argNm, comma);
+        {
+            sprintf(pStr, "%s%s %s%s", typename,
+                          pldotnet_IsArray(i) ? arrbrackets : "", argNm, comma);
+        }
         curSize = strlen(block2str);
     }
 
@@ -713,28 +877,37 @@ pldotnet_getNetNullableTypeName(Oid id)
 static char *
 pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
-    int i;
+    int i,j;
     int curSize = 0;
     char *ptrToLibArgs = NULL;
     char *curArg = NULL;
     Oid *argtype = procst->proargtypes.values;
     Oid rettype = procst->prorettype;
     Oid type;
-    int lenBuff;
-    char * newArgVl;
     /* nullable related*/
-    bool nullable_arg_flag = false, fcinfo_null_flag;
+    bool nullable_arg_flag = false;
     bool *argsnullP;
-    Datum argDatum;
+
+    char *p;
+    Datum * array_element;
+    ArgArrayInfo * arrinfo;
+    ArrayType *arr;
 
     dotnet_info.typeSizeOfParams = 0;
     dotnet_info.typeSizeNullFlags = 0;
 
-    for (i = 0; i < fcinfo->nargs; i++) {
-        dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
+    for (i = 0; i < fcinfo->nargs; i++)
+    {
+        if (pldotnet_IsArray(i))
+        {
+            dotnet_info.typeSizeOfParams +=
+              (dotnet_info.arrayinfo[i].nelems *
+                        pldotnet_getTypeSize(dotnet_info.arrayinfo[i].typelem));
+        }
+        else
+            dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
         if(is_nullable(argtype[i]))
             nullable_arg_flag = true;
-        /*elog(WARNING, "%d", dotnet_info.typeSizeOfParams );*/
     }
 
     if(nullable_arg_flag)
@@ -744,81 +917,122 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
 
-    ptrToLibArgs = (char *) palloc0(dotnet_info.typeSizeNullFlags + dotnet_info.typeSizeOfParams +
-                                  dotnet_info.typeSizeOfResult);
+    ptrToLibArgs = (char *) palloc0(dotnet_info.typeSizeNullFlags +
+                                    dotnet_info.typeSizeOfParams +
+                                    dotnet_info.typeSizeOfResult);
 
     argsnullP = (bool *) ptrToLibArgs;
     curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        type = argtype[i];
-#if PG_VERSION_NUM >= 120000
-        fcinfo_null_flag=fcinfo->args[i].isnull;
-        argDatum = fcinfo->args[i].value;
-#else
-        fcinfo_null_flag=fcinfo->argnull[i];
-        argDatum = fcinfo->arg[i];
-#endif
-        switch (type)
+        if (pldotnet_IsArray(i))
         {
-            case BOOLOID:
-                *(bool *)curArg = DatumGetBool(argDatum);
-                argsnullP[i] = fcinfo_null_flag;
-                break;
-            case INT4OID:
-                *(int *)curArg = DatumGetInt32(argDatum);
-                argsnullP[i] = fcinfo_null_flag;
-                break;
-            case INT8OID:
-                *(long *)curArg = DatumGetInt64(argDatum);
-                argsnullP[i] = fcinfo_null_flag;
-                break;
-            case INT2OID:
-                *(short *)curArg = DatumGetInt16(argDatum);
-                argsnullP[i] = fcinfo_null_flag;
-                break;
-            case FLOAT4OID:
-                *(float *)curArg = DatumGetFloat4(argDatum);
-                break;
-            case FLOAT8OID:
-                *(double *)curArg = DatumGetFloat8(argDatum);
-                break;
-            case NUMERICOID:
-                // C String encoding
-                *(unsigned long *)curArg =
-                    DatumGetCString(DirectFunctionCall1(numeric_out, argDatum));
-                break;
-            case BPCHAROID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(bpcharout, DatumGetCString(argDatum));
-                //break;
-            case TEXTOID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(textout, DatumGetCString(argDatum));
-                //break;
-            case VARCHAROID:
-                // C String encoding
-                //*(unsigned long *)curArg =
-                //    DirectFunctionCall1(varcharout, DatumGetCString(argDatum));
-               // UTF8 encoding
-               lenBuff = VARSIZE( argDatum ) - VARHDRSZ;
-               newArgVl = (char *)palloc0(lenBuff + 1);
-               memcpy(newArgVl, VARDATA( argDatum ), lenBuff);
-               *(unsigned long *)curArg = (char *)
-                    pg_do_encoding_conversion(newArgVl,
-                                              lenBuff+1,
-                                              GetDatabaseEncoding(), PG_UTF8);
-                break;
+             arrinfo = &(dotnet_info.arrayinfo[i]);
+             arr = DatumGetArrayTypeP(fcinfo->arg[i]);
+             p = ARR_DATA_PTR(arr);
+             if (arrinfo->ndim == 1)
+             { // vector?
+                 //elog(WARNING, "vector");
+                 for (j = 0; j < arrinfo->nelems; j++)
+                 {
+                     array_element = fetch_att(p, arrinfo->typbyval,
+                                                     arrinfo->typlen);
+                     pldotnet_SetScalarValue(&curArg, *array_element, fcinfo,
+                                                i, arrinfo->typelem, NULL);
+                     /* Iterate array */
+                     p = att_addlength_pointer(p, arrinfo->typlen, p);
+                     p = (char *) att_align_nominal(p, arrinfo->typalign);
 
+                     /* Iterate CLibargs */
+                     curSize += pldotnet_getTypeSize(arrinfo->typelem);
+                     curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags
+                                                                  + curSize;
+                 }
+            }
         }
-        curSize += pldotnet_getTypeSize(argtype[i]);
-        curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags + curSize;
+        else {
+            pldotnet_SetScalarValue(&curArg, fcinfo->arg[i], fcinfo, i,
+                                                         argtype[i], argsnullP + i);
+             /* Iterate CLibargs */
+            curSize += pldotnet_getTypeSize(argtype[i]);
+            curArg = ptrToLibArgs + dotnet_info.typeSizeNullFlags + curSize;
+        }
     }
 
     return ptrToLibArgs;
+}
+
+
+static void pldotnet_SetScalarValue(unsigned long ** argp, Datum datum,
+                                    FunctionCallInfo fcinfo, int narg,
+                                    Oid type, bool * nullp)
+{
+    char * newstr;
+    int len;
+    bool isnull;
+
+#if PG_VERSION_NUM >= 120000
+    if (nullp)
+        isnull=datum.isnull;
+#else
+    if (nullp)
+        isnull=fcinfo->argnull[narg];
+#endif
+
+    switch (type)
+    {
+        case BOOLOID:
+            *(bool *)(*argp) = DatumGetBool(datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT4OID:
+            *(int *)(*argp) = DatumGetInt32(datum);
+            //elog(WARNING, "->%d", **argp );
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT8OID:
+            *(long *)(*argp) = DatumGetInt64(datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT2OID:
+            *(short *)(*argp) = DatumGetInt16(datum);
+            if (argp)
+                *nullp = isnull;
+            break;
+        case FLOAT4OID:
+            *(float *)(*argp) = DatumGetFloat4(datum);
+            break;
+        case FLOAT8OID:
+            *(double *)(*argp) = DatumGetFloat8(datum);
+            break;
+        case NUMERICOID:
+            /* C String encoding (numeric_out) is used here as it
+             is a number. Unlikely to have encoding issues. */
+            *(unsigned long *)(*argp) =
+                DatumGetCString(DirectFunctionCall1(numeric_out, datum));
+            break;
+        case BPCHAROID:
+        case TEXTOID:
+        case VARCHAROID:
+
+           /* UTF8 encoding */
+           len = VARSIZE( datum ) - VARHDRSZ;
+           newstr = (char *)palloc0(len+1);
+           memcpy(newstr, VARDATA( datum ), len);
+           *(unsigned long *)(*argp) = (char *)
+                    pg_do_encoding_conversion(newstr,
+                                              len+1,
+                                              GetDatabaseEncoding(), PG_UTF8);
+            /*  If you need C String encoding do like this:
+                *(unsigned long *)argp =
+                DirectFunctionCall1(cstrfunc, DatumGetCString(datum));
+                where cstrfunc is bpcharout, textout or varcharout */
+            break;
+    }
 }
 
 static Datum
@@ -984,7 +1198,7 @@ Datum pldotnet_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
     // Build the source code
-        block_call2 = pldotnet_build_block2( procst );
+        block_call2 = pldotnet_build_block2( fcinfo, procst );
 	//elog(ERROR, "[pldotnet] %s", block_call2);
         block_call4 = pldotnet_build_block4( procst );
 	//elog(ERROR, "[pldotnet] %s", block_call4);
