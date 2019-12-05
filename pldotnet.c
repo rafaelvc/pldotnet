@@ -145,7 +145,7 @@ char block_call3[] = "                            \n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
-            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n"
+            LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);\n";
 //block_call4 libArgs.resu = FUNC(libArgs.argName1, libArgs.argName2, ...);
 //block_call5    //returnT FUNC(argType1 argName1, argType2 argName2, ...)
 	        //{
