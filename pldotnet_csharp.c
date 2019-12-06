@@ -163,7 +163,7 @@ plcsharp_build_block2(Form_pg_proc procst)
 
     return_null_flag_size = strlen(public_bool) + strlen(resu_flag_str);
 
-    if(nullable_arg_flag)
+    if (nullable_arg_flag)
         null_flags_size = get_size_args_null_array(nargs);
 
     totalSize += public_size + strlen(pldotnet_getNetTypeName(rettype, true)) + 
@@ -172,7 +172,8 @@ plcsharp_build_block2(Form_pg_proc procst)
 
     block2str = (char *) palloc0(totalSize);
 
-    if(nullable_arg_flag) {
+    if (nullable_arg_flag)
+    {
         pStr = (char *)(block2str + curSize);
         SNPRINTF(pStr, totalSize - curSize
             , "\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=%d)]public %s"
@@ -234,7 +235,9 @@ plcsharp_build_block4(Form_pg_proc procst)
         SNPRINTF(resu_var, resu_var_size, "%s%s"
                    , pldotnet_getNetNullableTypeName(rettype)
                    , nullable_result);
-    } else {
+    } 
+    else
+    {
         const char result[] = "libArgs.resu=";
         resu_var = (char *)palloc0(strlen(result)+1);
         SNPRINTF(resu_var,strlen(result)+1,"%s",result);
@@ -245,14 +248,16 @@ plcsharp_build_block4(Form_pg_proc procst)
     {
          int block_size;
 
-         if (rettype == NUMERICOID) {
+         if (rettype == NUMERICOID)
+         {
             block_size = strlen(resu_var) + strlen(func) + strlen(beginFun)
                                  + strlen(endFun) + strlen(strConvert) + strlen(semicolon) + 1;
             block2str = (char *)palloc0(block_size);
             SNPRINTF(block2str,block_size,"%s%s%s%s%s%s"
                        ,resu_var, func, beginFun, endFun, strConvert, semicolon);
          }
-         else {
+         else
+         {
             block_size = strlen(resu_var) + strlen(func) + strlen(beginFun)
                                  + strlen(endFun) + strlen(semicolon) + 1;
             block2str = (char *)palloc0(block_size);
@@ -286,20 +291,25 @@ plcsharp_build_block4(Form_pg_proc procst)
     {
         SNPRINTF(argName,strlen(argName)+1, "arg%d", i); // review nargs > 9
         pStr = (char *)(block2str + curSize);
-        if  (i + 1 == nargs)  // last no comma
+        if (i + 1 == nargs)  // last no comma
         {
-            if (argtype[i] == NUMERICOID) {
+            if (argtype[i] == NUMERICOID)
+            {
                 SNPRINTF(pStr,totalSize-curSize,"%s%s%s%s", toDecimal, libArgs, argName, endFun);
             }
-            else {
+            else
+            {
                 SNPRINTF(pStr, totalSize-curSize, "%s%s", libArgs, argName);
             }
         }
-        else {
-            if (argtype[i] == NUMERICOID) {
+        else
+        {
+            if (argtype[i] == NUMERICOID)
+            {
                 SNPRINTF(pStr, totalSize-curSize, "%s%s%s%s%s", toDecimal, libArgs, argName, endFun, comma);
             }
-            else {
+            else
+            {
                 SNPRINTF(pStr, totalSize-curSize, "%s%s%s", libArgs, argName, comma);
             }
         }
@@ -307,10 +317,12 @@ plcsharp_build_block4(Form_pg_proc procst)
     }
 
     pStr = (char *)(block2str + curSize);
-    if (rettype == NUMERICOID) {
+    if (rettype == NUMERICOID)
+    {
         SNPRINTF(pStr, totalSize-curSize, "%s%s%s", endFun, strConvert, semicolon);
     }
-    else {
+    else
+    {
         SNPRINTF(pStr, totalSize-curSize, "%s%s", endFun, semicolon);
     }
 
@@ -325,7 +337,7 @@ get_size_args_null_array(int nargs)
         "\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=)]public ";
     int n_digits_args = 0;
 
-    if(nargs > 0)
+    if (nargs > 0)
         n_digits_args = floor(log10(abs(nargs))) + 1;
 
     return (strlen(public_bool_array) + n_digits_args + strlen(arg_flag_str));
@@ -349,13 +361,14 @@ get_size_nullable_header(int argNm_size, Oid arg_type, int narg)
     char *null_str = "null";
     int n_digits_arg = 0;
 
-    if(narg == 0)
+    if (narg == 0)
         /* Edge case treatment since log10(0) == -HUGE_VAL */
         n_digits_arg = floor(log10(abs(1))) + 1;
     else
         n_digits_arg = floor(log10(abs(narg))) + 1;
 
-    switch (arg_type){
+    switch (arg_type)
+    {
         case INT2OID:
         case INT4OID:
         case INT8OID:
@@ -382,7 +395,8 @@ get_size_nullable_footer(Oid ret_type)
 {
     int total_size = 0;
 
-    switch (ret_type){
+    switch (ret_type)
+    {
         case INT2OID:
         case INT4OID:
         case INT8OID:
@@ -441,11 +455,13 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
     // Caculates the total amount in bytes of C# src text for 
     // the function declaration according nr of arguments 
     // their types and the function return type
-    if(is_nullable(rettype))
+    if (is_nullable(rettype))
     {
         totalSize = (2 * strlen(newLine)) + strlen(pldotnet_getNetNullableTypeName(rettype))
                     + strlen(" ") + strlen(func) + strlen(beginFunDec);
-    } else{
+    }
+    else
+    {
         totalSize = (2 * strlen(newLine)) + strlen(pldotnet_getNetTypeName(rettype, false))
                     + strlen(" ") + strlen(func) + strlen(beginFunDec);
     }
@@ -455,14 +471,15 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
         source_argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        if(is_nullable(argtype[i]))
+        if (is_nullable(argtype[i]))
         {
             header_size += get_size_nullable_header(strlen(source_argNm),argtype[i],i);
             argNm = palloc0(strlen(source_argNm) + strlen("_nullable") + 1);
             SNPRINTF(argNm,strlen(source_argNm) + strlen("_nullable") + 1
                             , "%s_nullable", source_argNm);
         } 
-        else {
+        else
+        {
             argNm = palloc0(strlen(source_argNm) + 1);
             SNPRINTF(argNm,strlen(source_argNm) + 1, "%s", source_argNm);
         }
@@ -482,11 +499,13 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
 
     block2str = (char *)palloc0(totalSize);
 
-    if(is_nullable(rettype))
+    if (is_nullable(rettype))
     {
         SNPRINTF(block2str, totalSize - curSize, "%s%s%s %s%s",newLine
                    , newLine, pldotnet_getNetNullableTypeName(rettype), func, beginFunDec);
-    } else {
+    }
+    else
+    {
         SNPRINTF(block2str, totalSize - curSize, "%s%s%s %s%s",newLine
                    , newLine,  pldotnet_getNetTypeName(rettype, false), func, beginFunDec);
     }
@@ -501,7 +520,7 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
         source_argNm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        if(is_nullable(argtype[i]))
+        if (is_nullable(argtype[i]))
         {
             header_nullableP = (char *) (header_nullable + cur_header_size);
             SNPRINTF(header_nullableP, (header_size - cur_header_size) + 1
@@ -513,17 +532,20 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
             SNPRINTF(argNm,strlen(source_argNm) + strlen("_nullable") + 1
                             , "%s_nullable", source_argNm);
         }
-        else {
+        else
+        {
             argNm = palloc0(strlen(source_argNm) + 1);
             SNPRINTF(argNm,strlen(source_argNm) + 1, "%s", source_argNm);
         }
 
         argNmSize = strlen(argNm);
         pStr = (char *)(block2str + curSize);
-        if  (i + 1 == nargs) {  // last no comma
+        if (i + 1 == nargs)
+        {  // last no comma
             SNPRINTF(pStr, totalSize - curSize, "%s %s", pldotnet_getNetTypeName(argtype[i], false), argNm);
         }
-        else {
+        else
+        {
             SNPRINTF(pStr, totalSize - curSize, "%s %s%s", pldotnet_getNetTypeName(argtype[i], false), argNm, comma);
         }
         curSize = strlen(block2str);
@@ -535,7 +557,8 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
     SNPRINTF(pStr, totalSize - curSize, "%s", endFunDec);
     curSize = strlen(block2str);
 
-    if (header_size > 0) {
+    if (header_size > 0)
+    {
         pStr = (char *)(block2str + curSize);
         SNPRINTF(pStr, totalSize - curSize, "%s",header_nullable);
         curSize = strlen(block2str);
@@ -545,7 +568,8 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
     SNPRINTF(pStr, totalSize - curSize, "%s%s", source_text, endFun);
     curSize = strlen(block2str);
 
-    if (footer_size > 0) {
+    if (footer_size > 0)
+    {
         pStr = (char *)(block2str + curSize);
         SNPRINTF(pStr, totalSize - curSize, "%s%s", resu_nullable_value, resu_nullable_flag);
     }
@@ -558,7 +582,8 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
 static const char *
 pldotnet_getNetNullableTypeName(Oid id)
 {
-    switch (id){
+    switch (id)
+    {
         case BOOLOID:
             return "bool?"; /* Nullable<System.Boolean> */
         case INT2OID:
@@ -591,13 +616,14 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     dotnet_info.typeSizeOfParams = 0;
     dotnet_info.typeSizeNullFlags = 0;
 
-    for (i = 0; i < fcinfo->nargs; i++) {
+    for (i = 0; i < fcinfo->nargs; i++)
+    {
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
-        if(is_nullable(argtype[i]))
+        if (is_nullable(argtype[i]))
             nullable_arg_flag = true;
     }
 
-    if(nullable_arg_flag)
+    if (nullable_arg_flag)
         dotnet_info.typeSizeNullFlags += sizeof(bool) * fcinfo->nargs;
 
     dotnet_info.typeSizeNullFlags += sizeof(bool);
@@ -694,29 +720,30 @@ pldotnet_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
     char * resultNullP = libArgs + (dotnet_info.typeSizeNullFlags - sizeof(bool));
     char * encodedStr;
 
-    switch (rettype){
+    switch (rettype)
+    {
         case BOOLOID:
             /* Recover flag for null result*/
             fcinfo->isnull = *(bool *) (resultNullP);
-            if(fcinfo->isnull)
+            if (fcinfo->isnull)
                 return (Datum) 0;
             return  BoolGetDatum  ( *(bool *)(resultP) );
         case INT4OID:
             /* Recover flag for null result*/
             fcinfo->isnull = *(bool *) (resultNullP);
-            if(fcinfo->isnull)
+            if (fcinfo->isnull)
                 return (Datum) 0;
             return  Int32GetDatum ( *(int *)(resultP) );
         case INT8OID:
             /* Recover flag for null result*/
             fcinfo->isnull = *(bool *) (resultNullP);
-            if(fcinfo->isnull)
+            if (fcinfo->isnull)
                 return (Datum) 0;
             return  Int64GetDatum ( *(long *)(resultP) );
         case INT2OID:
             /* Recover flag for null result*/
             fcinfo->isnull = *(bool *) (resultNullP);
-            if(fcinfo->isnull)
+            if (fcinfo->isnull)
                 return (Datum) 0;
             return  Int16GetDatum ( *(short *)(resultP) );
         case FLOAT4OID:
@@ -800,7 +827,8 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
     istrigger = CALLED_AS_TRIGGER(fcinfo);
-    if (istrigger) {
+    if (istrigger)
+    {
         ereport(ERROR,
               (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                errmsg("[pldotnet]: dotnet trigger not supported")));
@@ -845,11 +873,13 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(filename, strlen(dnldir) + strlen(csharp_srccode_path) + 1
                         , "%s%s", dnldir, csharp_srccode_path);
         output_file = fopen(filename, "w");
-        if (!output_file) {
+        if (!output_file)
+        {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
             exit(-1);
         }
-        if(fputs(source_code, output_file) == EOF){
+        if (fputs(source_code, output_file) == EOF)
+        {
             fprintf(stderr, "Cannot write to file: '%s'\n", filename);
             exit(-1);
         }
@@ -864,7 +894,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 #endif
 
         root_path = strdup(dnldir);
-        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+        if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
             root_path[strlen(root_path) - 1] = 0;
 
         //
@@ -1023,11 +1053,13 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         SNPRINTF(filename, strlen(dnldir) + strlen(csharp_srccode_path) + 1
                         , "%s%s", dnldir, csharp_srccode_path);
         output_file = fopen(filename, "w");
-        if (!output_file) {
+        if (!output_file)
+        {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
             exit(-1);
         }
-        if(fputs(source_code, output_file) == EOF){
+        if (fputs(source_code, output_file) == EOF)
+        {
             fprintf(stderr, "Cannot write to file: '%s'\n", filename);
             exit(-1);
         }
@@ -1041,7 +1073,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 #endif
         root_path = strdup(dnldir);
-        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+        if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
             root_path[strlen(root_path) - 1] = 0;
 
         //

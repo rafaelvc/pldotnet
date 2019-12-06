@@ -13,7 +13,8 @@ pldotnet_type_supported(Oid type)
 const char *
 pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
 {
-    switch (id){
+    switch (id)
+    {
         case BOOLOID:
             return "bool"; // System.Boolean
         case INT4OID:
@@ -40,7 +41,8 @@ pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
 int
 pldotnet_getTypeSize(Oid id)
 {
-    switch (id){
+    switch (id)
+    {
         case BOOLOID:
             return sizeof(bool);
         case INT4OID:

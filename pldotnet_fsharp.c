@@ -153,7 +153,8 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 
     /* tokenizes source_code into its lines for indentation insertion*/
     user_line = strtok(source_text,"\n");
-    while(user_line != NULL){
+    while (user_line != NULL)
+    {
         totalSize += strlen(func_body_indent) + strlen(user_line);
         user_line = strtok(NULL,"\n");
     }
@@ -184,7 +185,8 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     curSize = strlen(block2str);
 
     user_line = strtok(source_text,"\n");
-    while(user_line != NULL){
+    while (user_line != NULL)
+    {
         pStr = (char *)(block2str + curSize);
         SNPRINTF(pStr, totalSize - curSize, "%s%s",func_body_indent,user_line);
         user_line = strtok(NULL,"\n");
@@ -258,7 +260,8 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     dotnet_info.typeSizeOfParams = 0;
 
-    for (i = 0; i < fcinfo->nargs; i++) {
+    for (i = 0; i < fcinfo->nargs; i++)
+    {
         dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
     }
 
@@ -297,7 +300,8 @@ plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinf
     char * resultP = libArgs
                     + dotnet_info.typeSizeOfParams;
 
-    switch (rettype){
+    switch (rettype)
+    {
         case INT4OID:
             /* Recover flag for null result*/
             return  Int32GetDatum ( *(int *)(resultP) );
@@ -334,7 +338,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
     istrigger = CALLED_AS_TRIGGER(fcinfo);
-    if (istrigger) {
+    if (istrigger)
+    {
         ereport(ERROR,
               (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                errmsg("[pldotnet]: dotnet trigger not supported")));
@@ -379,11 +384,13 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(filename, strlen(dnldir) + strlen(fsharp_srccode_path) + 1
                         , "%s%s", dnldir, fsharp_srccode_path);
         output_file = fopen(filename, "w");
-        if (!output_file) {
+        if (!output_file)
+        {
             fprintf(stderr, "Cannot open file: '%s'\n", filename);
             exit(-1);
         }
-        if(fputs(source_code, output_file) == EOF){
+        if (fputs(source_code, output_file) == EOF)
+        {
             fprintf(stderr, "Cannot write to file: '%s'\n", filename);
             exit(-1);
         }
@@ -397,7 +404,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
         root_path = strdup(dnldir);
-        if(root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+        if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
             root_path[strlen(root_path) - 1] = 0;
 
         //

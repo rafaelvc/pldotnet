@@ -31,7 +31,8 @@ static void *
 pldotnet_get_export(void *host, const char *name)
 {
     void *f = dlsym(host, name);
-    if(f == nullptr){
+    if (f == nullptr)
+    {
         fprintf(stderr, "Can't dlsym(%s); exiting.\n", name);
         exit(-1);
     }
