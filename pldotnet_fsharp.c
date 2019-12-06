@@ -87,7 +87,8 @@ Plfsharp_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        SNPRINTF(argname, strlen(argname)+1, " arg%d", i); // Review for nargs > 9
+        /* Review for nargs > 9 */
+        SNPRINTF(argname, strlen(argname)+1, " arg%d", i);
         str_ptr = (char *)(block2str + cursize);
         SNPRINTF(str_ptr,totalsize - cursize, "%s%s%s%s\n",
                    val, argname, colon,
@@ -140,7 +141,8 @@ Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     // the function declaration according nr of arguments 
     // and function body necessary indentation 
 
-    totalsize = strlen(func_signature_indent) + strlen(member) + strlen(func) + strlen(" ");
+    totalsize = strlen(func_signature_indent)
+        + strlen(member) + strlen(func) + strlen(" ");
 
     for (i = 0; i < nargs; i++) 
     {
@@ -164,7 +166,8 @@ Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 
     block2str = (char *)palloc0(totalsize);
 
-    SNPRINTF(block2str, totalsize - cursize, "%s%s%s ",func_signature_indent, member, func);
+    SNPRINTF(block2str, totalsize - cursize, "%s%s%s "
+        ,func_signature_indent, member, func);
 
     cursize = strlen(block2str);
 
@@ -189,7 +192,8 @@ Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     while (user_line != NULL)
     {
         str_ptr = (char *)(block2str + cursize);
-        SNPRINTF(str_ptr, totalsize - cursize, "%s%s",func_body_indent,user_line);
+        SNPRINTF(str_ptr, totalsize - cursize, "%s%s"
+            ,func_body_indent,user_line);
         user_line = strtok(NULL,"\n");
         cursize = strlen(block2str);
     }
@@ -219,9 +223,11 @@ Plfsharp_build_block6(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         int block_size = strlen(func_line_indent) + strlen(result) + strlen(func) + strlen(end_fun) + 1;
+         int block_size = strlen(func_line_indent) + strlen(result)
+            + strlen(func) + strlen(end_fun) + 1;
          block2str = (char *)palloc0(block_size);
-         SNPRINTF(block2str, block_size, "%s%s%s%s",func_line_indent,result, func, end_fun);
+         SNPRINTF(block2str, block_size, "%s%s%s%s"
+            , func_line_indent, result, func, end_fun);
          return block2str;
     }
 
@@ -230,7 +236,8 @@ Plfsharp_build_block6(Form_pg_proc procst)
                     + strlen(end_fun) + 1;
 
     block2str = (char *) palloc0(totalsize);
-    SNPRINTF(block2str, totalsize - cursize, "%s%s%s",func_line_indent, result, func);
+    SNPRINTF(block2str, totalsize - cursize, "%s%s%s"
+        ,func_line_indent, result, func);
     cursize = strlen(block2str);
 
     for (i = 0; i < nargs; i++)
@@ -354,9 +361,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
                                     "PL/NET func_exec_ctx",
                                     ALLOCSET_SMALL_SIZES);
         MemoryContextSwitchTo(func_cxt);
-        proc = SearchSysCache(PROCOID, ObjectIdGetDatum(fcinfo->flinfo->fn_oid), 0, 0, 0);
+        proc = SearchSysCache(PROCOID
+            , ObjectIdGetDatum(fcinfo->flinfo->fn_oid), 0, 0, 0);
         if (!HeapTupleIsValid(proc))
-            elog(ERROR, "[pldotnet]: cache lookup failed for function %u", (Oid) fcinfo->flinfo->fn_oid);
+            elog(ERROR, "[pldotnet]: cache lookup failed for function %u"
+                , (Oid) fcinfo->flinfo->fn_oid);
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         // Build the source code
@@ -364,13 +373,15 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         fs_block_call4 = Plfsharp_build_block4( procst , proc );
         fs_block_call6 = Plfsharp_build_block6( procst);
 
-        source_code_size = strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
-                               + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
-                               + strlen(fs_block_call7) + 1;
+        source_code_size = strlen(fs_block_call1) + strlen(fs_block_call2)
+            + strlen(fs_block_call3) + strlen(fs_block_call4)
+            + strlen(fs_block_call5) + strlen(fs_block_call6)
+            + strlen(fs_block_call7) + 1;
 
         source_code = palloc0(source_code_size);
-        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s",fs_block_call1, fs_block_call2, fs_block_call3,
-                                            fs_block_call4, fs_block_call5, fs_block_call6, fs_block_call7);
+        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s"
+            , fs_block_call1, fs_block_call2, fs_block_call3
+            , fs_block_call4, fs_block_call5, fs_block_call6, fs_block_call7);
 
         rettype = procst->prorettype;
 
@@ -398,9 +409,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
         char *cmd;
-        cmd = palloc0(strlen("dotnet build ") + strlen(dnldir) + strlen("/src/csharp > null") + 1);
-        SNPRINTF(cmd, strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
-                    , "dotnet build %s/src/fsharp > null", dnldir);
+        cmd = palloc0(strlen("dotnet build ")
+                        + strlen(dnldir) + strlen("/src/csharp > null") + 1);
+        SNPRINTF(cmd
+            , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
+            , "dotnet build %s/src/fsharp > null", dnldir);
         int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
@@ -411,7 +424,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 1: Load HostFxr and get exported hosting functions
         //
-        if (!Pldotnet_load_hostfxr()) assert(0 && "Failure: Pldotnet_load_hostfxr()");
+        if (!Pldotnet_load_hostfxr())
+            assert(0 && "Failure: Pldotnet_load_hostfxr()");
 
         //
         // STEP 2: Initialize and start the .NET Core runtime
