@@ -11,15 +11,15 @@
 #define MAX_PATH PATH_MAX
 
 /* Forward declarations */
-static void *pldotnet_load_library(const char_t *);
-static void *pldotnet_get_export(void *, const char *);
+static void * Pldotnet_load_library(const char_t *);
+static void * Pldotnet_get_export(void *, const char *);
 
 static hostfxr_initialize_for_runtime_config_fn init_fptr;
 static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 static hostfxr_close_fn close_fptr;
 
 static void *
-pldotnet_load_library(const char_t *path)
+Pldotnet_load_library(const char_t *path)
 {
     fprintf(stderr, "# DEBUG: doing dlopen(%s).\n", path);
     nethost_lib = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
@@ -28,7 +28,7 @@ pldotnet_load_library(const char_t *path)
 }
 
 static void *
-pldotnet_get_export(void *host, const char *name)
+Pldotnet_get_export(void *host, const char *name)
 {
     void *f = dlsym(host, name);
     if (f == nullptr)
@@ -41,7 +41,7 @@ pldotnet_get_export(void *host, const char *name)
 
 /* Using the nethost library, discover the location of hostfxr and get exports */
 int
-pldotnet_load_hostfxr()
+Pldotnet_load_hostfxr()
 {
     // Pre-allocate a large buffer for the path to hostfxr
     char_t buffer[MAX_PATH];
@@ -52,12 +52,12 @@ pldotnet_load_hostfxr()
         return 0;
 
     // Load hostfxr and get desired exports
-    lib = pldotnet_load_library(buffer);
-    init_fptr = (hostfxr_initialize_for_runtime_config_fn)pldotnet_get_export( \
+    lib = Pldotnet_load_library(buffer);
+    init_fptr = (hostfxr_initialize_for_runtime_config_fn)Pldotnet_get_export( \
         lib, "hostfxr_initialize_for_runtime_config");
-    get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)pldotnet_get_export( \
+    get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)Pldotnet_get_export( \
         lib, "hostfxr_get_runtime_delegate");
-    close_fptr = (hostfxr_close_fn)pldotnet_get_export(lib, "hostfxr_close");
+    close_fptr = (hostfxr_close_fn)Pldotnet_get_export(lib, "hostfxr_close");
 
     return (init_fptr && get_delegate_fptr && close_fptr);
 }

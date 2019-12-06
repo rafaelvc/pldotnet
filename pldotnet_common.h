@@ -74,9 +74,9 @@ typedef struct args_source
     int FuncOid;
 }args_source;
 
-bool pldotnet_type_supported(Oid type);
-const char * pldotnet_getNetTypeName(Oid id, bool hastypeconversion);
-int pldotnet_getTypeSize(Oid id);
+bool Pldotnet_type_supported(Oid type);
+const char * Pldotnet_getNetTypeName(Oid id, bool hastypeconversion);
+int Pldotnet_getTypeSize(Oid id);
 
 
 #endif // PLDOTNETCOMMON_H

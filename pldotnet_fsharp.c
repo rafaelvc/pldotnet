@@ -10,11 +10,12 @@ PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 
 static pldotnet_info dotnet_info;
 
-static char * plfsharp_build_block2(Form_pg_proc procst);
-static char * plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
-static char * plfsharp_build_block6(Form_pg_proc procst);
-static char * plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static Datum plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
+static char * Plfsharp_build_block2(Form_pg_proc procst);
+static char * Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
+static char * Plfsharp_build_block6(Form_pg_proc procst);
+static char * Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static Datum Plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
+static bool Plfsharp_type_supported(Oid type);
 
 static char fs_block_call1[] = "\n\
 namespace DotNetLib      \n\
@@ -43,13 +44,13 @@ static char fs_block_call7[] = "\n\
            0";
 
 static bool
-plfsharp_type_supported(Oid type)
+Plfsharp_type_supported(Oid type)
 {
     return type == INT4OID;
 }
 
 static char *
-plfsharp_build_block2(Form_pg_proc procst)
+Plfsharp_build_block2(Form_pg_proc procst)
 {
     char *block2str, *str_ptr;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
@@ -61,7 +62,7 @@ plfsharp_build_block2(Form_pg_proc procst)
     char result[] = " resu"; // have to be same size argN
     int i, cursize = 0, totalsize = 0;
 
-    if (!plfsharp_type_supported(rettype))
+    if (!Plfsharp_type_supported(rettype))
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -69,18 +70,18 @@ plfsharp_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        if (!plfsharp_type_supported(argtype[i]))
+        if (!Plfsharp_type_supported(argtype[i]))
         {
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             return 0;
         }
 
         totalsize += strlen(val) + strlen(argname) + strlen(colon)
-                        + strlen(pldotnet_getNetTypeName(argtype[i], true));
+                        + strlen(Pldotnet_getNetTypeName(argtype[i], true));
     }
 
     totalsize += strlen(val) + strlen(result) + strlen(colon)
-                    + strlen(pldotnet_getNetTypeName(rettype, true)) + 1;
+                    + strlen(Pldotnet_getNetTypeName(rettype, true)) + 1;
 
     block2str = (char *) palloc0(totalsize);
 
@@ -90,7 +91,7 @@ plfsharp_build_block2(Form_pg_proc procst)
         str_ptr = (char *)(block2str + cursize);
         SNPRINTF(str_ptr,totalsize - cursize, "%s%s%s%s\n",
                    val, argname, colon,
-                   pldotnet_getNetTypeName(argtype[i], true) );
+                   Pldotnet_getNetTypeName(argtype[i], true) );
         cursize += strlen(str_ptr);
     }
 
@@ -98,13 +99,13 @@ plfsharp_build_block2(Form_pg_proc procst)
 
     SNPRINTF(str_ptr, totalsize - cursize, "%s%s%s%s",
                 val, result, colon,
-                pldotnet_getNetTypeName(rettype, true));
+                Pldotnet_getNetTypeName(rettype, true));
 
     return block2str;
 }
 
 static char *
-plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
+Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *str_ptr, *argnm, *source_text;
     int argnm_size, i, nnames, cursize=0, totalsize;
@@ -200,7 +201,7 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 }
 
 static char *
-plfsharp_build_block6(Form_pg_proc procst)
+Plfsharp_build_block6(Form_pg_proc procst)
 {
     char *block2str, *str_ptr, *resu_var;
     int cursize = 0, i, totalsize;
@@ -247,7 +248,7 @@ plfsharp_build_block6(Form_pg_proc procst)
 }
 
 static char *
-plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
+Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
     int cursize = 0;
@@ -262,10 +263,10 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
+        dotnet_info.typeSizeOfParams += Pldotnet_getTypeSize(argtype[i]);
     }
 
-    dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
+    dotnet_info.typeSizeOfResult = Pldotnet_getTypeSize(rettype);
 
     libargs_ptr = (char *) palloc0(dotnet_info.typeSizeOfParams +
                                   dotnet_info.typeSizeOfResult);
@@ -286,7 +287,7 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 *(int *)cur_arg = DatumGetInt32(argdatum);
                 break;
         }
-        cursize += pldotnet_getTypeSize(argtype[i]);
+        cursize += Pldotnet_getTypeSize(argtype[i]);
         cur_arg = libargs_ptr + cursize;
     }
 
@@ -294,7 +295,7 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 static Datum
-plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
+Plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
     char * resultP = libargs
@@ -359,9 +360,9 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         // Build the source code
-        fs_block_call2 = plfsharp_build_block2( procst );
-        fs_block_call4 = plfsharp_build_block4( procst , proc );
-        fs_block_call6 = plfsharp_build_block6( procst);
+        fs_block_call2 = Plfsharp_build_block2( procst );
+        fs_block_call4 = Plfsharp_build_block4( procst , proc );
+        fs_block_call6 = Plfsharp_build_block6( procst);
 
         source_code_size = strlen(fs_block_call1) + strlen(fs_block_call2) + strlen(fs_block_call3)
                                + strlen(fs_block_call4) + strlen(fs_block_call5) + strlen(fs_block_call6)
@@ -410,7 +411,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 1: Load HostFxr and get exported hosting functions
         //
-        if (!pldotnet_load_hostfxr()) assert(0 && "Failure: pldotnet_load_hostfxr()");
+        if (!Pldotnet_load_hostfxr()) assert(0 && "Failure: Pldotnet_load_hostfxr()");
 
         //
         // STEP 2: Initialize and start the .NET Core runtime
@@ -444,10 +445,10 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && fsharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
-        libargs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
+        libargs = Plfsharp_CreateCStrucLibArgs(fcinfo, procst);
         fsharp_method(libargs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = plfsharp_getResultFromDotNet( libargs, rettype, fcinfo );
+        retval = Plfsharp_getResultFromDotNet( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);
         pfree(source_code);

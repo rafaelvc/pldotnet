@@ -12,16 +12,18 @@ PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-static char * plcsharp_build_block2(Form_pg_proc procst);
-static char * plcsharp_build_block4(Form_pg_proc procst);
-static char * plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc);
-static int get_size_nullable_header(int argnm_size, Oid arg_type, int narg);
-static int get_size_nullable_footer(Oid ret_type);
-static bool is_nullable(Oid type);
-static const char * pldotnet_getNetNullableTypeName(Oid id);
-static char * pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static Datum pldotnet_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
-static int get_size_args_null_array(int nargs);
+static char * Plcsharp_build_block2(Form_pg_proc procst);
+static char * Plcsharp_build_block4(Form_pg_proc procst);
+static char * Plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc);
+static int Get_size_nullable_header(int argnm_size, Oid arg_type, int narg);
+static int Get_size_nullable_footer(Oid ret_type);
+static bool Isnullable(Oid type);
+static const char * Pldotnet_getNetNullableTypeName(Oid id);
+static char * Pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static Datum Pldotnet_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
+static int Get_size_args_null_array(int nargs);
+static int Pldotnet_public_decl_size(Oid type);
+static char * Pldotnet_public_decl(Oid type);
 
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
@@ -90,7 +92,8 @@ static char block_inline4[] = "              \n\
      }                                      \n\
 }";
 
-static int pldotnet_public_decl_size(Oid type)
+static int
+Pldotnet_public_decl_size(Oid type)
 {
     switch (type)
     {
@@ -106,7 +109,8 @@ static int pldotnet_public_decl_size(Oid type)
     return  0;
 }
 
-static char * pldotnet_public_decl(Oid type)
+static char *
+Pldotnet_public_decl(Oid type)
 {
     switch (type)
     {
@@ -123,7 +127,7 @@ static char * pldotnet_public_decl(Oid type)
 }
 
 static char *
-plcsharp_build_block2(Form_pg_proc procst)
+Plcsharp_build_block2(Form_pg_proc procst)
 {
     char *block2str, *str_ptr;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
@@ -137,7 +141,7 @@ plcsharp_build_block2(Form_pg_proc procst)
     bool nullable_arg_flag = false;
     int null_flags_size = 0, return_null_flag_size = 0;
 
-    if (!pldotnet_type_supported(rettype))
+    if (!Pldotnet_type_supported(rettype))
     {
         elog(ERROR, "[pldotnet]: unsupported type on return");
         return 0;
@@ -145,28 +149,28 @@ plcsharp_build_block2(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        if (!pldotnet_type_supported(argtype[i]))
+        if (!Pldotnet_type_supported(argtype[i]))
         {
             elog(ERROR, "[pldotnet]: unsupported type on arg %d", i);
             return 0;
         }
 
-        if (is_nullable(argtype[i]))
+        if (Isnullable(argtype[i]))
             nullable_arg_flag = true;
 
-        public_size = pldotnet_public_decl_size(argtype[i]);
-        totalsize += public_size + strlen(pldotnet_getNetTypeName(argtype[i], true)) +
+        public_size = Pldotnet_public_decl_size(argtype[i]);
+        totalsize += public_size + strlen(Pldotnet_getNetTypeName(argtype[i], true)) +
                        + strlen(argname) + strlen(semicon);
     }
     
-    public_size = pldotnet_public_decl_size(rettype);
+    public_size = Pldotnet_public_decl_size(rettype);
 
     return_null_flag_size = strlen(public_bool) + strlen(resu_flag_str);
 
     if (nullable_arg_flag)
-        null_flags_size = get_size_args_null_array(nargs);
+        null_flags_size = Get_size_args_null_array(nargs);
 
-    totalsize += public_size + strlen(pldotnet_getNetTypeName(rettype, true)) + 
+    totalsize += public_size + strlen(Pldotnet_getNetTypeName(rettype, true)) + 
                     + null_flags_size + return_null_flag_size
                     + strlen(result) + strlen(semicon) + 1;
 
@@ -190,8 +194,8 @@ plcsharp_build_block2(Form_pg_proc procst)
         SNPRINTF(argname,strlen(argname)+1, " arg%d", i); // review nargs > 9
         str_ptr = (char *)(block2str + cursize);
         SNPRINTF(str_ptr,totalsize - cursize,"%s%s%s%s"
-                    ,pldotnet_public_decl(argtype[i])
-                    ,pldotnet_getNetTypeName(argtype[i], true), argname, semicon);
+                    ,Pldotnet_public_decl(argtype[i])
+                    ,Pldotnet_getNetTypeName(argtype[i], true), argname, semicon);
         cursize += strlen(str_ptr);
     }
 
@@ -200,14 +204,14 @@ plcsharp_build_block2(Form_pg_proc procst)
 
 
     SNPRINTF(str_ptr,totalsize - cursize,"%s%s%s%s"
-                ,pldotnet_public_decl(rettype)
-                ,pldotnet_getNetTypeName(rettype, true), result, semicon);
+                ,Pldotnet_public_decl(rettype)
+                ,Pldotnet_getNetTypeName(rettype, true), result, semicon);
 
     return block2str;
 }
 
 static char *
-plcsharp_build_block4(Form_pg_proc procst)
+Plcsharp_build_block4(Form_pg_proc procst)
 {
     char *block2str, *str_ptr, *resu_var;
     int cursize = 0, i, totalsize;
@@ -227,13 +231,13 @@ plcsharp_build_block4(Form_pg_proc procst)
     // Function name
     func = NameStr(procst->proname);
 
-    if (is_nullable(rettype))
+    if (Isnullable(rettype))
     {
         const char nullable_result[] = "resu_nullable=";
-        int resu_var_size = strlen(pldotnet_getNetNullableTypeName(rettype)) + strlen(nullable_result) + 1;
+        int resu_var_size = strlen(Pldotnet_getNetNullableTypeName(rettype)) + strlen(nullable_result) + 1;
         resu_var = (char *)palloc0(resu_var_size);
         SNPRINTF(resu_var, resu_var_size, "%s%s"
-                   , pldotnet_getNetNullableTypeName(rettype)
+                   , Pldotnet_getNetNullableTypeName(rettype)
                    , nullable_result);
     } 
     else
@@ -331,7 +335,7 @@ plcsharp_build_block4(Form_pg_proc procst)
 }
 
 static int
-get_size_args_null_array(int nargs)
+Get_size_args_null_array(int nargs)
 {
     const char public_bool_array[] =
         "\n[MarshalAs(UnmanagedType.ByValArray,ArraySubType=UnmanagedType.U1,SizeConst=)]public ";
@@ -348,7 +352,7 @@ get_size_args_null_array(int nargs)
  * a struct argument to a nullable C# type argument
  */
 static int
-get_size_nullable_header(int argnm_size, Oid arg_type, int narg)
+Get_size_nullable_header(int argnm_size, Oid arg_type, int narg)
 {
     int total_size = 0;
     char *question_mark = "?";
@@ -374,10 +378,10 @@ get_size_nullable_header(int argnm_size, Oid arg_type, int narg)
         case INT8OID:
         case BOOLOID:
             /* template: bool? <arg>=argsnull[i]? (bool?)null : <arg>_nullable; */
-            total_size = strlen(pldotnet_getNetNullableTypeName(arg_type)) + argnm_size
+            total_size = strlen(Pldotnet_getNetNullableTypeName(arg_type)) + argnm_size
                 + strlen(equal_char) + strlen(argsnull_str) + strlen(square_bracket_char) + n_digits_arg +
                 + strlen(square_bracket_char) + strlen(question_mark) + strlen(parenthesis_char)
-                + strlen(pldotnet_getNetNullableTypeName(arg_type)) + strlen(parenthesis_char)
+                + strlen(Pldotnet_getNetNullableTypeName(arg_type)) + strlen(parenthesis_char)
                 + strlen(null_str) + strlen(colon_char) + argnm_size + strlen(nullable_suffix)
                 + strlen(semicolon_char) + strlen(newline_char);
             break;
@@ -391,7 +395,7 @@ get_size_nullable_header(int argnm_size, Oid arg_type, int narg)
  * a nullable C# type return to a struct return
  */
 static int
-get_size_nullable_footer(Oid ret_type)
+Get_size_nullable_footer(Oid ret_type)
 {
     int total_size = 0;
 
@@ -409,14 +413,14 @@ get_size_nullable_footer(Oid ret_type)
 }
 
 static bool
-is_nullable(Oid type)
+Isnullable(Oid type)
 {
     return (type == INT2OID || type == INT4OID
        || type == INT8OID   ||  type == BOOLOID);
 }
 
 static char *
-plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
+Plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *str_ptr, *argnm, *source_argnm, *source_text;
     int argnm_size, i, nnames, cursize = 0, source_size, totalsize;
@@ -455,14 +459,14 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
     // Caculates the total amount in bytes of C# src text for 
     // the function declaration according nr of arguments 
     // their types and the function return type
-    if (is_nullable(rettype))
+    if (Isnullable(rettype))
     {
-        totalsize = (2 * strlen(newline)) + strlen(pldotnet_getNetNullableTypeName(rettype))
+        totalsize = (2 * strlen(newline)) + strlen(Pldotnet_getNetNullableTypeName(rettype))
                     + strlen(" ") + strlen(func) + strlen(begin_fun_decl);
     }
     else
     {
-        totalsize = (2 * strlen(newline)) + strlen(pldotnet_getNetTypeName(rettype, false))
+        totalsize = (2 * strlen(newline)) + strlen(Pldotnet_getNetTypeName(rettype, false))
                     + strlen(" ") + strlen(func) + strlen(begin_fun_decl);
     }
 
@@ -471,9 +475,9 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
         source_argnm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        if (is_nullable(argtype[i]))
+        if (Isnullable(argtype[i]))
         {
-            header_size += get_size_nullable_header(strlen(source_argnm),argtype[i],i);
+            header_size += Get_size_nullable_header(strlen(source_argnm),argtype[i],i);
             argnm = palloc0(strlen(source_argnm) + strlen("_nullable") + 1);
             SNPRINTF(argnm,strlen(source_argnm) + strlen("_nullable") + 1
                             , "%s_nullable", source_argnm);
@@ -486,28 +490,28 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
 
         argnm_size = strlen(argnm);
         /*+1 here is the space between type" "argname declaration*/
-        totalsize +=  strlen(pldotnet_getNetTypeName(argtype[i], false)) + 1 + argnm_size;
+        totalsize +=  strlen(Pldotnet_getNetTypeName(argtype[i], false)) + 1 + argnm_size;
         /* cleaning up for next palloc */
         bzero(argnm,sizeof(argnm));
     }
      if (nargs > 1)
          totalsize += (nargs - 1) * strlen(comma); // commas size
 
-    footer_size = get_size_nullable_footer(rettype);
+    footer_size = Get_size_nullable_footer(rettype);
 
     totalsize += strlen(end_fun_decl) + header_size + source_size + strlen(end_fun) + footer_size + 1;
 
     block2str = (char *)palloc0(totalsize);
 
-    if (is_nullable(rettype))
+    if (Isnullable(rettype))
     {
         SNPRINTF(block2str, totalsize - cursize, "%s%s%s %s%s",newline
-                   , newline, pldotnet_getNetNullableTypeName(rettype), func, begin_fun_decl);
+                   , newline, Pldotnet_getNetNullableTypeName(rettype), func, begin_fun_decl);
     }
     else
     {
         SNPRINTF(block2str, totalsize - cursize, "%s%s%s %s%s",newline
-                   , newline,  pldotnet_getNetTypeName(rettype, false), func, begin_fun_decl);
+                   , newline,  Pldotnet_getNetTypeName(rettype, false), func, begin_fun_decl);
     }
 
     cursize = strlen(block2str);
@@ -520,12 +524,12 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
         source_argnm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        if (is_nullable(argtype[i]))
+        if (Isnullable(argtype[i]))
         {
             header_nullable_ptr = (char *) (header_nullable + cur_header_size);
             SNPRINTF(header_nullable_ptr, (header_size - cur_header_size) + 1
-                       , "%s%s=%s[%d]?(%s)null:%s%s;\n", pldotnet_getNetNullableTypeName(argtype[i])
-                       , source_argnm, argsnull_str, i, pldotnet_getNetNullableTypeName(argtype[i])
+                       , "%s%s=%s[%d]?(%s)null:%s%s;\n", Pldotnet_getNetNullableTypeName(argtype[i])
+                       , source_argnm, argsnull_str, i, Pldotnet_getNetNullableTypeName(argtype[i])
                        , source_argnm, nullable_suffix);
             cur_header_size = strlen(header_nullable);
             argnm = palloc0(strlen(source_argnm) + strlen("_nullable") + 1);
@@ -542,11 +546,11 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
         str_ptr = (char *)(block2str + cursize);
         if (i + 1 == nargs)
         {  // last no comma
-            SNPRINTF(str_ptr, totalsize - cursize, "%s %s", pldotnet_getNetTypeName(argtype[i], false), argnm);
+            SNPRINTF(str_ptr, totalsize - cursize, "%s %s", Pldotnet_getNetTypeName(argtype[i], false), argnm);
         }
         else
         {
-            SNPRINTF(str_ptr, totalsize - cursize, "%s %s%s", pldotnet_getNetTypeName(argtype[i], false), argnm, comma);
+            SNPRINTF(str_ptr, totalsize - cursize, "%s %s%s", Pldotnet_getNetTypeName(argtype[i], false), argnm, comma);
         }
         cursize = strlen(block2str);
         /* cleaning up for next palloc */
@@ -580,7 +584,7 @@ plcsharp_build_block5(Form_pg_proc procst, HeapTuple proc)
 
 // Postgres Datum type to C# nullable type name
 static const char *
-pldotnet_getNetNullableTypeName(Oid id)
+Pldotnet_getNetNullableTypeName(Oid id)
 {
     switch (id)
     {
@@ -597,7 +601,7 @@ pldotnet_getNetNullableTypeName(Oid id)
 }
 
 static char *
-pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
+Pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
     int cursize = 0;
@@ -618,8 +622,8 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typeSizeOfParams += pldotnet_getTypeSize(argtype[i]);
-        if (is_nullable(argtype[i]))
+        dotnet_info.typeSizeOfParams += Pldotnet_getTypeSize(argtype[i]);
+        if (Isnullable(argtype[i]))
             nullable_arg_flag = true;
     }
 
@@ -628,7 +632,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     dotnet_info.typeSizeNullFlags += sizeof(bool);
 
-    dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
+    dotnet_info.typeSizeOfResult = Pldotnet_getTypeSize(rettype);
 
     libargs_ptr = (char *) palloc0(dotnet_info.typeSizeNullFlags + dotnet_info.typeSizeOfParams +
                                   dotnet_info.typeSizeOfResult);
@@ -700,7 +704,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 break;
 
         }
-        cursize += pldotnet_getTypeSize(argtype[i]);
+        cursize += Pldotnet_getTypeSize(argtype[i]);
         cur_arg = libargs_ptr + dotnet_info.typeSizeNullFlags + cursize;
     }
 
@@ -708,7 +712,7 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 static Datum
-pldotnet_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
+Pldotnet_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
     unsigned long * ret_ptr;
@@ -849,9 +853,9 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         // Build the source code
-        cs_block_call2 = plcsharp_build_block2( procst );
-        cs_block_call4 = plcsharp_build_block4( procst );
-        cs_block_call5 = plcsharp_build_block5( procst , proc );
+        cs_block_call2 = Plcsharp_build_block2( procst );
+        cs_block_call4 = Plcsharp_build_block4( procst );
+        cs_block_call5 = Plcsharp_build_block5( procst , proc );
 
         source_code_size = strlen(cs_block_call1) + strlen(cs_block_call2) + strlen(cs_block_call3)
                                + strlen(cs_block_call4) + strlen(cs_block_call5) + strlen(cs_block_call6) + 1;
@@ -900,7 +904,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         //
         // STEP 1: Load HostFxr and get exported hosting functions
         //
-        if (!pldotnet_load_hostfxr()) assert(0 && "Failure: pldotnet_load_hostfxr()");
+        if (!Pldotnet_load_hostfxr()) assert(0 && "Failure: Pldotnet_load_hostfxr()");
 
         //
         // STEP 2: Initialize and start the .NET Core runtime
@@ -957,11 +961,11 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
             "Failure: load_assembly_and_get_function_pointer()");
 #endif
 
-        libargs = pldotnet_CreateCStrucLibArgs(fcinfo, procst);
+        libargs = Pldotnet_CreateCStrucLibArgs(fcinfo, procst);
 
         csharp_method(libargs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = pldotnet_getResultFromDotNet( libargs, rettype, fcinfo );
+        retval = Pldotnet_getResultFromDotNet( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);
         pfree(source_code);
@@ -1079,7 +1083,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         //
         // STEP 1: Load HostFxr and get exported hosting functions
         //
-        if (!pldotnet_load_hostfxr()) assert(0 && "Failure: pldotnet_load_hostfxr()");
+        if (!Pldotnet_load_hostfxr()) assert(0 && "Failure: Pldotnet_load_hostfxr()");
 
         //
         // STEP 2: Initialize and start the .NET Core runtime
