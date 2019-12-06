@@ -10,12 +10,12 @@ PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 
 static pldotnet_info dotnet_info;
 
-static char * Plfsharp_build_block2(Form_pg_proc procst);
-static char * Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
-static char * Plfsharp_build_block6(Form_pg_proc procst);
-static char * Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static Datum Plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
-static bool Plfsharp_type_supported(Oid type);
+static char   *Plfsharp_build_block2(Form_pg_proc procst);
+static char   *Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
+static char   *Plfsharp_build_block6(Form_pg_proc procst);
+static char   *Plfsharp_create_cstruct_libargs(FunctionCallInfo fcinfo, Form_pg_proc procst);
+static Datum  Plfsharp_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
+static bool   Plfsharp_type_supported(Oid type);
 
 static char fs_block_call1[] = "\n\
 namespace DotNetLib      \n\
@@ -77,11 +77,11 @@ Plfsharp_build_block2(Form_pg_proc procst)
         }
 
         totalsize += strlen(val) + strlen(argname) + strlen(colon)
-                        + strlen(Pldotnet_getNetTypeName(argtype[i], true));
+                        + strlen(Pldotnet_get_dotnet_typename(argtype[i], true));
     }
 
     totalsize += strlen(val) + strlen(result) + strlen(colon)
-                    + strlen(Pldotnet_getNetTypeName(rettype, true)) + 1;
+                    + strlen(Pldotnet_get_dotnet_typename(rettype, true)) + 1;
 
     block2str = (char *) palloc0(totalsize);
 
@@ -91,7 +91,7 @@ Plfsharp_build_block2(Form_pg_proc procst)
         str_ptr = (char *)(block2str + cursize);
         SNPRINTF(str_ptr,totalsize - cursize, "%s%s%s%s\n",
                    val, argname, colon,
-                   Pldotnet_getNetTypeName(argtype[i], true) );
+                   Pldotnet_get_dotnet_typename(argtype[i], true) );
         cursize += strlen(str_ptr);
     }
 
@@ -99,7 +99,7 @@ Plfsharp_build_block2(Form_pg_proc procst)
 
     SNPRINTF(str_ptr, totalsize - cursize, "%s%s%s%s",
                 val, result, colon,
-                Pldotnet_getNetTypeName(rettype, true));
+                Pldotnet_get_dotnet_typename(rettype, true));
 
     return block2str;
 }
@@ -248,7 +248,7 @@ Plfsharp_build_block6(Form_pg_proc procst)
 }
 
 static char *
-Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
+Plfsharp_create_cstruct_libargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
     int cursize = 0;
@@ -263,10 +263,10 @@ Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typeSizeOfParams += Pldotnet_getTypeSize(argtype[i]);
+        dotnet_info.typeSizeOfParams += Pldotnet_get_typesize(argtype[i]);
     }
 
-    dotnet_info.typeSizeOfResult = Pldotnet_getTypeSize(rettype);
+    dotnet_info.typeSizeOfResult = Pldotnet_get_typesize(rettype);
 
     libargs_ptr = (char *) palloc0(dotnet_info.typeSizeOfParams +
                                   dotnet_info.typeSizeOfResult);
@@ -287,7 +287,7 @@ Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 *(int *)cur_arg = DatumGetInt32(argdatum);
                 break;
         }
-        cursize += Pldotnet_getTypeSize(argtype[i]);
+        cursize += Pldotnet_get_typesize(argtype[i]);
         cur_arg = libargs_ptr + cursize;
     }
 
@@ -295,7 +295,7 @@ Plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 static Datum
-Plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
+Plfsharp_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
     char * resultP = libargs
@@ -445,10 +445,10 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && fsharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
-        libargs = Plfsharp_CreateCStrucLibArgs(fcinfo, procst);
+        libargs = Plfsharp_create_cstruct_libargs(fcinfo, procst);
         fsharp_method(libargs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = Plfsharp_getResultFromDotNet( libargs, rettype, fcinfo );
+        retval = Plfsharp_get_dotnet_result( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);
         pfree(source_code);

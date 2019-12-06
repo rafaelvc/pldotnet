@@ -11,7 +11,7 @@ Pldotnet_type_supported(Oid type)
 }
 
 const char *
-Pldotnet_getNetTypeName(Oid id, bool hastypeconversion)
+Pldotnet_get_dotnet_typename(Oid id, bool hastypeconversion)
 {
     switch (id)
     {
@@ -39,7 +39,7 @@ Pldotnet_getNetTypeName(Oid id, bool hastypeconversion)
 
 // Size in bytes
 int
-Pldotnet_getTypeSize(Oid id)
+Pldotnet_get_typesize(Oid id)
 {
     switch (id)
     {
