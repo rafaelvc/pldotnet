@@ -151,6 +151,13 @@ char block_call3[] = "                            \n\
 		          // What is in the SQL function code here
             //}
 char  block_call6[] = "                            \n\
+            decimal[] ArrayToDecimal(string[]str) {\n\
+                int i=0;\n\
+                decimal[] decarr = new decimal[str.Length];\n\
+                foreach(string s in str)\n\
+                    decarr[i++] = Convert.ToDecimal(s);\n\
+                return decarr;\n\
+            }\n\
             Console.WriteLine($\"\\n\\n\\n resu: {libArgs.resu}\");\n\
             Marshal.StructureToPtr<LibArgs>(libArgs, arg, false);\n\
             return 0;                         \n\
@@ -328,6 +335,7 @@ pldotnet_build_block4(Form_pg_proc procst)
     const char libArgs[] = "libArgs.";
     const char strConvert[] = ".ToString()"; // Converts func return
     const char toDecimal[] = "Convert.ToDecimal(";
+    const char arr_todecimal[] = "ArrayToDecimal(";
     const char comma[] = ",";
     char argName[] = "argN";
     const char endFun[] = ")";
@@ -370,6 +378,9 @@ pldotnet_build_block4(Form_pg_proc procst)
     {
         if (argtype[i] == NUMERICOID)
             totalSize += strlen(toDecimal) + strlen(endFun);
+        else if (pldotnet_IsArray(i) &&
+                                dotnet_info.arrayinfo[i].typelem == NUMERICOID)
+            totalSize += strlen(arr_todecimal) + strlen(endFun);
     }
 
     if (rettype == NUMERICOID)
@@ -389,12 +400,24 @@ pldotnet_build_block4(Form_pg_proc procst)
         {
             if (argtype[i] == NUMERICOID)
                 sprintf(pStr, "%s%s%s%s", toDecimal, libArgs, argName, endFun);
+            else if (pldotnet_IsArray(i) &&
+                                dotnet_info.arrayinfo[i].typelem == NUMERICOID){
+                sprintf(pStr, "%s%s%s%s", arr_todecimal, libArgs, argName,
+                                                                        endFun);
+            }
             else
                 sprintf(pStr, "%s%s", libArgs, argName);
         }
         else {
-            if (argtype[i] == NUMERICOID)
-                sprintf(pStr, "%s%s%s%s%s", toDecimal, libArgs, argName, endFun, comma);
+            if (argtype[i] == NUMERICOID) {
+                sprintf(pStr, "%s%s%s%s%s", toDecimal, libArgs, argName, endFun,
+                                                                         comma);
+            }
+            else if (pldotnet_IsArray(i) &&
+                                dotnet_info.arrayinfo[i].typelem == NUMERICOID){
+                sprintf(pStr, "%s%s%s%s%s", arr_todecimal, libArgs, argName,
+                                                                 endFun, comma);
+            }
             else
                 sprintf(pStr, "%s%s%s", libArgs, argName, comma);
         }
@@ -472,7 +495,7 @@ bool pldotnet_CheckArgIsArray(Datum datum, Oid oid, int narg)
 SizeConst=%d)]public %s[] %s;",
                     pldotnet_GetUnmanagedTypeName(parr_info->typelem),
                     parr_info->nelems,
-                    pldotnet_getNetTypeName(parr_info->typelem, false),
+                    pldotnet_getNetTypeName(parr_info->typelem, true),
                     argName);
     }
     else
@@ -485,35 +508,6 @@ bool pldotnet_IsArray(int narg)
 {
    return (dotnet_info.arrayinfo[narg].ixarray == narg);
 }
-
-/*
-case TYPTYPE_DOMAIN:
-    typetuple = SearchSysCache(TYPEOID, ObjectIdGetDatum(id), 0, 0, 0);
-    if (!HeapTupleIsValid(typetuple))
-        elog(ERROR, "[pldotnet]: cache lookup failed for type %u", id);
-    typeinfo = (Form_pg_type) GETSTRUCT(typetuple);
-    typlen = typeinfo->typlen;
-    typelem = typeinfo->typelem;
-    ReleaseSysCache(typetuple);
-    if (typelem != 0 && typlen == -1) // array?
-    {
-        arr = DatumGetArrayTypeP(datum);
-        elemsz =  pldotnet_getTypeSize(typelem, NULL);
-        if (elemsz != -1)
-            return elemsz * ArrayGetNItems(ARR_NDIM(arr),
-                                                        *ARR_DIMS(arr));
-    }
-
-*/
-/*
-static void BuildArgArrayDecl(char *dest, int nelem, char argnm, Oid type)
-{
-    sprintf(dest,"\n[MarshalAs(UnmanagedType.LPArray,\
-                    ArraySubType=UnmanagedType.%s,\
-                    SizeConst=%d)]public []%s;",
-                    pldotnet_getNetTypeName(type, false), nelem, argnm);
-    return dest;
-}*/
 
 static const char * pldotnet_GetUnmanagedTypeName(Oid type)
 {
@@ -536,7 +530,8 @@ static const char * pldotnet_GetUnmanagedTypeName(Oid type)
         case BPCHAROID:
         case VARCHAROID:
         case TEXTOID:
-            return "LPUTF8Str";
+            /*return "LPUTF8Str";  review why marshal is not working */
+            return "LPStr";
     }
     return  "";
 }
@@ -937,8 +932,10 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                  {
                      array_element = fetch_att(p, arrinfo->typbyval,
                                                      arrinfo->typlen);
-                     pldotnet_SetScalarValue(curArg, *array_element, fcinfo,
-                                                     i, arrinfo->typelem, NULL);
+
+                     pldotnet_SetScalarValue(curArg, array_element,
+                                             fcinfo, i, arrinfo->typelem, NULL);
+
                      /* Iterate array */
                      p = att_addlength_pointer(p, arrinfo->typlen, p);
                      p = (char *) att_align_nominal(p, arrinfo->typalign);
@@ -962,13 +959,13 @@ pldotnet_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     return ptrToLibArgs;
 }
 
-
 static void pldotnet_SetScalarValue(unsigned long * argp, Datum datum,
                       FunctionCallInfo fcinfo, int narg, Oid type, bool * nullp)
 {
     char * newstr;
     int len;
     bool isnull;
+    bool isarr = pldotnet_IsArray(narg);
 
 #if PG_VERSION_NUM >= 120000
     if (nullp)
@@ -981,31 +978,30 @@ static void pldotnet_SetScalarValue(unsigned long * argp, Datum datum,
     switch (type)
     {
         case BOOLOID:
-            *(bool *)(argp) = DatumGetBool(datum);
+            *(bool *)(argp) = DatumGetBool(isarr ? *(Datum *)datum: datum);
             if (nullp)
                 *nullp = isnull;
             break;
         case INT4OID:
-            *(int *)(argp) = DatumGetInt32(datum);
-            //elog(WARNING, "->%d", **argp );
+            *(int *)(argp) = DatumGetInt32(isarr ? *(Datum *)datum: datum);
             if (nullp)
                 *nullp = isnull;
             break;
         case INT8OID:
-            *(long *)(argp) = DatumGetInt64(datum);
+            *(long *)(argp) = DatumGetInt64(isarr ? *(Datum *)datum: datum);
             if (nullp)
                 *nullp = isnull;
             break;
         case INT2OID:
-            *(short *)(argp) = DatumGetInt16(datum);
+            *(short *)(argp) = DatumGetInt16(isarr ? *(Datum *)datum: datum);
             if (argp)
                 *nullp = isnull;
             break;
         case FLOAT4OID:
-            *(float *)(argp) = DatumGetFloat4(datum);
+            *(float *)(argp) = DatumGetFloat4(isarr ? *(Datum *)datum: datum);
             break;
         case FLOAT8OID:
-            *(double *)(argp) = DatumGetFloat8(datum);
+            *(double *)(argp) = DatumGetFloat8(isarr ? *(Datum *)datum: datum);
             break;
         case NUMERICOID:
             /* C String encoding (numeric_out) is used here as it
