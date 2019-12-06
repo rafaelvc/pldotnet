@@ -14,7 +14,7 @@ static char * plfsharp_build_block2(Form_pg_proc procst);
 static char * plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
 static char * plfsharp_build_block6(Form_pg_proc procst);
 static char * plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static Datum plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo);
+static Datum plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
 
 static char fs_block_call1[] = "\n\
 namespace DotNetLib      \n\
@@ -36,10 +36,10 @@ static char fs_block_call3[] = "\n\
  */
 static char fs_block_call5[] = "\n\
         static member ProcedureMethod (arg:System.IntPtr) (argLength:int) = \n\
-           let mutable libArgs = Marshal.PtrToStructure<LibArgs> arg\n";
+           let mutable libargs = Marshal.PtrToStructure<LibArgs> arg\n";
 
 static char fs_block_call7[] = "\n\
-           Marshal.StructureToPtr(libArgs, arg, false)\n\
+           Marshal.StructureToPtr(libargs, arg, false)\n\
            0";
 
 static bool
@@ -51,15 +51,15 @@ plfsharp_type_supported(Oid type)
 static char *
 plfsharp_build_block2(Form_pg_proc procst)
 {
-    char *block2str, *pStr;
+    char *block2str, *str_ptr;
     Oid *argtype = procst->proargtypes.values; // Indicates the args type
     Oid rettype = procst->prorettype; // Indicates the return type
     int nargs = procst->pronargs;
     const char val[] = "        val mutable";
     const char colon[] = ":";
-    char argName[] = " argN";
+    char argname[] = " argN";
     char result[] = " resu"; // have to be same size argN
-    int i, curSize = 0, totalSize = 0;
+    int i, cursize = 0, totalsize = 0;
 
     if (!plfsharp_type_supported(rettype))
     {
@@ -75,28 +75,28 @@ plfsharp_build_block2(Form_pg_proc procst)
             return 0;
         }
 
-        totalSize += strlen(val) + strlen(argName) + strlen(colon)
+        totalsize += strlen(val) + strlen(argname) + strlen(colon)
                         + strlen(pldotnet_getNetTypeName(argtype[i], true));
     }
 
-    totalSize += strlen(val) + strlen(result) + strlen(colon)
+    totalsize += strlen(val) + strlen(result) + strlen(colon)
                     + strlen(pldotnet_getNetTypeName(rettype, true)) + 1;
 
-    block2str = (char *) palloc0(totalSize);
+    block2str = (char *) palloc0(totalsize);
 
     for (i = 0; i < nargs; i++)
     {
-        SNPRINTF(argName, strlen(argName)+1, " arg%d", i); // Review for nargs > 9
-        pStr = (char *)(block2str + curSize);
-        SNPRINTF(pStr,totalSize - curSize, "%s%s%s%s\n",
-                   val, argName, colon,
+        SNPRINTF(argname, strlen(argname)+1, " arg%d", i); // Review for nargs > 9
+        str_ptr = (char *)(block2str + cursize);
+        SNPRINTF(str_ptr,totalsize - cursize, "%s%s%s%s\n",
+                   val, argname, colon,
                    pldotnet_getNetTypeName(argtype[i], true) );
-        curSize += strlen(pStr);
+        cursize += strlen(str_ptr);
     }
 
-    pStr = (char *)(block2str + curSize);
+    str_ptr = (char *)(block2str + cursize);
 
-    SNPRINTF(pStr, totalSize - curSize, "%s%s%s%s",
+    SNPRINTF(str_ptr, totalsize - cursize, "%s%s%s%s",
                 val, result, colon,
                 pldotnet_getNetTypeName(rettype, true));
 
@@ -106,16 +106,16 @@ plfsharp_build_block2(Form_pg_proc procst)
 static char *
 plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 {
-    char *block2str, *pStr, *argNm, *source_text;
-    int argNmSize, i, nnames, curSize=0, totalSize;
+    char *block2str, *str_ptr, *argnm, *source_text;
+    int argnm_size, i, nnames, cursize=0, totalsize;
     bool isnull;
     char *func;
     const char member[] = "static member ";
     const char func_signature_indent[] = "        ";
     const char func_body_indent[] = "            ";
     char *user_line;
-    const char endFunDec[] = " =\n";
-    const char endFun[] = "\n";
+    const char end_fun_decl[] = " =\n";
+    const char end_fun[] = "\n";
     int nargs = procst->pronargs;
     Datum *argname, argnames, prosrc;
     text * t;
@@ -139,62 +139,62 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     // the function declaration according nr of arguments 
     // and function body necessary indentation 
 
-    totalSize = strlen(func_signature_indent) + strlen(member) + strlen(func) + strlen(" ");
+    totalsize = strlen(func_signature_indent) + strlen(member) + strlen(func) + strlen(" ");
 
     for (i = 0; i < nargs; i++) 
     {
-        argNm = DirectFunctionCall1(textout,
+        argnm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        argNmSize = strlen(argNm);
+        argnm_size = strlen(argnm);
         /*+1 here is the space between type" "argname declaration*/
-        totalSize +=  1 + argNmSize;
+        totalsize +=  1 + argnm_size;
     }
 
     /* tokenizes source_code into its lines for indentation insertion*/
     user_line = strtok(source_text,"\n");
     while (user_line != NULL)
     {
-        totalSize += strlen(func_body_indent) + strlen(user_line);
+        totalsize += strlen(func_body_indent) + strlen(user_line);
         user_line = strtok(NULL,"\n");
     }
 
-    totalSize += strlen(endFunDec) + strlen(endFun) + 1;
+    totalsize += strlen(end_fun_decl) + strlen(end_fun) + 1;
 
-    block2str = (char *)palloc0(totalSize);
+    block2str = (char *)palloc0(totalsize);
 
-    SNPRINTF(block2str, totalSize - curSize, "%s%s%s ",func_signature_indent, member, func);
+    SNPRINTF(block2str, totalsize - cursize, "%s%s%s ",func_signature_indent, member, func);
 
-    curSize = strlen(block2str);
+    cursize = strlen(block2str);
 
     for (i = 0; i < nargs; i++)
     {
-        argNm = DirectFunctionCall1(textout,
+        argnm = DirectFunctionCall1(textout,
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
-        argNmSize = strlen(argNm);
-        pStr = (char *)(block2str + curSize);
+        argnm_size = strlen(argnm);
+        str_ptr = (char *)(block2str + cursize);
 
-        SNPRINTF(pStr, totalSize - curSize, " %s",argNm);
-        curSize = strlen(block2str);
+        SNPRINTF(str_ptr, totalsize - cursize, " %s",argnm);
+        cursize = strlen(block2str);
     }
 
 
-    pStr = (char *)(block2str + curSize);
-    SNPRINTF(pStr, totalSize - curSize, "%s", endFunDec);
-    curSize = strlen(block2str);
+    str_ptr = (char *)(block2str + cursize);
+    SNPRINTF(str_ptr, totalsize - cursize, "%s", end_fun_decl);
+    cursize = strlen(block2str);
 
     user_line = strtok(source_text,"\n");
     while (user_line != NULL)
     {
-        pStr = (char *)(block2str + curSize);
-        SNPRINTF(pStr, totalSize - curSize, "%s%s",func_body_indent,user_line);
+        str_ptr = (char *)(block2str + cursize);
+        SNPRINTF(str_ptr, totalsize - cursize, "%s%s",func_body_indent,user_line);
         user_line = strtok(NULL,"\n");
-        curSize = strlen(block2str);
+        cursize = strlen(block2str);
     }
 
-    pStr = (char *)(block2str + curSize);
-    SNPRINTF(pStr, totalSize - curSize, "%s", endFun);
+    str_ptr = (char *)(block2str + cursize);
+    SNPRINTF(str_ptr, totalsize - cursize, "%s", end_fun);
 
     return block2str;
 }
@@ -202,14 +202,14 @@ plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
 static char *
 plfsharp_build_block6(Form_pg_proc procst)
 {
-    char *block2str, *pStr, *resu_var;
-    int curSize = 0, i, totalSize;
+    char *block2str, *str_ptr, *resu_var;
+    int cursize = 0, i, totalsize;
     char * func;
-    const char libArgs[] = " libArgs.";
-    char argName[] = "argN";
-    const char endFun[] = "\n";
+    const char libargs[] = " libargs.";
+    char argname[] = "argN";
+    const char end_fun[] = "\n";
     const char func_line_indent[] = "           ";
-    const char result[] = "libArgs.resu <- Lib.";
+    const char result[] = "libargs.resu <- Lib.";
     int nargs = procst->pronargs;
 
     // Function name
@@ -218,30 +218,30 @@ plfsharp_build_block6(Form_pg_proc procst)
     // TODO:  review for nargs > 9
     if (nargs == 0)
     {
-         int block_size = strlen(func_line_indent) + strlen(result) + strlen(func) + strlen(endFun) + 1;
+         int block_size = strlen(func_line_indent) + strlen(result) + strlen(func) + strlen(end_fun) + 1;
          block2str = (char *)palloc0(block_size);
-         SNPRINTF(block2str, block_size, "%s%s%s%s",func_line_indent,result, func, endFun);
+         SNPRINTF(block2str, block_size, "%s%s%s%s",func_line_indent,result, func, end_fun);
          return block2str;
     }
 
-    totalSize = strlen(func_line_indent) +strlen(result) + strlen(func) 
-                    + (strlen(libArgs) + strlen(argName)) * nargs
-                    + strlen(endFun) + 1;
+    totalsize = strlen(func_line_indent) +strlen(result) + strlen(func) 
+                    + (strlen(libargs) + strlen(argname)) * nargs
+                    + strlen(end_fun) + 1;
 
-    block2str = (char *) palloc0(totalSize);
-    SNPRINTF(block2str, totalSize - curSize, "%s%s%s",func_line_indent, result, func);
-    curSize = strlen(block2str);
+    block2str = (char *) palloc0(totalsize);
+    SNPRINTF(block2str, totalsize - cursize, "%s%s%s",func_line_indent, result, func);
+    cursize = strlen(block2str);
 
     for (i = 0; i < nargs; i++)
     {
-        SNPRINTF(argName, strlen(argName) + 1, "arg%d", i); // review nargs > 9
-        pStr = (char *)(block2str + curSize);
-        SNPRINTF(pStr, totalSize - curSize, "%s%s", libArgs, argName);
-        curSize = strlen(block2str);
+        SNPRINTF(argname, strlen(argname) + 1, "arg%d", i); // review nargs > 9
+        str_ptr = (char *)(block2str + cursize);
+        SNPRINTF(str_ptr, totalsize - cursize, "%s%s", libargs, argname);
+        cursize = strlen(block2str);
     }
 
-    pStr = (char *)(block2str + curSize);
-    SNPRINTF(pStr, totalSize - curSize, "%s", endFun);
+    str_ptr = (char *)(block2str + cursize);
+    SNPRINTF(str_ptr, totalsize - cursize, "%s", end_fun);
 
     return block2str;
 }
@@ -250,13 +250,13 @@ static char *
 plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
-    int curSize = 0;
-    char *ptrToLibArgs = NULL;
-    char *curArg = NULL;
+    int cursize = 0;
+    char *libargs_ptr = NULL;
+    char *cur_arg = NULL;
     Oid *argtype = procst->proargtypes.values;
     Oid rettype = procst->prorettype;
     Oid type;
-    Datum argDatum;
+    Datum argdatum;
 
     dotnet_info.typeSizeOfParams = 0;
 
@@ -267,37 +267,37 @@ plfsharp_CreateCStrucLibArgs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     dotnet_info.typeSizeOfResult = pldotnet_getTypeSize(rettype);
 
-    ptrToLibArgs = (char *) palloc0(dotnet_info.typeSizeOfParams +
+    libargs_ptr = (char *) palloc0(dotnet_info.typeSizeOfParams +
                                   dotnet_info.typeSizeOfResult);
 
-    curArg = ptrToLibArgs;
+    cur_arg = libargs_ptr;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
         type = argtype[i];
 #if PG_VERSION_NUM >= 120000
-        argDatum = fcinfo->args[i].value;
+        argdatum = fcinfo->args[i].value;
 #else
-        argDatum = fcinfo->arg[i];
+        argdatum = fcinfo->arg[i];
 #endif
         switch (type)
         {
             case INT4OID:
-                *(int *)curArg = DatumGetInt32(argDatum);
+                *(int *)cur_arg = DatumGetInt32(argdatum);
                 break;
         }
-        curSize += pldotnet_getTypeSize(argtype[i]);
-        curArg = ptrToLibArgs + curSize;
+        cursize += pldotnet_getTypeSize(argtype[i]);
+        cur_arg = libargs_ptr + cursize;
     }
 
-    return ptrToLibArgs;
+    return libargs_ptr;
 }
 
 static Datum
-plfsharp_getResultFromDotNet(char * libArgs, Oid rettype, FunctionCallInfo fcinfo)
+plfsharp_getResultFromDotNet(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
-    char * resultP = libArgs
+    char * resultP = libargs
                     + dotnet_info.typeSizeOfParams;
 
     switch (rettype)
@@ -318,7 +318,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
          *fs_block_call2,
          *fs_block_call4,
          *fs_block_call6;
-    char *libArgs;
+    char *libargs;
     int i, source_code_size;
     HeapTuple proc;
     Form_pg_proc procst;
@@ -444,12 +444,12 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         assert(rc == 0 && fsharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
 
-        libArgs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
-        fsharp_method(libArgs,dotnet_info.typeSizeNullFlags +
+        libargs = plfsharp_CreateCStrucLibArgs(fcinfo, procst);
+        fsharp_method(libargs,dotnet_info.typeSizeNullFlags +
             dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
-        retval = plfsharp_getResultFromDotNet( libArgs, rettype, fcinfo );
-        if (libArgs != NULL)
-            pfree(libArgs);
+        retval = plfsharp_getResultFromDotNet( libargs, rettype, fcinfo );
+        if (libargs != NULL)
+            pfree(libargs);
         pfree(source_code);
         MemoryContextSwitchTo(oldcontext);
         if (func_cxt)

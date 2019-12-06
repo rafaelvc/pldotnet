@@ -75,7 +75,7 @@ typedef struct args_source
 }args_source;
 
 bool pldotnet_type_supported(Oid type);
-const char * pldotnet_getNetTypeName(Oid id, bool hasTypeConversion);
+const char * pldotnet_getNetTypeName(Oid id, bool hastypeconversion);
 int pldotnet_getTypeSize(Oid id);
 
 

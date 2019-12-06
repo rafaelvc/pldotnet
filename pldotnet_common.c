@@ -11,7 +11,7 @@ pldotnet_type_supported(Oid type)
 }
 
 const char *
-pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
+pldotnet_getNetTypeName(Oid id, bool hastypeconversion)
 {
     switch (id)
     {
@@ -28,7 +28,7 @@ pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
         case FLOAT8OID:
             return "double"; // System.Double
         case NUMERICOID:
-            return hasTypeConversion ? "string" : "decimal"; // System.Decimal
+            return hastypeconversion ? "string" : "decimal"; // System.Decimal
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
