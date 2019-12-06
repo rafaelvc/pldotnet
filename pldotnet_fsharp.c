@@ -8,7 +8,7 @@ PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-static pldotnet_info dotnet_info;
+static Pldotnet_info dotnet_info;
 
 static char   *Plfsharp_build_block2(Form_pg_proc procst);
 static char   *Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc);
@@ -259,17 +259,17 @@ Plfsharp_create_cstruct_libargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     Oid type;
     Datum argdatum;
 
-    dotnet_info.typeSizeOfParams = 0;
+    dotnet_info.typesize_params = 0;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typeSizeOfParams += Pldotnet_get_typesize(argtype[i]);
+        dotnet_info.typesize_params += Pldotnet_get_typesize(argtype[i]);
     }
 
-    dotnet_info.typeSizeOfResult = Pldotnet_get_typesize(rettype);
+    dotnet_info.typesize_result = Pldotnet_get_typesize(rettype);
 
-    libargs_ptr = (char *) palloc0(dotnet_info.typeSizeOfParams +
-                                  dotnet_info.typeSizeOfResult);
+    libargs_ptr = (char *) palloc0(dotnet_info.typesize_params +
+                                  dotnet_info.typesize_result);
 
     cur_arg = libargs_ptr;
 
@@ -299,7 +299,7 @@ Plfsharp_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
     char * resultP = libargs
-                    + dotnet_info.typeSizeOfParams;
+                    + dotnet_info.typesize_params;
 
     switch (rettype)
     {
@@ -422,9 +422,9 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(config_path, strlen(root_path) + strlen(fsharp_json_path) + 1
                         , "%s%s", root_path, fsharp_json_path);
 
-        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
+        load_assembly_and_get_function_pointer = Get_dotnet_load_assembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
-            "Failure: get_dotnet_load_assembly()");
+            "Failure: Get_dotnet_load_assembly()");
 
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
@@ -446,8 +446,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
             "Failure: load_assembly_and_get_function_pointer()");
 
         libargs = Plfsharp_create_cstruct_libargs(fcinfo, procst);
-        fsharp_method(libargs,dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
+        fsharp_method(libargs,dotnet_info.typesize_nullflags +
+            dotnet_info.typesize_params + dotnet_info.typesize_result);
         retval = Plfsharp_get_dotnet_result( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);

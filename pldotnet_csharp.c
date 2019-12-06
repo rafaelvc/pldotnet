@@ -3,7 +3,7 @@
 #include <mb/pg_wchar.h> //For UTF8 support
 #include <utils/numeric.h>
 
-static pldotnet_info dotnet_info;
+static Pldotnet_info dotnet_info;
 
 // Declare extension variables/structs here
 PGDLLEXPORT Datum plcsharp_call_handler(PG_FUNCTION_ARGS);
@@ -617,28 +617,28 @@ Pldotnet_create_cstruct_libargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     bool *argsnull_ptr;
     Datum argdatum;
 
-    dotnet_info.typeSizeOfParams = 0;
-    dotnet_info.typeSizeNullFlags = 0;
+    dotnet_info.typesize_params = 0;
+    dotnet_info.typesize_nullflags = 0;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typeSizeOfParams += Pldotnet_get_typesize(argtype[i]);
+        dotnet_info.typesize_params += Pldotnet_get_typesize(argtype[i]);
         if (Isnullable(argtype[i]))
             nullable_arg_flag = true;
     }
 
     if (nullable_arg_flag)
-        dotnet_info.typeSizeNullFlags += sizeof(bool) * fcinfo->nargs;
+        dotnet_info.typesize_nullflags += sizeof(bool) * fcinfo->nargs;
 
-    dotnet_info.typeSizeNullFlags += sizeof(bool);
+    dotnet_info.typesize_nullflags += sizeof(bool);
 
-    dotnet_info.typeSizeOfResult = Pldotnet_get_typesize(rettype);
+    dotnet_info.typesize_result = Pldotnet_get_typesize(rettype);
 
-    libargs_ptr = (char *) palloc0(dotnet_info.typeSizeNullFlags + dotnet_info.typeSizeOfParams +
-                                  dotnet_info.typeSizeOfResult);
+    libargs_ptr = (char *) palloc0(dotnet_info.typesize_nullflags + dotnet_info.typesize_params +
+                                  dotnet_info.typesize_result);
 
     argsnull_ptr = (bool *) libargs_ptr;
-    cur_arg = libargs_ptr + dotnet_info.typeSizeNullFlags;
+    cur_arg = libargs_ptr + dotnet_info.typesize_nullflags;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
@@ -705,7 +705,7 @@ Pldotnet_create_cstruct_libargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
         }
         cursize += Pldotnet_get_typesize(argtype[i]);
-        cur_arg = libargs_ptr + dotnet_info.typeSizeNullFlags + cursize;
+        cur_arg = libargs_ptr + dotnet_info.typesize_nullflags + cursize;
     }
 
     return libargs_ptr;
@@ -720,8 +720,8 @@ Pldotnet_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
     int str_len;
     char * str_num;
     char * result_ptr = libargs
-                    + dotnet_info.typeSizeOfParams + dotnet_info.typeSizeNullFlags;
-    char * resultnull_ptr = libargs + (dotnet_info.typeSizeNullFlags - sizeof(bool));
+                    + dotnet_info.typesize_params + dotnet_info.typesize_nullflags;
+    char * resultnull_ptr = libargs + (dotnet_info.typesize_nullflags - sizeof(bool));
     char * encoded_str;
 
     switch (rettype)
@@ -765,7 +765,7 @@ Pldotnet_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
              // C String encoding
              //retval = DirectFunctionCall1(textin,
              //               CStringGetDatum(
-             //                       *(unsigned long *)(libargs + dotnet_info.typeSizeOfParams)));
+             //                       *(unsigned long *)(libargs + dotnet_info.typesize_params)));
         case BPCHAROID:
         // https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
         // We should try to get atttymod which is n size in char(n)
@@ -773,12 +773,12 @@ Pldotnet_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
         // case BPCHAROID:
         //    retval = DirectFunctionCall1(bpcharin,
         //                           CStringGetDatum(
-        //                            *(unsigned long *)(libargs + dotnet_info.typeSizeOfParams)), attypmod);
+        //                            *(unsigned long *)(libargs + dotnet_info.typesize_params)), attypmod);
         case VARCHAROID:
              // C String encoding
              //retval = DirectFunctionCall1(varcharin,
              //               CStringGetDatum(
-             //                       *(unsigned long *)(libargs + dotnet_info.typeSizeOfParams)));
+             //                       *(unsigned long *)(libargs + dotnet_info.typesize_params)));
 
             // UTF8 encoding
             ret_ptr = *(unsigned long *)(result_ptr);
@@ -826,7 +826,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     int rc;
     load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
     component_entry_point_fn csharp_method = nullptr;
-    args_source args_source;
+    Args_source args;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -915,9 +915,9 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
                         , "%s%s", root_path, csharp_json_path);
 
-        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
+        load_assembly_and_get_function_pointer = Get_dotnet_load_assembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
-            "Failure: get_dotnet_load_assembly()");
+            "Failure: Get_dotnet_load_assembly()");
 
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method
@@ -937,14 +937,14 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
             (void**)&csharp_method);
         assert(rc == 0 && csharp_method != nullptr && \
             "Failure: load_assembly_and_get_function_pointer()");
-        args_source.SourceCode = source_code;
-        args_source.Result = 1;
+        args.SourceCode = source_code;
+        args.Result = 1;
 #ifndef USE_DOTNETBUILD
         //
         // STEP 4: Run managed code (Roslyn compiler)
         //
-        args_source.FuncOid = (int) fcinfo->flinfo->fn_oid;
-        csharp_method(&args_source, sizeof(args_source));
+        args.FuncOid = (int) fcinfo->flinfo->fn_oid;
+        csharp_method(&args, sizeof(args));
         bzero(dotnet_type_method,sizeof(dotnet_type_method));
         SNPRINTF(dotnet_type_method, strlen("Run") + 1, "%s", "Run");
 
@@ -963,8 +963,8 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 
         libargs = Pldotnet_create_cstruct_libargs(fcinfo, procst);
 
-        csharp_method(libargs,dotnet_info.typeSizeNullFlags +
-            dotnet_info.typeSizeOfParams + dotnet_info.typeSizeOfResult);
+        csharp_method(libargs,dotnet_info.typesize_nullflags +
+            dotnet_info.typesize_params + dotnet_info.typesize_result);
         retval = Pldotnet_get_dotnet_result( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);
@@ -1040,7 +1040,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         int rc;
         load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
         component_entry_point_fn csharp_method = nullptr;
-        args_source args;
+        Args_source args;
 
         block_inline3 = CODEBLOCK;
         source_code_size = strlen(block_inline1) + strlen(block_inline2)
@@ -1094,9 +1094,9 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
                         , "%s%s", root_path, csharp_json_path);
 
-        load_assembly_and_get_function_pointer = get_dotnet_load_assembly(config_path);
+        load_assembly_and_get_function_pointer = Get_dotnet_load_assembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
-            "Failure: get_dotnet_load_assembly()");
+            "Failure: Get_dotnet_load_assembly()");
 
         //
         // STEP 3: Load managed assembly and get function pointer to a managed method

@@ -64,7 +64,7 @@ Pldotnet_load_hostfxr()
 
 // Load and initialize .NET Core and get desired function pointer for scenario
 load_assembly_and_get_function_pointer_fn
-get_dotnet_load_assembly(const char_t *config_path)
+Get_dotnet_load_assembly(const char_t *config_path)
 {
     // Load .NET Core
     void *load_assembly_and_get_function_pointer = nullptr;

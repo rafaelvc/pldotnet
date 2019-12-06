@@ -59,20 +59,20 @@
 // Null pointer constant definition
 #define nullptr ((void*)0)
 
-typedef struct pldotnet_info
+typedef struct Pldotnet_info
 {
     char * libArgs;
-    int    typeSizeNullFlags;
-    int    typeSizeOfParams;
-    int    typeSizeOfResult;
-}pldotnet_info;
+    int    typesize_nullflags;
+    int    typesize_params;
+    int    typesize_result;
+}Pldotnet_info;
 
-typedef struct args_source
+typedef struct Args_source
 {
     char* SourceCode;
     int Result;
     int FuncOid;
-}args_source;
+}Args_source;
 
 bool Pldotnet_type_supported(Oid type);
 const char * Pldotnet_get_dotnet_typename(Oid id, bool hastypeconversion);
