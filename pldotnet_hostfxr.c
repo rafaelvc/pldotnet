@@ -43,7 +43,7 @@ Pldotnet_get_export(void *host, const char *name)
 int
 Pldotnet_load_hostfxr()
 {
-    // Pre-allocate a large buffer for the path to hostfxr
+    /* Pre-allocate a large buffer for the path to hostfxr */
     char_t buffer[MAX_PATH];
     size_t buffer_size = sizeof(buffer) / sizeof(char_t);
     int rc = get_hostfxr_path(buffer, &buffer_size, nullptr);
@@ -51,7 +51,7 @@ Pldotnet_load_hostfxr()
     if (rc != 0)
         return 0;
 
-    // Load hostfxr and get desired exports
+    /* Load hostfxr and get desired exports */
     lib = Pldotnet_load_library(buffer);
     init_fptr = (hostfxr_initialize_for_runtime_config_fn)Pldotnet_get_export( \
         lib, "hostfxr_initialize_for_runtime_config");
@@ -62,11 +62,11 @@ Pldotnet_load_hostfxr()
     return (init_fptr && get_delegate_fptr && close_fptr);
 }
 
-// Load and initialize .NET Core and get desired function pointer for scenario
+/* Load and initialize .NET Core and get desired function pointer for scenario */
 load_assembly_and_get_function_pointer_fn
 Get_dotnet_load_assembly(const char_t *config_path)
 {
-    // Load .NET Core
+    /* Load .NET Core */
     void *load_assembly_and_get_function_pointer = nullptr;
     hostfxr_handle cxt = nullptr;
     int rc = init_fptr(config_path, nullptr, &cxt);
@@ -77,7 +77,7 @@ Get_dotnet_load_assembly(const char_t *config_path)
         return nullptr;
     }
 
-    // Get the load assembly function pointer
+    /* Get the load assembly function pointer */
     rc = get_delegate_fptr(
         cxt,
         hdt_load_assembly_and_get_function_pointer,

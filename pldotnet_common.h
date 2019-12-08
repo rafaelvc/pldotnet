@@ -45,7 +45,8 @@
 #endif
 
 /* As a reminder snprintf is defined as pg_snprintf.
- * Check port.h into postgres codebase */
+ * Check port.h into postgres codebase
+ */
 #define SNPRINTF(dst, size, fmt, ...)                                    \
     if(snprintf(dst,size,fmt, __VA_ARGS__) >= size){                     \
         elog(ERROR,"[pldotnet] (%s:%d) String too long for buffer: " fmt \
@@ -57,7 +58,7 @@
 #define CH(c) c
 #define DIR_SEPARATOR '/'
 #define MAX_PATH PATH_MAX
-// Null pointer constant definition
+/* Null pointer constant definition */
 #define nullptr ((void*)0)
 
 typedef struct Pldotnet_info
@@ -80,4 +81,4 @@ const char * Pldotnet_get_dotnet_typename(Oid id, bool hastypeconversion);
 int Pldotnet_get_typesize(Oid id);
 
 
-#endif // PLDOTNETCOMMON_H
+#endif /* PLDOTNETCOMMON_H */

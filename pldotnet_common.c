@@ -16,28 +16,28 @@ Pldotnet_get_dotnet_typename(Oid id, bool hastypeconversion)
     switch (id)
     {
         case BOOLOID:
-            return "bool"; // System.Boolean
+            return "bool";   /* System.Boolean */
         case INT4OID:
-            return "int"; // System.Int32
+            return "int";    /* System.Int32 */
         case INT8OID:
-            return "long"; // System.Int64
+            return "long";   /* System.Int64 */
         case INT2OID:
-            return "short"; // System.Int16
+            return "short";  /* System.Int16 */
         case FLOAT4OID:
-            return "float"; // System.Single
+            return "float";  /* System.Single */
         case FLOAT8OID:
-            return "double"; // System.Double
-        case NUMERICOID:
-            return hastypeconversion ? "string" : "decimal"; // System.Decimal
+            return "double"; /* System.Double */
+        case NUMERICOID:     /* System.Decimal */
+            return hastypeconversion ? "string" : "decimal";
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
-            return "string"; // System.String
+            return "string"; /* System.String */
     }
     return "";
 }
 
-// Size in bytes
+/* Native type size in bytes */
 int
 Pldotnet_get_typesize(Oid id)
 {

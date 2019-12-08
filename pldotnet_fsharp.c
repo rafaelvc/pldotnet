@@ -1,5 +1,5 @@
 #include "pldotnet_fsharp.h"
-#include <mb/pg_wchar.h> //For UTF8 support
+#include <mb/pg_wchar.h> /* For UTF8 support */
 #include <utils/numeric.h>
 
 PGDLLEXPORT Datum plfsharp_call_handler(PG_FUNCTION_ARGS);
@@ -53,13 +53,13 @@ static char *
 Plfsharp_build_block2(Form_pg_proc procst)
 {
     char *block2str, *str_ptr;
-    Oid *argtype = procst->proargtypes.values; // Indicates the args type
-    Oid rettype = procst->prorettype; // Indicates the return type
+    Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
+    Oid rettype = procst->prorettype; /* Indicates the return type */
     int nargs = procst->pronargs;
     const char val[] = "        val mutable";
     const char colon[] = ":";
     char argname[] = " argN";
-    char result[] = " resu"; // have to be same size argN
+    char result[] = " resu"; /* have to be same size argN */
     int i, cursize = 0, totalsize = 0;
 
     if (!Plfsharp_type_supported(rettype))
@@ -122,10 +122,10 @@ Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
     Datum *argname, argnames, prosrc;
     text * t;
 
-    // Function name
+    /* Function name */
     func = NameStr(procst->proname);
 
-    // Source code
+    /* Source code */
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
     t = DatumGetTextP(prosrc);
     source_text = DirectFunctionCall1(textout, DatumGetCString(t));
@@ -137,9 +137,10 @@ Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
       deconstruct_array(DatumGetArrayTypeP(argnames), TEXTOID, -1, false,
           'i', &argname, NULL, &nnames);
 
-    // Caculates the total amount in bytes of F# src text for 
-    // the function declaration according nr of arguments 
-    // and function body necessary indentation 
+    /* Caculates the total amount in bytes of F# src text for 
+     * the function declaration according nr of arguments 
+     * and function body necessary indentation 
+     */
 
     totalsize = strlen(func_signature_indent)
         + strlen(member) + strlen(func) + strlen(" ");
@@ -150,11 +151,11 @@ Plfsharp_build_block4(Form_pg_proc procst, HeapTuple proc)
                 DatumGetCString(DatumGetTextP(argname[i])) );
 
         argnm_size = strlen(argnm);
-        /*+1 here is the space between type" "argname declaration*/
+        /* +1 here is the space between type" "argname declaration */
         totalsize +=  1 + argnm_size;
     }
 
-    /* tokenizes source_code into its lines for indentation insertion*/
+    /* tokenizes source_code into its lines for indentation insertion */
     user_line = strtok(source_text,"\n");
     while (user_line != NULL)
     {
@@ -217,10 +218,10 @@ Plfsharp_build_block6(Form_pg_proc procst)
     const char result[] = "libargs.resu <- Lib.";
     int nargs = procst->pronargs;
 
-    // Function name
+    /* Function name */
     func = NameStr(procst->proname);
 
-    // TODO:  review for nargs > 9
+    /* TODO:  review for nargs > 9 */
     if (nargs == 0)
     {
          int block_size = strlen(func_line_indent) + strlen(result)
@@ -242,7 +243,8 @@ Plfsharp_build_block6(Form_pg_proc procst)
 
     for (i = 0; i < nargs; i++)
     {
-        SNPRINTF(argname, strlen(argname) + 1, "arg%d", i); // review nargs > 9
+        /* review nargs > 9 */
+        SNPRINTF(argname, strlen(argname) + 1, "arg%d", i);
         str_ptr = (char *)(block2str + cursize);
         SNPRINTF(str_ptr, totalsize - cursize, "%s%s", libargs, argname);
         cursize = strlen(block2str);
@@ -311,13 +313,13 @@ Plfsharp_get_dotnet_result(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
     switch (rettype)
     {
         case INT4OID:
-            /* Recover flag for null result*/
+            /* Recover flag for null result */
             return  Int32GetDatum ( *(int *)(resultP) );
     }
     return retval;
 }
 
-//////////// FSharp handlers
+/****** FSharp handlers ******/
 PG_FUNCTION_INFO_V1(plfsharp_call_handler);
 Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 {
@@ -333,7 +335,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     Datum retval = 0;
     Oid rettype;
 
-    // .NET HostFxr declarations
+    /* .NET HostFxr declarations */
     char dotnet_type[]  = "DotNetLib.Lib, DotNetLib";
     char dotnet_type_method[64] = "ProcedureMethod";
     FILE *output_file;
@@ -354,7 +356,6 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     }
     PG_TRY();
     {
-        // Do F# handler here
         MemoryContext oldcontext = CurrentMemoryContext;
         MemoryContext func_cxt = NULL;
         func_cxt = AllocSetContextCreate(TopMemoryContext,
@@ -368,7 +369,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
                 , (Oid) fcinfo->flinfo->fn_oid);
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
-        // Build the source code
+        /* Build the source code */
         fs_block_call2 = Plfsharp_build_block2( procst );
         fs_block_call4 = Plfsharp_build_block4( procst , proc );
         fs_block_call6 = Plfsharp_build_block6( procst);
@@ -421,15 +422,15 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
             root_path[strlen(root_path) - 1] = 0;
 
-        //
-        // STEP 1: Load HostFxr and get exported hosting functions
-        //
+        /*
+         * STEP 1: Load HostFxr and get exported hosting functions
+         */
         if (!Pldotnet_load_hostfxr())
             assert(0 && "Failure: Pldotnet_load_hostfxr()");
 
-        //
-        // STEP 2: Initialize and start the .NET Core runtime
-        //
+        /*
+         * STEP 2: Initialize and start the .NET Core runtime
+         */
         char *config_path;
         const char fsharp_json_path[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
         config_path = palloc0(strlen(root_path) + strlen(fsharp_json_path) + 1);
@@ -440,20 +441,20 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         assert(load_assembly_and_get_function_pointer != nullptr && \
             "Failure: Get_dotnet_load_assembly()");
 
-        //
-        // STEP 3: Load managed assembly and get function pointer to a managed method
-        //
+        /*
+         * STEP 3: Load managed assembly and get function pointer to a managed method
+         */
         char *dotnetlib_path;
         const char fsharp_dll_path[] = "/src/fsharp/DotNetLib.dll";
         dotnetlib_path = palloc0(strlen(root_path) + strlen(fsharp_dll_path) + 1);
         SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(fsharp_dll_path) + 1
                         , "%s%s", root_path, fsharp_dll_path);
-        // Function pointer to managed delegate
+        /* Function pointer to managed delegate */
         rc = load_assembly_and_get_function_pointer(
             dotnetlib_path,
             dotnet_type,
             dotnet_type_method,
-            nullptr /*delegate_type_name*/,
+            nullptr /* delegate_type_name */,
             nullptr,
             (void**)&fsharp_method);
         assert(rc == 0 && fsharp_method != nullptr && \
@@ -472,7 +473,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 	}
     PG_CATCH();
     {
-        // Do the excption handling
+        /* Do the excption handling */
         elog(WARNING, "Exception");
         PG_RE_THROW();
     }
@@ -485,16 +486,16 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 PG_FUNCTION_INFO_V1(plfsharp_validator);
 Datum plfsharp_validator(PG_FUNCTION_ARGS)
 {
-//    return DotNET_validator(/* additional args, */ PG_GETARG_OID(0));
+    /* return DotNET_validator( additional args, PG_GETARG_OID(0)); */
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
     PG_TRY();
     {
-        // Do some dotnet checking ??
+        /* Do some dotnet checking ?? */
     }
     PG_CATCH();
     {
-        // Do the excption handling
+        /* Do the excption handling */
         PG_RE_THROW();
     }
     PG_END_TRY();
@@ -506,17 +507,17 @@ Datum plfsharp_validator(PG_FUNCTION_ARGS)
 PG_FUNCTION_INFO_V1(plfsharp_inline_handler);
 Datum plfsharp_inline_handler(PG_FUNCTION_ARGS)
 {
-    //  return DotNET_inlinehandler( /* additional args, */ CODEBLOCK);
+    /*  return DotNET_inlinehandler( additional args,CODEBLOCK); */
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[plldotnet]: could not connect to SPI manager");
 
     PG_TRY();
     {
-        // Do F# handler here
+        /* Do F# inline handler here */
     }
     PG_CATCH();
     {
-        // Exception handling
+        /* Exception handling */
         PG_RE_THROW();
     }
     PG_END_TRY();

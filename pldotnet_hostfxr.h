@@ -2,7 +2,7 @@
 #define PLNETHOST_H
 
 #include <nethost.h>
-// Header files copied from https://github.com/dotnet/core-setup
+/* Header files copied from https://github.com/dotnet/core-setup */
 #include <coreclr_delegates.h>
 #include <hostfxr.h>
 
