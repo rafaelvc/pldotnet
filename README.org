@@ -48,7 +48,7 @@ CREATE FUNCTION func(args) RETURN return_type AS $$
 $$ LANGUAGE [ plcsharp | plfsharp];
 #+END_SRC
 
-where the types of the named arguments(~args~) and ~return_type~ are converted
+where the types of the named arguments (~args~) and ~return_type~ are converted
 following the table in Types section.
 
 The function body are composed to its respectively language chunk following the
@@ -92,6 +92,54 @@ CREATE FUNCTION
 
 #+END_SRC
 
+#+BEGIN_SRC sql
+# CREATE OR REPLACE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
+FormattableString res;
+if (age < 18)
+    res = $"Hey {name} {lname}! Dude you are still a kid.";
+else if (age >= 18 && age < 40)
+    res = $"Hey {name} {lname}! You are in the mood!";
+else
+    res = $"Hey {name} {lname}! You are getting experienced!";
+return res.ToString();
+$$ LANGUAGE plcsharp;
+CREATE FUNCTION
+# SELECT ageTest('Billy', 10, 'The KID') = varchar 'Hey Billy The KID! Dude you are still a kid.';
+                   agetest
+----------------------------------------------
+ Hey Billy The KID! Dude you are still a kid.
+(1 row)
+
+# SELECT ageTest('John', 33, 'Smith') =  varchar 'Hey John Smith! You are in the mood!';
+               agetest
+--------------------------------------
+ Hey John Smith! You are in the mood!
+(1 row)
+
+# SELECT ageTest('Robson', 41, 'Cruzoe') =  varchar 'Hey Robson Cruzoe! You are getting experienced!';
+                     agetest
+-------------------------------------------------
+ Hey Robson Cruzoe! You are getting experienced!
+(1 row)
+
+#+END_SRC
+
+#+BEGIN_SRC sql
+# CREATE OR REPLACE FUNCTION fibbb(n integer) RETURNS integer AS $$
+    int? ret = 1;
+    if (n == 1 || n == 2) 
+        return ret;
+    return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
+$$ LANGUAGE plcsharp;
+CREATE FUNCTION
+# SELECT fibbb(30);
+ fibbb
+--------
+ 832040
+(1 row)
+
+#+END_SRC
+
    + F#
 
 #+BEGIN_SRC sql
@@ -99,10 +147,12 @@ CREATE FUNCTION
 10
 $$ LANGUAGE plfsharp;
 CREATE FUNCTION
-# SELECT returnInt() = integer '10';
+# SELECT returnInt();
  returnint
 -----------
         10
 (1 row)
 
 #+END_SRC
+
+* License
