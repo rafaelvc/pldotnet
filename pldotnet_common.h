@@ -45,10 +45,12 @@
 #endif
 
 /* As a reminder snprintf is defined as pg_snprintf.
- * Check port.h into postgres codebase */
-#define SNPRINTF(dst, size, fmt, ...)                  \
-    if(snprintf(dst,size,fmt, __VA_ARGS__) >= size){                                      \
-        elog(ERROR,"[pldotnet] (%s:%d) String too long for buffer: " fmt,__FILE__,__LINE__,__VA_ARGS__);         \
+ * Check port.h into postgres codebase
+ */
+#define SNPRINTF(dst, size, fmt, ...)                                    \
+    if(snprintf(dst,size,fmt, __VA_ARGS__) >= size){                     \
+        elog(ERROR,"[pldotnet] (%s:%d) String too long for buffer: " fmt \
+                        ,__FILE__,__LINE__,__VA_ARGS__);                 \
     }
 
 #define QUOTE(name) #name
@@ -56,27 +58,26 @@
 #define CH(c) c
 #define DIR_SEPARATOR '/'
 #define MAX_PATH PATH_MAX
-// Null pointer constant definition
+/* Null pointer constant definition */
 #define nullptr ((void*)0)
 
-typedef struct pldotnet_info
+typedef struct pldotnet_CStructInfo
 {
-    char * libArgs;
-    int    typeSizeNullFlags;
-    int    typeSizeOfParams;
-    int    typeSizeOfResult;
-}pldotnet_info;
+    int    typesize_nullflags;
+    int    typesize_params;
+    int    typesize_result;
+}pldotnet_CStructInfo;
 
-typedef struct args_source
+typedef struct ArgsSource
 {
     char* SourceCode;
     int Result;
     int FuncOid;
-}args_source;
+}ArgsSource;
 
-bool pldotnet_type_supported(Oid type);
-const char * pldotnet_getNetTypeName(Oid id, bool hasTypeConversion);
-int pldotnet_getTypeSize(Oid id);
+bool pldotnet_TypeSupported(Oid type);
+const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);
+int pldotnet_GetTypeSize(Oid id);
 
 
-#endif // PLDOTNETCOMMON_H
+#endif /* PLDOTNETCOMMON_H */

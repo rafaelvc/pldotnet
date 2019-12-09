@@ -7,5 +7,5 @@
 #ifndef PLDOTNET_H
 #define PLDOTNET_H
 
-#endif // PLDOTNET_H
+#endif /* PLDOTNET_H */
 
