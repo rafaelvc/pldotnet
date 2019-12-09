@@ -1,7 +1,7 @@
 #include "pldotnet_common.h"
 
 bool
-pldotnet_type_supported(Oid type)
+pldotnet_TypeSupported(Oid type)
 {
     return (type == INT4OID || type == INT8OID
        || type == INT2OID   || type == FLOAT4OID
@@ -11,36 +11,38 @@ pldotnet_type_supported(Oid type)
 }
 
 const char *
-pldotnet_getNetTypeName(Oid id, bool hasTypeConversion)
+pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
 {
-    switch (id){
+    switch (id)
+    {
         case BOOLOID:
-            return "bool"; // System.Boolean
+            return "bool";   /* System.Boolean */
         case INT4OID:
-            return "int"; // System.Int32
+            return "int";    /* System.Int32 */
         case INT8OID:
-            return "long"; // System.Int64
+            return "long";   /* System.Int64 */
         case INT2OID:
-            return "short"; // System.Int16
+            return "short";  /* System.Int16 */
         case FLOAT4OID:
-            return "float"; // System.Single
+            return "float";  /* System.Single */
         case FLOAT8OID:
-            return "double"; // System.Double
-        case NUMERICOID:
-            return hasTypeConversion ? "string" : "decimal"; // System.Decimal
+            return "double"; /* System.Double */
+        case NUMERICOID:     /* System.Decimal */
+            return hastypeconversion ? "string" : "decimal";
         case BPCHAROID:
         case TEXTOID:
         case VARCHAROID:
-            return "string"; // System.String
+            return "string"; /* System.String */
     }
     return "";
 }
 
-// Size in bytes
+/* Native type size in bytes */
 int
-pldotnet_getTypeSize(Oid id)
+pldotnet_GetTypeSize(Oid id)
 {
-    switch (id){
+    switch (id)
+    {
         case BOOLOID:
             return sizeof(bool);
         case INT4OID:
