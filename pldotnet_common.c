@@ -1,7 +1,7 @@
 #include "pldotnet_common.h"
 
 bool
-Pldotnet_type_supported(Oid type)
+pldotnet_TypeSupported(Oid type)
 {
     return (type == INT4OID || type == INT8OID
        || type == INT2OID   || type == FLOAT4OID
@@ -11,7 +11,7 @@ Pldotnet_type_supported(Oid type)
 }
 
 const char *
-Pldotnet_get_dotnet_typename(Oid id, bool hastypeconversion)
+pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
 {
     switch (id)
     {
@@ -39,7 +39,7 @@ Pldotnet_get_dotnet_typename(Oid id, bool hastypeconversion)
 
 /* Native type size in bytes */
 int
-Pldotnet_get_typesize(Oid id)
+pldotnet_GetTypeSize(Oid id)
 {
     switch (id)
     {
