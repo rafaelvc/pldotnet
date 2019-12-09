@@ -28,14 +28,15 @@ The following table shows each type conversion equivalences:
 |---------------------+------------------------------------+-----------------------|
 | bool                | Nullable<System.Boolean> (~bool?~) | < Not yet supported > |
 | int2                | Nullable<System.Int16> (~short?~)  | < Not yet supported > |
-| int4                | Nullable<System.Int32> (~int?~)    | System.Int32 (~int?~) |
+| int4                | Nullable<System.Int32> (~int?~)    | System.Int32 (~int~)  |
 | int8                | Nullable<System.Int64> (~long?~)   | < Not yet supported > |
 | float4              | System.Single (~float~)            | < Not yet supported > |
 | float8              | System.Double (~double~)           | < Not yet supported > |
 | char, varchar, text | System.String (~string~)           | < Not yet supported > |
 | "char"/bpchar       | System.String (~string~)           | < Not yet supported > |
 | numeric             | System.Decimal (~decimal~)         | < Not yet supported > |
-| Arrays, composite   | < Not yet supported >              | < Not yet supported > |
+| Arrays              | < Not yet supported >              | < Not yet supported > |
+| Composite           | < Not yet supported >              | < Not yet supported > |
 | Base, domain        | < Not yet supported >              | < Not yet supported > |
 
 * Functions
@@ -49,3 +50,59 @@ $$ LANGUAGE [ plcsharp | plfsharp];
 
 where the types of the named arguments(~args~) and ~return_type~ are converted
 following the table in Types section.
+
+The function body are composed to its respectively language chunk following the
+templates below:
+
++ C#
+
+#+BEGIN_SRC csharp
+libargs.resu = FUNC(args);
+return_type FUNC(args) {
+   // C# function body
+}
+#+END_SRC
+
++ F#
+
+#+BEGIN_SRC fsharp
+type Lib =
+    static member FUNC =
+        // F# function body
+    static member Main =
+        libargs.resu <- FUNC args
+#+END_SRC
+
+PL/.NET hosts the .NET runtime using ~hostfxr~ for loading the delegates, that's why
+the procedure function body are inserted into a class structure for both C# and F#.
+
+** Examples
+   + C#
+
+#+BEGIN_SRC sql
+# CREATE OR REPLACE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
+return "Hello " + fname + lname + "!";
+$$ LANGUAGE plcsharp;
+CREATE FUNCTION
+# SELECT retVarCharText('Homer Jay ', 'Simpson');
+      retvarchartext
+--------------------------
+ Hello Homer Jay Simpson!
+(1 row)
+
+#+END_SRC
+
+   + F#
+
+#+BEGIN_SRC sql
+# CREATE OR REPLACE FUNCTION returnInt() RETURNS integer AS $$
+10
+$$ LANGUAGE plfsharp;
+CREATE FUNCTION
+# SELECT returnInt() = integer '10';
+ returnint
+-----------
+        10
+(1 row)
+
+#+END_SRC
