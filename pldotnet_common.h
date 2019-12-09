@@ -61,20 +61,19 @@
 /* Null pointer constant definition */
 #define nullptr ((void*)0)
 
-typedef struct Pldotnet_info
+typedef struct pldotnet_CStructInfo
 {
-    char * libArgs;
     int    typesize_nullflags;
     int    typesize_params;
     int    typesize_result;
-}Pldotnet_info;
+}pldotnet_CStructInfo;
 
-typedef struct Args_source
+typedef struct ArgsSource
 {
     char* SourceCode;
     int Result;
     int FuncOid;
-}Args_source;
+}ArgsSource;
 
 bool pldotnet_TypeSupported(Oid type);
 const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);

@@ -3,7 +3,7 @@
 #include <mb/pg_wchar.h> /* For UTF8 support */
 #include <utils/numeric.h>
 
-static Pldotnet_info dotnet_info;
+static pldotnet_CStructInfo dotnet_cstruct_info;
 
 /* Declare extension variables/structs here */
 PGDLLEXPORT Datum plcsharp_call_handler(PG_FUNCTION_ARGS);
@@ -651,29 +651,29 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     bool *argsnull_ptr;
     Datum argdatum;
 
-    dotnet_info.typesize_params = 0;
-    dotnet_info.typesize_nullflags = 0;
+    dotnet_cstruct_info.typesize_params = 0;
+    dotnet_cstruct_info.typesize_nullflags = 0;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typesize_params += pldotnet_GetTypeSize(argtype[i]);
+        dotnet_cstruct_info.typesize_params += pldotnet_GetTypeSize(argtype[i]);
         if (IsNullable(argtype[i]))
             nullable_arg_flag = true;
     }
 
     if (nullable_arg_flag)
-        dotnet_info.typesize_nullflags += sizeof(bool) * fcinfo->nargs;
+        dotnet_cstruct_info.typesize_nullflags += sizeof(bool) * fcinfo->nargs;
 
-    dotnet_info.typesize_nullflags += sizeof(bool);
+    dotnet_cstruct_info.typesize_nullflags += sizeof(bool);
 
-    dotnet_info.typesize_result = pldotnet_GetTypeSize(rettype);
+    dotnet_cstruct_info.typesize_result = pldotnet_GetTypeSize(rettype);
 
-    libargs_ptr = (char *) palloc0(dotnet_info.typesize_nullflags
-        + dotnet_info.typesize_params
-        + dotnet_info.typesize_result);
+    libargs_ptr = (char *) palloc0(dotnet_cstruct_info.typesize_nullflags
+        + dotnet_cstruct_info.typesize_params
+        + dotnet_cstruct_info.typesize_result);
 
     argsnull_ptr = (bool *) libargs_ptr;
-    cur_arg = libargs_ptr + dotnet_info.typesize_nullflags;
+    cur_arg = libargs_ptr + dotnet_cstruct_info.typesize_nullflags;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
@@ -743,7 +743,7 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
         }
         cursize += pldotnet_GetTypeSize(argtype[i]);
-        cur_arg = libargs_ptr + dotnet_info.typesize_nullflags + cursize;
+        cur_arg = libargs_ptr + dotnet_cstruct_info.typesize_nullflags + cursize;
     }
 
     return libargs_ptr;
@@ -758,8 +758,8 @@ pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
     int str_len;
     char * str_num;
     char * result_ptr = libargs
-                    + dotnet_info.typesize_params + dotnet_info.typesize_nullflags;
-    char * resultnull_ptr = libargs + (dotnet_info.typesize_nullflags - sizeof(bool));
+                    + dotnet_cstruct_info.typesize_params + dotnet_cstruct_info.typesize_nullflags;
+    char * resultnull_ptr = libargs + (dotnet_cstruct_info.typesize_nullflags - sizeof(bool));
     char * encoded_str;
 
     switch (rettype)
@@ -800,7 +800,7 @@ pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
              /* C String encoding
               * retval = DirectFunctionCall1(textin,
               *               CStringGetDatum(
-              *                       *(unsigned long *)(libargs + dotnet_info.typesize_params)));
+              *                       *(unsigned long *)(libargs + dotnet_cstruct_info.typesize_params)));
               */
         case BPCHAROID:
         /* https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
@@ -809,13 +809,13 @@ pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
          * case BPCHAROID:
          *    retval = DirectFunctionCall1(bpcharin,
          *                           CStringGetDatum(
-         *                            *(unsigned long *)(libargs + dotnet_info.typesize_params)), attypmod);
+         *                            *(unsigned long *)(libargs + dotnet_cstruct_info.typesize_params)), attypmod);
          */
         case VARCHAROID:
              /* C String encoding
               * retval = DirectFunctionCall1(varcharin,
               *               CStringGetDatum(
-              *                       *(unsigned long *)(libargs + dotnet_info.typesize_params)));
+              *                       *(unsigned long *)(libargs + dotnet_cstruct_info.typesize_params)));
               */
 
             /* UTF8 encoding */
@@ -866,7 +866,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     int rc;
     load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
     component_entry_point_fn csharp_method = nullptr;
-    Args_source args;
+    ArgsSource args;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -1011,8 +1011,8 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 
         libargs = pldotnet_CreateCStructLibargs(fcinfo, procst);
 
-        csharp_method(libargs,dotnet_info.typesize_nullflags +
-            dotnet_info.typesize_params + dotnet_info.typesize_result);
+        csharp_method(libargs,dotnet_cstruct_info.typesize_nullflags +
+            dotnet_cstruct_info.typesize_params + dotnet_cstruct_info.typesize_result);
         retval = pldotnet_GetNetResult( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);
@@ -1087,7 +1087,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         int rc;
         load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
         component_entry_point_fn csharp_method = nullptr;
-        Args_source args;
+        ArgsSource args;
 
         block_inline3 = CODEBLOCK;
         source_code_size = strlen(block_inline1) + strlen(block_inline2)

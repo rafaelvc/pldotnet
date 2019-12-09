@@ -8,7 +8,7 @@ PGDLLEXPORT Datum plfsharp_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
-static Pldotnet_info dotnet_info;
+static pldotnet_CStructInfo dotnet_cstruct_info;
 
 static char   *plfsharp_BuildBlock2(Form_pg_proc procst);
 static char   *plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc);
@@ -268,17 +268,17 @@ plfsharp_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
     Oid type;
     Datum argdatum;
 
-    dotnet_info.typesize_params = 0;
+    dotnet_cstruct_info.typesize_params = 0;
 
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        dotnet_info.typesize_params += pldotnet_GetTypeSize(argtype[i]);
+        dotnet_cstruct_info.typesize_params += pldotnet_GetTypeSize(argtype[i]);
     }
 
-    dotnet_info.typesize_result = pldotnet_GetTypeSize(rettype);
+    dotnet_cstruct_info.typesize_result = pldotnet_GetTypeSize(rettype);
 
-    libargs_ptr = (char *) palloc0(dotnet_info.typesize_params +
-                                  dotnet_info.typesize_result);
+    libargs_ptr = (char *) palloc0(dotnet_cstruct_info.typesize_params +
+                                  dotnet_cstruct_info.typesize_result);
 
     cur_arg = libargs_ptr;
 
@@ -308,7 +308,7 @@ plfsharp_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
     char * resultP = libargs
-                    + dotnet_info.typesize_params;
+                    + dotnet_cstruct_info.typesize_params;
 
     switch (rettype)
     {
@@ -461,8 +461,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
             "Failure: load_assembly_and_get_function_pointer()");
 
         libargs = plfsharp_CreateCStructLibargs(fcinfo, procst);
-        fsharp_method(libargs,dotnet_info.typesize_nullflags +
-            dotnet_info.typesize_params + dotnet_info.typesize_result);
+        fsharp_method(libargs,dotnet_cstruct_info.typesize_nullflags +
+            dotnet_cstruct_info.typesize_params + dotnet_cstruct_info.typesize_result);
         retval = plfsharp_GetNetResult( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);
