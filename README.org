@@ -4,12 +4,12 @@
  PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
  languages as loadable procedural language. Using PL/.NET one can enjoy all benefits from
  .NET and its powerful application development environment and also from a strongly-typed
- functional programming language, F#, when writing functions and triggers (check [[Future Plans]])
+ functional programming language, F#, when writing functions and triggers (check [[#futureplans][Future Plans]])
  written in those languages. 
 * Installation
 
-PL/.NET is installed like any regular PostgreSQL extension. First, obtain it by
-cloning the repository, after that just run:
+PL/.NET is installed like any regular PostgreSQL extension. It requires [[ ][.NET Core 3.0]] or later.
+First, obtain it by cloning the repository, after that just run:
 
 #+BEGIN_SRC shell
 $ make && make plnet-install
@@ -54,7 +54,7 @@ $$ LANGUAGE [ plcsharp | plfsharp];
 #+END_SRC
 
 where the types of the named arguments (~args~) and ~return_type~ are converted
-following the table in [[Types]] section.
+following the table in [[#types][Types]] section.
 
 The function body are composed to its respectively language chunk following the
 templates below:
