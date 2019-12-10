@@ -4,7 +4,7 @@
  PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
  languages as loadable procedural language. Using PL/.NET one can enjoy all benefits from
  .NET and its powerful application development environment and also from a strongly-typed
- functional programming language, F#, when writing functions and triggers (check [[#futureplans][Future Plans]])
+ functional programming language, F#, when writing functions and triggers (check Future Plans)
  written in those languages. 
 * Installation
 
@@ -54,7 +54,7 @@ $$ LANGUAGE [ plcsharp | plfsharp];
 #+END_SRC
 
 where the types of the named arguments (~args~) and ~return_type~ are converted
-following the table in [[#types][Types]] section.
+following the table in Types section.
 
 The function body are composed to its respectively language chunk following the
 templates below:
@@ -162,25 +162,25 @@ CREATE FUNCTION
 
 * Future Plans
   - Arrays
-      Add array support for both C# and F# languages. Beta version.
+    + Add array support for both C# and F# languages. Beta version.
   - Composites
-      Add composites support for both C# and F# languages. Beta version.
+    + Add composites support for both C# and F# languages. Beta version.
   - SPI
-      Add SPI usage support for both C# and F#. Beta version.
+    + Add SPI usage support for both C# and F#. Beta version.
   - Triggers
-      Add trigger writing support in both C# and F# languages. Beta version.
+    + Add trigger writing support in both C# and F# languages. Beta version.
   - F#
-      + Basic data types
-          Expand F# supported basic types. Beta version.
-      + F# Compiler Services
-          Add [[http://fsharp.github.io/FSharp.Compiler.Service/][F# Compiler Services]] API for performance improvement regarding source code compilation.
+    + Basic data types
+      * Expand F# supported basic types. Beta version.
+    + F# Compiler Services
+      * Add [[http://fsharp.github.io/FSharp.Compiler.Service/][F# Compiler Services]] API for performance improvement regarding source code compilation.
   - Additional data types
-      Add other data types support for F# and C#, like:
-           + ~binary~
-           + ~timezone~
-           + ~json~
-           + ~range~
-           + ~geometry~
-           + ~internet~
-           + ~bitstring~
+    + Add other data types support for F# and C#, like:
+      * ~binary~
+      * ~timezone~
+      * ~json~
+      * ~range~
+      * ~geometry~
+      * ~internet~
+      * ~bitstring~
 * License
