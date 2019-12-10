@@ -1,5 +1,11 @@
 #+TITLE: PL/.NET
 
+* Introduction
+ PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
+ languages as loadable procedural language. Using PL/.NET one can enjoy all benefits from
+ .NET and its powerful application development environment and also from a strongly-typed
+ functional programming language, F#, when writing functions and triggers (check [[Future Plans]])
+ written in those languages. 
 * Installation
 
 PL/.NET is installed like any regular PostgreSQL extension. First, obtain it by
@@ -38,9 +44,8 @@ The following table shows each type conversion equivalences:
 | Arrays              | < Not yet supported >              | < Not yet supported > |
 | Composite           | < Not yet supported >              | < Not yet supported > |
 | Base, domain        | < Not yet supported >              | < Not yet supported > |
-
 * Functions
-  Functions for PG/.NET languages are created as:
+  Functions PG/.NET languages are created as:
 
 #+BEGIN_SRC sql
 CREATE FUNCTION func(args) RETURN return_type AS $$
@@ -49,7 +54,7 @@ $$ LANGUAGE [ plcsharp | plfsharp];
 #+END_SRC
 
 where the types of the named arguments (~args~) and ~return_type~ are converted
-following the table in Types section.
+following the table in [[Types]] section.
 
 The function body are composed to its respectively language chunk following the
 templates below:
@@ -80,7 +85,7 @@ the procedure function body are inserted into a class structure for both C# and 
    + C#
 
 #+BEGIN_SRC sql
-# CREATE OR REPLACE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
+# CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
 return "Hello " + fname + lname + "!";
 $$ LANGUAGE plcsharp;
 CREATE FUNCTION
@@ -93,7 +98,7 @@ CREATE FUNCTION
 #+END_SRC
 
 #+BEGIN_SRC sql
-# CREATE OR REPLACE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
+# CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
 FormattableString res;
 if (age < 18)
     res = $"Hey {name} {lname}! Dude you are still a kid.";
@@ -125,7 +130,7 @@ CREATE FUNCTION
 #+END_SRC
 
 #+BEGIN_SRC sql
-# CREATE OR REPLACE FUNCTION fibbb(n integer) RETURNS integer AS $$
+# CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
     int? ret = 1;
     if (n == 1 || n == 2) 
         return ret;
@@ -143,7 +148,7 @@ CREATE FUNCTION
    + F#
 
 #+BEGIN_SRC sql
-# CREATE OR REPLACE FUNCTION returnInt() RETURNS integer AS $$
+# CREATE FUNCTION returnInt() RETURNS integer AS $$
 10
 $$ LANGUAGE plfsharp;
 CREATE FUNCTION
@@ -155,4 +160,27 @@ CREATE FUNCTION
 
 #+END_SRC
 
+* Future Plans
+  - Arrays
+      Add array support for both C# and F# languages. Beta version.
+  - Composites
+      Add composites support for both C# and F# languages. Beta version.
+  - SPI
+      Add SPI usage support for both C# and F#. Beta version.
+  - Triggers
+      Add trigger writing support in both C# and F# languages. Beta version.
+  - F#
+      + Basic data types
+          Expand F# supported basic types. Beta version.
+      + F# Compiler Services
+          Add [[http://fsharp.github.io/FSharp.Compiler.Service/][F# Compiler Services]] API for performance improvement regarding source code compilation.
+  - Additional data types
+      Add other data types support for F# and C#, like:
+           + ~binary~
+           + ~timezone~
+           + ~json~
+           + ~range~
+           + ~geometry~
+           + ~internet~
+           + ~bitstring~
 * License
