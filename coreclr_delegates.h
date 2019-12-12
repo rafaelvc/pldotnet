@@ -1,8 +1,17 @@
-/* Licensed to the .NET Foundation under one or more agreements.
+/* 
+ * Work in this file comes from:
+ * (https://github.com/dotnet/samples/tree/master/core/hosting/HostWithHostFxr)
+ * 
+ * Copyright and LICENSE is accodring to what is found there:
+ *
+ * Licensed to the .NET Foundation under one or more agreements.
  * The .NET Foundation licenses this file to you under the MIT license.
- * See the LICENSE file in the project root for more information.
- */
-
+ * See the LICENSE file of (https://github.com/dotnet/samples) 
+ * for more information.
+ *
+ * coreclr_delegates.h
+ *
+ */ 
 #ifndef __CORECLR_DELEGATES_H__
 #define __CORECLR_DELEGATES_H__
 
