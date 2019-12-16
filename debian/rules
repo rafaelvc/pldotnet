@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+
+SRCDIR=$(CURDIR)
+include /usr/share/postgresql-common/pgxs_debian_control.mk
+clean: debian/control
+.PHONY: debian/control
+
+override_dh_auto_build:
+	+pg_buildext build $(CURDIR) build-%v
+
+override_dh_auto_clean:
+	+pg_buildext clean $(CURDIR) build-%v
+	rm -rf build-*/ regression.* results/ debian/postgresql-*-pldotnet/ debian/*.substvars
+
+override_dh_auto_install:
+	+pg_buildext install $(CURDIR) build-%v postgresql-%v-pldotnet
+	$(MAKE) DESTDIR=debian/postgresql-10-pldotnet plnet-install-netlib
+
+%:
+	dh $@

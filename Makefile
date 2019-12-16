@@ -16,32 +16,29 @@ endif
 PG_CONFIG ?= pg_config
 PKG_LIBDIR := $(shell $(PG_CONFIG) --pkglibdir)
 
-
-
 MODULE_big = pldotnet
 EXTENSION = pldotnet
 DATA = pldotnet--0.0.1.sql
-#DATA_built = pldotnet.sql
 
 REGRESS = \
-init-extension \
-testfunc \
-testintegers testnullintegers \
-testbool testnullbool \
-testnumeric \
-testfloats \
-testchar \
-testmixedtypes \
-testrecursive \
-testfsintegers
+	init-extension \
+	testfunc \
+	testintegers testnullintegers \
+	testbool testnullbool \
+	testnumeric \
+	testfloats \
+	testchar \
+	testmixedtypes \
+	testrecursive \
+	testfsintegers
 
 OBJS = \
-pldotnet.o \
-pldotnet_common.o \
-pldotnet_hostfxr.o \
-pldotnet_csharp.o \
-pldotnet_fsharp.o
-#pldotnet_debug.o \
+	pldotnet.o \
+	pldotnet_common.o \
+	pldotnet_hostfxr.o \
+	pldotnet_csharp.o \
+	pldotnet_fsharp.o
+	#pldotnet_debug.o \
 
 PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) \
 			  -Iinc -D LINUX $(DEFINE_DOTNET_BUILD) $(PLNET_ENGINE_DIR) \
