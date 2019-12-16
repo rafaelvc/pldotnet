@@ -1,11 +1,11 @@
-version: '3'
+version: '3.1'
 
 services:
   pldotnet-devenv:
     build:
       context: .
       args:
-        DOTNET_VERSION: 3.0
+        DOTNET_VERSION: 3.1
     environment:
       USE_DOTNETBUILD: "FALSE"
       #Custom location for dotnet compiler/source code -- default = /var/lib
