@@ -1,7 +1,7 @@
 # Makefile for PL/.NET
 
 # General
-DOTNET_HOSTDIR ?= $(shell find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g')
+DOTNET_HOSTDIR ?= $(shell find / -path "*/native/nethost.h" 2> /dev/null | sed 's/\/nethost\.h//g')
 DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR)
 DOTNET_HOSTLIB ?= -L$(DOTNET_HOSTDIR) -lnethost
 PLNET_ENGINE_ROOT ?= /var/lib
@@ -54,8 +54,8 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
 plnet-install: install
-	echo "$$(find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g' 2> /dev/null)"  > /etc/ld.so.conf.d/nethost.conf && ldconfig
-	cp -r DotNetLib $(PLNET_ENGINE_ROOT) && chown -R postgres $(PLNET_ENGINE_ROOT)/DotNetLib
+	install -D -m 0755 -o postgres DotNetLib/src/csharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/csharp
+	install -D -m 0755 -o postgres DotNetLib/src/fsharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/fsharp
 	$(GENERATE_BUILD_FILES)
 
 plnet-uninstall: uninstall
