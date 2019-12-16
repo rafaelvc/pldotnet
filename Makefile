@@ -57,3 +57,7 @@ plnet-install: install
 
 plnet-uninstall: uninstall
 	rm -rf $(PLNET_ENGINE_ROOT)/DotNetLib
+
+plnet-install-netlib:
+	install -D -m 0755 -o postgres DotNetLib/src/csharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/csharp
+	install -D -m 0755 -o postgres DotNetLib/src/fsharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/fsharp
