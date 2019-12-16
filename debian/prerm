@@ -1,3 +1,9 @@
 #!/bin/bash
 # FIXME: remove plcsharp and plfsharp from postgresql before removing
 # the package.
+PLNET_ENGINE_DIR=/var/lib/DotNetLib
+rm -rf $PLNET_ENGINE_DIR/src/csharp/bin
+rm -rf $PLNET_ENGINE_DIR/src/csharp/obj
+rm -rf $PLNET_ENGINE_DIR/src/csharp/Microsoft.CodeAnalysis*dll
+rm -rf $PLNET_ENGINE_DIR/src/csharp/System.Composition*dll
+rm -rf $PLNET_ENGINE_DIR/src/csharp/DotNetLib*

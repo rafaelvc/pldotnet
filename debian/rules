@@ -2,8 +2,6 @@
 
 SRCDIR=$(CURDIR)
 include /usr/share/postgresql-common/pgxs_debian_control.mk
-clean: debian/control
-.PHONY: debian/control
 
 override_dh_auto_build:
 	+pg_buildext build $(CURDIR) build-%v

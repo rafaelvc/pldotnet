@@ -1,9 +1,12 @@
 # Makefile for PL/.NET
 
 # General
-DOTNET_HOSTDIR ?= $(shell find / -path "*/native/nethost.h" 2> /dev/null | sed 's/\/nethost\.h//g')
-DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR)
-DOTNET_HOSTLIB ?= -L$(DOTNET_HOSTDIR) -lnethost
+DOTNET_VER ?= 3.1.0
+DOTNET_HOSTDIR ?= /usr/share/dotnet/shared/Microsoft.NETCore.App/$(DOTNET_VER)/
+# TODO: Arch review. There is only .NET x64 flavours for Ubuntu/Debian Dec/2019
+DOTNET_LIBDIR ?= /usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64/$(DOTNET_VER)/runtimes/linux-x64/native/
+DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR) $(shell env > /tmp/pgdotnet-make-env)
+DOTNET_HOSTLIB ?= -L$(DOTNET_LIBDIR) -lnethost
 PLNET_ENGINE_ROOT ?= /var/lib
 PLNET_ENGINE_DIR := -D PLNET_ENGINE_DIR=$(PLNET_ENGINE_ROOT)/DotNetLib
 
@@ -51,7 +54,7 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
 plnet-install: install
-	echo "$$(find / -path "*/native/nethost.h" | sed 's/\/nethost\.h//g' 2> /dev/null)"  > /etc/ld.so.conf.d/nethost.conf && ldconfig
+	echo $(DOTNET_LIBDIR) > /etc/ld.so.conf.d/nethost.conf && ldconfig
 	cp -r DotNetLib $(PLNET_ENGINE_ROOT) && chown -R postgres $(PLNET_ENGINE_ROOT)/DotNetLib
 	$(GENERATE_BUILD_FILES)
 
