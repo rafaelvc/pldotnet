@@ -3,13 +3,13 @@ Priority: optional
 Section: database
 Maintainer: Rafael da Veiga Cabral  <rvc@brickabode.com>
 # Uploaders: Rafael da Veiga Cabral <rvc@brickabode.com>
-Build-Depends: debhelper (>= 9), pkg-config, postgresql-10, postgresql-server-dev-all (>= 158~) 
+Build-Depends: debhelper (>= 9), pkg-config, postgresql-server-dev-all (>= 158~)
 Standards-Version: 0.0.1
 Homepage: http://www.brickabode.com/pldotnet/
 
 Package: postgresql-10-pldotnet
 Architecture: any
-Depends: dotnet-sdk-3.0 (>= 3.0), dotnet-hostfxr-3.0 (>=3.0), postgresql-10, ${shlibs:Depends}, ${misc:Depends}
+Depends: dotnet-runtime-3.1 (>= 3.1), dotnet-sdk-3.1 (>= 3.1), dotnet-hostfxr-3.1 (>=3.1), postgresql-10, ${shlibs:Depends}, ${misc:Depends}
 Provides: postgresql-pldotnet
 Description: Procedural language interface between PostgreSQL and .NET C# and F#
  PL/.NET (pldotnet) adds Microsoft’s .NET framework to PostgreSQL by introducing both the 

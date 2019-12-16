@@ -1,0 +1,3 @@
+#!/bin/bash
+# FIXME: remove plcsharp and plfsharp from postgresql before removing
+# the package.
