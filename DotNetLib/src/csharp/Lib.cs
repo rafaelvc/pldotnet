@@ -111,6 +111,8 @@ namespace DotNetLib
             Assembly compiledAssembly;     
             compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
 
+            SPILib.PldotnetSPIExecute("SELECT 2", 1);
+
             Type procClassType = compiledAssembly.GetType("DotNetLib.ProcedureClass");
             MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
             procMethod.Invoke(null, new object[] {arg, argLength});

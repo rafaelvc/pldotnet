@@ -39,6 +39,7 @@ OBJS = \
 	pldotnet.o \
 	pldotnet_common.o \
 	pldotnet_hostfxr.o \
+	pldotnet_spi.o \
 	pldotnet_csharp.o \
 	pldotnet_fsharp.o
 	#pldotnet_debug.o \
