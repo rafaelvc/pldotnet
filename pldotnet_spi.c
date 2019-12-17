@@ -31,15 +31,22 @@ PldotnetSPIExecute(char* cmd, long limit)
     int rv;
 
     rv = SPI_execute(cmd, false, limit);
-    PldotnetSPIFetchResult(SPI_tuptable, rv);
+    return PldotnetSPIFetchResult(SPI_tuptable, rv);
 }
 
-void
+int
 PldotnetSPIFetchResult (SPITupleTable *tuptable, int status)
 {
+    char *key;
+    Datum attr_val;
+    bool is_null;
+
     if(status > 0 && tuptable != NULL)
     {
-        elog(ERROR,"Result type is RECORDOID? %s", tuptable->tupdesc->tdtypeid == RECORDOID);
+		Form_pg_attribute attr = TupleDescAttr(tuptable->tupdesc, 0);
+        key = NameStr(attr->attname);
+        attr_val = heap_getattr(tuptable->vals[0],1,tuptable->tupdesc, &is_null);
+        return DatumGetInt32(attr_val);
     }
 
 }
