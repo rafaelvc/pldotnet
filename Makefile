@@ -54,13 +54,13 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
 plnet-install: install
-	echo $(DOTNET_LIBDIR) > /etc/ld.so.conf.d/nethost.conf && ldconfig
+	echo $(DOTNET_LIBDIR) > /etc/ld.so.conf.d/nethost_pldotnet.conf && ldconfig
 	cp -r DotNetLib $(PLNET_ENGINE_ROOT) && chown -R postgres $(PLNET_ENGINE_ROOT)/DotNetLib
 	$(GENERATE_BUILD_FILES)
 
 plnet-uninstall: uninstall
 	rm -rf $(PLNET_ENGINE_ROOT)/DotNetLib
 
-plnet-install-netlib:
+plnet-install-dpkg:
 	install -D -m 0755 -o postgres DotNetLib/src/csharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/csharp
 	install -D -m 0755 -o postgres DotNetLib/src/fsharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/fsharp
