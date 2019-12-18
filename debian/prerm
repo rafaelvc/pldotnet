@@ -3,6 +3,9 @@
 # the package.
 set -e
 PLNET_ENGINE_DIR=/var/lib/DotNetLib
+
+su - postgres -c 'psql -c "DROP EXTENSION IF EXISTS pldotnet CASCADE;"'
+
 rm -rf $PLNET_ENGINE_DIR/src/csharp/bin
 rm -rf $PLNET_ENGINE_DIR/src/csharp/obj
 rm -f $PLNET_ENGINE_DIR/src/csharp/Microsoft.CodeAnalysis*dll
