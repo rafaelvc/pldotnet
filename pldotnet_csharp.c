@@ -21,6 +21,7 @@
  *
  */
 #include "pldotnet_csharp.h"
+#include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
 #include <math.h>
 #include <mb/pg_wchar.h> /* For UTF8 support */
 #include <utils/numeric.h>
@@ -470,7 +471,7 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
     int argnm_size, i, nnames, cursize = 0, source_size, totalsize;
     bool isnull;
     const char begin_fun_decl[] = "(";
-    char * func;
+    char *func_name;
     const char comma[] = ",";
     const char end_fun_decl[] = "){\n\n";
     const char end_fun[] = "}\n";
@@ -478,19 +479,17 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
     int nargs = procst->pronargs;
     Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
-    text * t;
     Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
     /* nullable related */
     char *header_nullable, *header_nullable_ptr;
     int header_size=0, cur_header_size, footer_size=0;
 
     /* Function name */
-    func = NameStr(procst->proname);
+    func_name = NameStr(procst->proname);
 
     /* Source code */
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
-    t = DatumGetTextP(prosrc);
-    source_text = DirectFunctionCall1(textout, DatumGetCString(t));
+    source_text = DatumGetCString(DirectFunctionCall1(textout, prosrc));
     source_size = strlen(source_text);
 
     argnames = SysCacheGetAttr(PROCOID, proc,
@@ -508,19 +507,18 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
     {
         totalsize = (2 * strlen(newline))
             + strlen(pldotnet_GetNullableTypeName(rettype))
-            + strlen(" ") + strlen(func) + strlen(begin_fun_decl);
+            + strlen(" ") + strlen(func_name) + strlen(begin_fun_decl);
     }
     else
     {
         totalsize = (2 * strlen(newline))
             + strlen(pldotnet_GetNetTypeName(rettype, false))
-            + strlen(" ") + strlen(func) + strlen(begin_fun_decl);
+            + strlen(" ") + strlen(func_name) + strlen(begin_fun_decl);
     }
 
     for (i = 0; i < nargs; i++) 
     {
-        source_argnm = DirectFunctionCall1(textout,
-                DatumGetCString(DatumGetTextP(argname[i])) );
+        source_argnm = DatumGetCString(DirectFunctionCall1(textout, argname[i]));
 
         if (IsNullable(argtype[i]))
         {
@@ -540,7 +538,7 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
         totalsize +=  strlen(pldotnet_GetNetTypeName(argtype[i], false))
             + 1 + argnm_size;
         /* cleaning up for next palloc */
-        bzero(argnm,sizeof(argnm));
+        argnm = NULL;
     }
      if (nargs > 1)
          totalsize += (nargs - 1) * strlen(comma); /* commas size */
@@ -556,13 +554,13 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
     {
         SNPRINTF(block2str, totalsize - cursize, "%s%s%s %s%s",newline
                    , newline, pldotnet_GetNullableTypeName(rettype)
-                   , func, begin_fun_decl);
+                   , func_name, begin_fun_decl);
     }
     else
     {
         SNPRINTF(block2str, totalsize - cursize, "%s%s%s %s%s",newline
                    , newline,  pldotnet_GetNetTypeName(rettype, false)
-                   , func, begin_fun_decl);
+                   , func_name, begin_fun_decl);
     }
 
     cursize = strlen(block2str);
@@ -572,8 +570,7 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
 
     for (i = 0; i < nargs; i++)
     {
-        source_argnm = DirectFunctionCall1(textout,
-                DatumGetCString(DatumGetTextP(argname[i])) );
+        source_argnm = DatumGetCString(DirectFunctionCall1(textout, argname[i]));
 
         if (IsNullable(argtype[i]))
         {
@@ -609,7 +606,7 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
         }
         cursize = strlen(block2str);
         /* cleaning up for next palloc */
-        bzero(argnm,sizeof(argnm));
+        argnm = NULL;
     }
 
     str_ptr = (char *)(block2str + cursize);
@@ -758,7 +755,7 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                newargvl = (char *)palloc0(buff_len + 1);
                memcpy(newargvl, VARDATA( argdatum ), buff_len);
                *(unsigned long *)cur_arg = (char *)
-                    pg_do_encoding_conversion(newargvl,
+                    pg_do_encoding_conversion((unsigned char*)newargvl,
                                               buff_len+1,
                                               GetDatabaseEncoding(), PG_UTF8);
                 break;
@@ -841,11 +838,11 @@ pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
               */
 
             /* UTF8 encoding */
-            ret_ptr = *(unsigned long *)(result_ptr);
+            ret_ptr = *(unsigned long **)(result_ptr);
             /* str_len = pg_mbstrlen(ret_ptr); */
-            str_len = strlen(ret_ptr);
-            encoded_str = pg_do_encoding_conversion( ret_ptr, str_len, PG_UTF8,
-                                                    GetDatabaseEncoding() );
+            str_len = strlen((char*)ret_ptr);
+            encoded_str = pg_do_encoding_conversion( (unsigned char*)ret_ptr, str_len, 
+                PG_UTF8, GetDatabaseEncoding() );
              res_varchar = (VarChar *)SPI_palloc(str_len + VARHDRSZ);
 #if PG_VERSION_NUM < 80300
             /* Total size of structure, not just data */
@@ -868,7 +865,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     bool istrigger;
     char *source_code, *cs_block_call2, *cs_block_call4, *cs_block_call5;
     char *libargs;
-    int i, source_code_size;
+    int source_code_size;
     HeapTuple proc;
     Form_pg_proc procst;
     Datum retval = 0;
@@ -889,6 +886,10 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
     component_entry_point_fn csharp_method = nullptr;
     ArgsSource args;
+    char *config_path;
+    char *dotnetlib_path;
+    const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
+    const char csharp_dll_path[] = "/src/csharp/DotNetLib.dll";
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -977,8 +978,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         /*
          * STEP 2: Initialize and start the .NET Core runtime
          */
-        char *config_path;
-        const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
+
         config_path = palloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
         SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
                         , "%s%s", root_path, csharp_json_path);
@@ -991,8 +991,6 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
          * STEP 3:
          * Load managed assembly and get function pointer to a managed method
          */
-        char *dotnetlib_path;
-        const char csharp_dll_path[] = "/src/csharp/DotNetLib.dll";
         dotnetlib_path = palloc0(strlen(root_path) + strlen(csharp_dll_path) + 1);
         SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(csharp_dll_path) + 1
                         , "%s%s", root_path, csharp_dll_path);
@@ -1090,7 +1088,7 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
          * This sample assumes the managed assembly to load and its
          * runtime configuration file are next to the host
          */
-        int i, source_code_size;
+        int source_code_size;
 	    char* block_inline3;
         char* source_code;
 
@@ -1105,7 +1103,12 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         char dotnet_type_method[64] = "Compile";
 #endif
         char dnldir[] = STR(PLNET_ENGINE_DIR);
-        char* root_path;
+        char *root_path;
+        char *config_path;
+        char *dotnetlib_path;
+        /* Delegate paths */
+        const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
+        const char csharp_dll_path[] = "/src/csharp/DotNetLib.dll";
         int rc;
         load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
         component_entry_point_fn csharp_method = nullptr;
@@ -1161,8 +1164,6 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
         /*
          * STEP 2: Initialize and start the .NET Core runtime
          */
-        char *config_path;
-        const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
         config_path = palloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
         SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
                         , "%s%s", root_path, csharp_json_path);
@@ -1175,8 +1176,6 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
          * STEP 3:
          * Load managed assembly and get function pointer to a managed method
          */
-        char *dotnetlib_path;
-        const char csharp_dll_path[] = "/src/csharp/DotNetLib.dll";
         dotnetlib_path = palloc0(strlen(root_path) + strlen(csharp_dll_path) + 1);
         SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(csharp_dll_path) + 1
                         , "%s%s", root_path, csharp_dll_path);

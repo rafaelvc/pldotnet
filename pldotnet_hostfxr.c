@@ -32,6 +32,7 @@ static hostfxr_initialize_for_runtime_config_fn init_fptr;
 static hostfxr_get_runtime_delegate_fn get_delegate_fptr;
 static hostfxr_close_fn close_fptr;
 
+/* Implementations */
 static void *
 pldotnet_LoadLibrary(const char_t *path)
 {
