@@ -71,14 +71,14 @@ Some of them:
 + C#
 ```csharp
 CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
-    int? ret = 1;
+    int? ret = 1; // C# code
     if (n == 1 || n == 2) 
         return ret;
     return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
 $$ LANGUAGE plcsharp;
 ```
-```console
-CREATE FUNCTION
+Function call and output:
+```sql
 # SELECT fibbb(30);
  fibbb
 --------
@@ -90,6 +90,9 @@ CREATE FUNCTION
 CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
 return "Hello " + fname + lname + "!"; // C# code
 $$ LANGUAGE plcsharp;
+```
+Function call and output:
+```sql
 CREATE FUNCTION
 # SELECT retVarCharText('Homer Jay ', 'Simpson');
       retvarchartext
@@ -100,7 +103,7 @@ CREATE FUNCTION
 
 ```csharp
 CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
-FormattableString res;
+FormattableString res; // C# code
 if (age < 18)
     res = $"Hey {name} {lname}! Dude you are still a kid.";
 else if (age >= 18 && age < 40)
@@ -110,8 +113,8 @@ else
 return res.ToString();
 $$ LANGUAGE plcsharp;
 ```
-```console
-CREATE FUNCTION
+Function call and output:
+```sql
 # SELECT ageTest('Billy', 10, 'The KID') = varchar 'Hey Billy The KID! Dude you are still a kid.';
                    agetest
 ----------------------------------------------
@@ -137,8 +140,8 @@ CREATE FUNCTION returnInt() RETURNS integer AS $$
 10 // F# code
 $$ LANGUAGE plfsharp;
 ```
-```console
-CREATE FUNCTION
+Function call and output:
+```sql
 # SELECT returnInt();
  returnint
 -----------
