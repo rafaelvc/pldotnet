@@ -65,9 +65,8 @@ $ docker-compose
 
 ## Examples
 
-Many samples can be checked in our [test folder](https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/tree/master/sql).  
-Some of them:
-
+Many samples can be checked in our [test folder](https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/tree/master/sql). Some of them:
+* Fibonnaci
 + C#
 ```csharp
 CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
@@ -85,7 +84,7 @@ Function call and output:
  832040
 (1 row)
 ```
-
+* Input and Output of Text 1
 ```csharp
 CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
 return "Hello " + fname + lname + "!"; // C# code
@@ -100,6 +99,7 @@ CREATE FUNCTION
  Hello Homer Jay Simpson!
 (1 row)
 ```
+* Input and Output of Text 2
 
 ```csharp
 CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
@@ -135,6 +135,7 @@ Function call and output:
 ```
 
 + F#
+* Integers return
 ```fsharp
 CREATE FUNCTION returnInt() RETURNS integer AS $$
 10 // F# code
