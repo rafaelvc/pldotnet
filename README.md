@@ -1,4 +1,4 @@
-#+TITLE: PL/.NET
+# PL/.NET
 
 * Introduction
  PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
@@ -19,7 +19,7 @@ $ psql -c "CREATE EXTENSION pldotnet;" <mydb>
 The PL/.NET extension installs both C# (~plcsharp~) and F# (~plfsharp~) modules
 for using them as loadable procedure languages.
 
-* Types
+## Types
 
 PL/.NET uses three different approaches for type conversion of function's
 arguments between PostgreSQL and .NET runtime environment, here's a list of them:
@@ -81,7 +81,7 @@ type Lib =
 PL/.NET hosts the .NET runtime using ~hostfxr~ for loading the delegates, that's why
 the procedure function body are inserted into a class structure for both C# and F#.
 
-** Examples
+## Examples
    + C#
 
 ```csharp
@@ -160,7 +160,7 @@ CREATE FUNCTION
 (1 row)
 ```
 
-* Future Plans
+## Future Plans
   - Arrays
     + Add array support for both C# and F# languages. Beta version.
   - Composites
