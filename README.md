@@ -67,7 +67,7 @@ $ docker-compose
 
 Many samples can be checked in our [test folder](https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/tree/master/sql). Some of them:
 
-### C#
+### C# (plcsharp)
 * Fibonnaci
 ```csharp
 CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
@@ -135,7 +135,7 @@ Function call and output:
 (1 row)
 ```
 
-### F#
+### F# (plfsharp)
 * Integers return
 ```fsharp
 CREATE FUNCTION returnInt() RETURNS integer AS $$
