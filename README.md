@@ -3,28 +3,67 @@
 ## Introduction
 
  PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
-languages as loadable procedural language.  
+as loadable procedural language.  
 
  Using PL/.NET one can enjoy all benefits from .NET and its powerful application development 
 environment and also from a strongly-typed functional programming language, F#, when writing 
-functions and triggers (check Future Plans) written in those languages.  PL/.NET is developed 
-by [Brick Abode](http://www.brickabode.com) and free to receive contributions.  
+functions and triggers (check Future Plans) written in those languages.  
+
+PL/.NET is developed by [Brick Abode](http://www.brickabode.com) and free to receive contributions.  
 
 ## Installation
 
-PL/.NET is installed like any regular PostgreSQL extension. It requires 
-[.NET Core 3.0](https://github.com/dotnet/core) or later.
-First, obtain it by cloning the repository, after that just run:
+###Requirements
+
++ [PostgreSQL 9](https://www.postgresql.org/) or greater
++ [.NET Core 3.0](https://github.com/dotnet/core) or greater.
++ [Docker](https://www.docker.com/) (Optional and only for non Linux OSes)
+
+Case you use Docker to experiment PL/.NET all requirements are installed/built
+automatically. Jump to the section [Other OSes](## Other OSes).
+
+### Linux Ubuntu/Debian flavours
+
+Download the binary package available [here](https://brickabode.com) and install it: 
 
 ```console
-$ make && make plnet-install
-$ psql -c "CREATE EXTENSION pldotnet;" <mydb>
+#sudo dpkg -i postgres-10-pldotnet_0.0.1-1.amd64.dpkg
+
 ```
 
-The PL/.NET extension installs both C# (`plcsharp`) and F# (`plfsharp`) modules
-for using them as loadable procedure languages.
+The PL/.NET extension will be installed automatically and enabled  
+ by the `postgres` admin user for both C# (`plcsharp`) and F# (`plfsharp`).  
 
-## Types
+Be aware! In the end of the installation you are asked to turn `plcsharp` and `plfsharp`
+ trusted PL languages. You need to do this for using PL/.NET on the current Alpha 
+ version. We do not consider PL/.NET ready for production but yet experimentable.
+  
+Case you need later turn PL/.NET languages truted/untrusted pass `true` or `false`
+for the `pldtonet_trust` SQL function:
+
+```sql
+#postgres SELECT pldtonet_trust(true);
+```
+
+### Other OSes 
+
+Currently we are developing for Linux Ubuntu 18.04 LTS however 
+we plan to support all OSes are also supported by Postgres and .NET and you
+have an option to experiment PL/.NET: Docker.
+  
+We constanly use Docker in our development computers then you also 
+can benefit of it case your OS is not the supported one: 
+
+
+```console
+$ git clone https://github.com/pldotnet/pldotnet.git
+$ docker-compose
+# make && make plnet-install
+# psql -c "CREATE EXTENSION pldotnet;"
+
+```
+
+## Types support
 
 PL/.NET uses three different approaches for type conversion of function's
 arguments between PostgreSQL and .NET runtime environment, here's a list of them:
