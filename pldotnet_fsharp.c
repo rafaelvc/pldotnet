@@ -374,7 +374,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     char fsharp_srccode_path[] = "/src/fsharp/Lib.fs";
     const char fsharp_json_path[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
     const char fsharp_dll_path[] = "/src/fsharp/DotNetLib.dll";
-    int compile_resp = system(cmd);
+    int compile_resp;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -443,6 +443,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(cmd
             , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
             , "dotnet build %s/src/fsharp > null", dnldir);
+        int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
         root_path = strdup(dnldir);
