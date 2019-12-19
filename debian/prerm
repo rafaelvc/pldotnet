@@ -1,0 +1,15 @@
+#!/bin/bash
+# FIXME: remove plcsharp and plfsharp from postgresql before removing
+# the package.
+set -e
+PLNET_ENGINE_DIR=/var/lib/DotNetLib
+
+su - postgres -c 'psql -c "DROP EXTENSION IF EXISTS pldotnet CASCADE;"'
+
+rm -rf $PLNET_ENGINE_DIR/src/csharp/bin
+rm -rf $PLNET_ENGINE_DIR/src/csharp/obj
+rm -f $PLNET_ENGINE_DIR/src/csharp/Microsoft.CodeAnalysis*dll
+rm -f $PLNET_ENGINE_DIR/src/csharp/System.Composition*dll
+rm -f $PLNET_ENGINE_DIR/src/csharp/DotNetLib*
+rm -f /etc/ld.so.conf.d/nethost_pldotnet.conf
+ldconfig
