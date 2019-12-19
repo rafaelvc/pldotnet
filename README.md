@@ -27,11 +27,11 @@ automatically. Jump to the section [Other OSes](## Other OSes).
 Download the binary package available [here](https://brickabode.com) and install it: 
 
 ```console
-#sudo dpkg -i postgres-10-pldotnet_0.0.1-1.amd64.dpkg
+#sudo dpkg -i postgres-10-pldotnet_0.0.1-1.amd64.deb
 
 ```
 
-The PL/.NET extension will be installed automatically and enabled  
+The PL/.NET extension will be installed automatically and enabled
  by the `postgres` admin user for both C# (`plcsharp`) and F# (`plfsharp`).  
 
 Be aware! In the end of the installation you are asked to turn `plcsharp` and `plfsharp`
@@ -69,6 +69,22 @@ Many samples can be checked in our [test folder](https://git.brickabode.com/DotN
 Some of them:
 
 + C#
+```csharp
+CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
+    int? ret = 1;
+    if (n == 1 || n == 2) 
+        return ret;
+    return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
+$$ LANGUAGE plcsharp;
+```
+```console
+CREATE FUNCTION
+# SELECT fibbb(30);
+ fibbb
+--------
+ 832040
+(1 row)
+```
 
 ```csharp
 CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
@@ -115,22 +131,6 @@ CREATE FUNCTION
 (1 row)
 ```
 
-```csharp
-# CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
-    int? ret = 1;
-    if (n == 1 || n == 2) 
-        return ret;
-    return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
-$$ LANGUAGE plcsharp;
-```
-```console
-CREATE FUNCTION
-# SELECT fibbb(30);
- fibbb
---------
- 832040
-(1 row)
-```
 + F#
 ```fsharp
 CREATE FUNCTION returnInt() RETURNS integer AS $$
