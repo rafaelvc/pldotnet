@@ -31,7 +31,7 @@ arguments between PostgreSQL and .NET runtime environment, here's a list of them
 The following table shows each type conversion equivalences:
 
 | PostgreSQL type     | C# type                            | F# type               |
-|---------------------+------------------------------------+-----------------------|
+|---------------------|------------------------------------|-----------------------|
 | bool                | Nullable<System.Boolean> (~bool?~) | < Not yet supported > |
 | int2                | Nullable<System.Int16> (~short?~)  | < Not yet supported > |
 | int4                | Nullable<System.Int32> (~int?~)    | System.Int32 (~int~)  |
