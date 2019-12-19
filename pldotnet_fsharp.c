@@ -230,7 +230,7 @@ plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc)
 static char *
 plfsharp_BuildBlock6(Form_pg_proc procst)
 {
-    char *block2str, *str_ptr, *resu_var;
+    char *block2str, *str_ptr;
     int cursize = 0, i, totalsize;
     char * func;
     const char libargs[] = " libargs.";
@@ -351,7 +351,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
          *fs_block_call4,
          *fs_block_call6;
     char *libargs;
-    int i, source_code_size;
+    int source_code_size;
     HeapTuple proc;
     Form_pg_proc procst;
     Datum retval = 0;
@@ -366,6 +366,15 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     int rc;
     load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
     component_entry_point_fn fsharp_method = nullptr;
+
+    char *filename;
+    char *cmd;
+    char *config_path;
+    char *dotnetlib_path;
+    char fsharp_srccode_path[] = "/src/fsharp/Lib.fs";
+    const char fsharp_json_path[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
+    const char fsharp_dll_path[] = "/src/fsharp/DotNetLib.dll";
+    int compile_resp = system(cmd);
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -413,8 +422,6 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         pfree(fs_block_call4);
         pfree(fs_block_call6);
 
-        char *filename;
-        char fsharp_srccode_path[] = "/src/fsharp/Lib.fs";
         filename = palloc0(strlen(dnldir) + strlen(fsharp_srccode_path) + 1);
         SNPRINTF(filename, strlen(dnldir) + strlen(fsharp_srccode_path) + 1
                         , "%s%s", dnldir, fsharp_srccode_path);
@@ -431,13 +438,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         }
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
-        char *cmd;
         cmd = palloc0(strlen("dotnet build ")
                         + strlen(dnldir) + strlen("/src/csharp > null") + 1);
         SNPRINTF(cmd
             , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
             , "dotnet build %s/src/fsharp > null", dnldir);
-        int compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
         root_path = strdup(dnldir);
@@ -453,8 +458,6 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         /*
          * STEP 2: Initialize and start the .NET Core runtime
          */
-        char *config_path;
-        const char fsharp_json_path[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
         config_path = palloc0(strlen(root_path) + strlen(fsharp_json_path) + 1);
         SNPRINTF(config_path, strlen(root_path) + strlen(fsharp_json_path) + 1
                         , "%s%s", root_path, fsharp_json_path);
@@ -466,8 +469,6 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         /*
          * STEP 3: Load managed assembly and get function pointer to a managed method
          */
-        char *dotnetlib_path;
-        const char fsharp_dll_path[] = "/src/fsharp/DotNetLib.dll";
         dotnetlib_path = palloc0(strlen(root_path) + strlen(fsharp_dll_path) + 1);
         SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(fsharp_dll_path) + 1
                         , "%s%s", root_path, fsharp_dll_path);

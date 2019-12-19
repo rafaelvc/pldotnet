@@ -479,6 +479,7 @@ plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
     int nargs = procst->pronargs;
     Oid rettype = procst->prorettype;
     Datum *argname, argnames, prosrc;
+    text *t;
     Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
     /* nullable related */
     char *header_nullable, *header_nullable_ptr;
