@@ -13,7 +13,7 @@ PL/.NET is developed by [Brick Abode](http://www.brickabode.com) and free to rec
 
 ## Installation
 
-###Requirements
+### Requirements
 
 + [PostgreSQL 9](https://www.postgresql.org/) or greater
 + [.NET Core 3.0](https://github.com/dotnet/core) or greater.
@@ -63,75 +63,16 @@ $ docker-compose
 
 ```
 
-## Types support
+## Examples
 
-PL/.NET uses three different approaches for type conversion of function's
-arguments between PostgreSQL and .NET runtime environment, here's a list of them:
-
-1. Convert to string/text (`decimal`);
-2. Natively convert using `System.Runtime.InteropServices`;
-3. For null support, convert the type to its respective `Nullable<>` type (`bool`, `integers`).
-
-The following table shows each type conversion equivalences:
-
-| PostgreSQL type     | C# type                            | F# type               |
-|---------------------|------------------------------------|-----------------------|
-| bool                | Nullable<System.Boolean> (`bool?`) | < Not yet supported > |
-| int2                | Nullable<System.Int16> (`short?`)  | < Not yet supported > |
-| int4                | Nullable<System.Int32> (`int?`)    | System.Int32 (`int`)  |
-| int8                | Nullable<System.Int64> (`long?`)   | < Not yet supported > |
-| float4              | System.Single (`float`)            | < Not yet supported > |
-| float8              | System.Double (`double`)           | < Not yet supported > |
-| char, varchar, text | System.String (`string`)           | < Not yet supported > |
-| "char"/bpchar       | System.String (`string`)           | < Not yet supported > |
-| numeric             | System.Decimal (`decimal`)         | < Not yet supported > |
-| Arrays              | Planned to Beta Release            | < Not yet supported > |
-| Composite           | Planned to Beta Release            | < Not yet supported > |
-| Base, domain        | Planned to 1.0 Release             | < Not yet supported > |
-
-## Functions
-  Functions PG/.NET languages are created as:
-
-```sql
-CREATE FUNCTION func(args) RETURN return_type AS $$
-    -- < C# / F# function body >
-$$ LANGUAGE [ plcsharp | plfsharp];
-```
-
-where the types of the named arguments (`args`) and `return_type` are converted
-following the table in Types section.
-
-The function body are composed to its respectively language chunk following the
-templates below:
+Many samples can be checked in our [test folder](https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/tree/master/sql).  
+Some of them:
 
 + C#
 
 ```csharp
-libargs.resu = FUNC(args);
-return_type FUNC(args) {
-   // C# function body
-}
-```
-
-+ F#
-
-```fsharp
-type Lib =
-    static member FUNC =
-        // F# function body
-    static member Main =
-        libargs.resu <- FUNC args
-```
-
-PL/.NET hosts the .NET runtime using ~hostfxr~ for loading the delegates, that's why
-the procedure function body are inserted into a class structure for both C# and F#.
-
-## Examples
-   + C#
-
-```csharp
 CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
-return "Hello " + fname + lname + "!";
+return "Hello " + fname + lname + "!"; // C# code
 $$ LANGUAGE plcsharp;
 CREATE FUNCTION
 # SELECT retVarCharText('Homer Jay ', 'Simpson');
@@ -190,10 +131,10 @@ CREATE FUNCTION
  832040
 (1 row)
 ```
-   + F#
++ F#
 ```fsharp
 CREATE FUNCTION returnInt() RETURNS integer AS $$
-10
+10 // F# code
 $$ LANGUAGE plfsharp;
 ```
 ```console
@@ -205,18 +146,46 @@ CREATE FUNCTION
 (1 row)
 ```
 
+## Types support
+
+PL/.NET uses different approaches for type conversion of function return and arguments 
+between PostgreSQL and .NET:
+
+1. .NET [Bittable](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) types are converted in its binary format.
+2. PG text types are converted back and forth as UTF8 strings for best compatibility.
+3. Numeric PG type is converted back and forth as C string.
+4. For null support, types are converted to its respective .NET `Nullable<>` type (`bool`, `integers`).
+
+The following table shows each type conversion equivalences:
+
+| PostgreSQL type     | C# type                            | F# type               |
+|---------------------|------------------------------------|-----------------------|
+| bool                | Nullable<System.Boolean> (`bool?`) | < Not yet supported > |
+| int2                | Nullable<System.Int16> (`short?`)  | < Not yet supported > |
+| int4                | Nullable<System.Int32> (`int?`)    | System.Int32 (`int`)  |
+| int8                | Nullable<System.Int64> (`long?`)   | < Not yet supported > |
+| float4              | System.Single (`float`)            | < Not yet supported > |
+| float8              | System.Double (`double`)           | < Not yet supported > |
+| char, varchar, text | System.String (`string`)           | < Not yet supported > |
+| "char"/bpchar       | System.String (`string`)           | < Not yet supported > |
+| numeric             | System.Decimal (`decimal`)         | < Not yet supported > |
+| Arrays              | Planned to Beta Release            | < Not yet supported > |
+| Composite           | Planned to Beta Release            | < Not yet supported > |
+| Base, domain        | Planned to 1.0 Release             | < Not yet supported > |
+
+
 ## Future Plans
   - Arrays
-    + Add array support for both C# and F# languages. Beta version.
+    + Add array support for plcsharp. Beta version.
   - Composites
-    + Add composites support for both C# and F# languages. Beta version.
+    + Add composites support for plcsharp. Beta version.
   - SPI
-    + Add SPI usage support for both C# and F#. Beta version.
+    + Add support to the PostgeSQL SPI (Server Programming API) enabling query/plans and database access. Beta version.
   - Triggers
-    + Add trigger writing support in both C# and F# languages. Beta version.
+    + Add trigger writing support in plcsharp. Beta version.
   - F#
     + Basic data types
-      * Expand F# supported basic types. Beta version.
+      * Expand F# basic types support. Beta version.
     + F# Compiler Services
       * Add [F# Compiler Services](http://fsharp.github.io/FSharp.Compiler.Service/) API for performance improvement regarding source code compilation.
   - Additional data types
