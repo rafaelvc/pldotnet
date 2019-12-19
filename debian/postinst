@@ -1,0 +1,38 @@
+#!/bin/bash
+set -e
+# Add nethost to ld.so search path.  We welcome more subtle solutions.
+DOTNET_VERSION=3.1.0
+DOTNET_LIBDIR=/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64/${DOTNET_VERSION}/runtimes/linux-x64/native/
+PLNET_ENGINE_DIR=/var/lib/DotNetLib
+dotnet build ${PLNET_ENGINE_DIR}/src/csharp
+echo "${DOTNET_LIBDIR}" > /etc/ld.so.conf.d/nethost_pldotnet.conf
+ldconfig -v &> /dev/null # We need -v for ldconfig otherwise it won't work
+
+# FIXME: add a question to the user (debconf?  whatever the standard mechanism is) to ask
+# them:
+su - postgres -c 'psql -c "DROP EXTENSION IF EXISTS pldotnet CASCADE;"'
+su - postgres -c 'psql -c "CREATE EXTENSION pldotnet;"'
+
+su - postgres -c 'psql -c "CREATE OR REPLACE FUNCTION pldotnet_Trust(boolean) RETURNS void AS \$\$ UPDATE pg_catalog.pg_language SET lanpltrusted = \$1 WHERE lanname='\'plcsharp\'' OR lanname='\'plfsharp\'' \$\$ LANGUAGE sql;"'
+
+message="Warning: the PostgreSQL procedural languages from pldotnet,
+plcsharp and plfsharp, have not been audited for security.  We do
+not recommend installing them as trusted languages into sensitive
+environments.  However, if you are merely evaluating these languages,
+then installing them as trusted languages is much more convenient, as
+normal users can then use them without restriction.  We recommend only
+installing them as trusted languages in *untrusted* database environments.
+
+Would you like to install plcsharp and plfsharp as trusted languages?  (y/N)
+"
+
+echo -n "${message}"
+read like
+case "$like" in
+y*|Y*)
+   su - postgres -c 'psql -c "SELECT pldotnet_Trust(true);"'
+;;
+n*|N*)
+    echo "You will need postgres/admin user execute 'SELECT pldotnet_Trust(true|false);' to turn plcsharp/plfsharp usable (trustable in your database);'"
+;;
+esac
