@@ -1,14 +1,19 @@
 # PL/.NET
 
 ## Introduction
+
  PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
- languages as loadable procedural language. Using PL/.NET one can enjoy all benefits from
- .NET and its powerful application development environment and also from a strongly-typed
- functional programming language, F#, when writing functions and triggers (check Future Plans)
- written in those languages. 
+languages as loadable procedural language.  
+
+ Using PL/.NET one can enjoy all benefits from .NET and its powerful application development 
+environment and also from a strongly-typed functional programming language, F#, when writing 
+functions and triggers (check Future Plans) written in those languages.  PL/.NET is developed 
+by [Brick Abode](http://www.brickabode.com) and free to receive contributions.  
+
 ## Installation
 
-PL/.NET is installed like any regular PostgreSQL extension. It requires [[ ][.NET Core 3.0]] or later.
+PL/.NET is installed like any regular PostgreSQL extension. It requires 
+[.NET Core 3.0](https://github.com/dotnet/core) or later.
 First, obtain it by cloning the repository, after that just run:
 
 ```console
@@ -16,7 +21,7 @@ $ make && make plnet-install
 $ psql -c "CREATE EXTENSION pldotnet;" <mydb>
 ```
 
-The PL/.NET extension installs both C# (~plcsharp~) and F# (~plfsharp~) modules
+The PL/.NET extension installs both C# (`plcsharp`) and F# (`plfsharp`) modules
 for using them as loadable procedure languages.
 
 ## Types
@@ -24,26 +29,26 @@ for using them as loadable procedure languages.
 PL/.NET uses three different approaches for type conversion of function's
 arguments between PostgreSQL and .NET runtime environment, here's a list of them:
 
-1. Convert to string/text (~decimal~);
-2. Natively convert using ~System.Runtime.InteropServices~;
-3. For null support, convert the type to its respective ~Nullable<>~ type (~bool~, ~integers~).
+1. Convert to string/text (`decimal`);
+2. Natively convert using `System.Runtime.InteropServices`;
+3. For null support, convert the type to its respective `Nullable<>` type (`bool`, `integers`).
 
 The following table shows each type conversion equivalences:
 
 | PostgreSQL type     | C# type                            | F# type               |
 |---------------------|------------------------------------|-----------------------|
-| bool                | Nullable<System.Boolean> (~bool?~) | < Not yet supported > |
-| int2                | Nullable<System.Int16> (~short?~)  | < Not yet supported > |
-| int4                | Nullable<System.Int32> (~int?~)    | System.Int32 (~int~)  |
-| int8                | Nullable<System.Int64> (~long?~)   | < Not yet supported > |
-| float4              | System.Single (~float~)            | < Not yet supported > |
-| float8              | System.Double (~double~)           | < Not yet supported > |
-| char, varchar, text | System.String (~string~)           | < Not yet supported > |
-| "char"/bpchar       | System.String (~string~)           | < Not yet supported > |
-| numeric             | System.Decimal (~decimal~)         | < Not yet supported > |
-| Arrays              | < Not yet supported >              | < Not yet supported > |
-| Composite           | < Not yet supported >              | < Not yet supported > |
-| Base, domain        | < Not yet supported >              | < Not yet supported > |
+| bool                | Nullable<System.Boolean> (`bool?`) | < Not yet supported > |
+| int2                | Nullable<System.Int16> (`short?`)  | < Not yet supported > |
+| int4                | Nullable<System.Int32> (`int?`)    | System.Int32 (`int`)  |
+| int8                | Nullable<System.Int64> (`long?`)   | < Not yet supported > |
+| float4              | System.Single (`float`)            | < Not yet supported > |
+| float8              | System.Double (`double`)           | < Not yet supported > |
+| char, varchar, text | System.String (`string`)           | < Not yet supported > |
+| "char"/bpchar       | System.String (`string`)           | < Not yet supported > |
+| numeric             | System.Decimal (`decimal`)         | < Not yet supported > |
+| Arrays              | Planned to Beta Release            | < Not yet supported > |
+| Composite           | Planned to Beta Release            | < Not yet supported > |
+| Base, domain        | Planned to 1.0 Release             | < Not yet supported > |
 
 ## Functions
   Functions PG/.NET languages are created as:
@@ -54,7 +59,7 @@ CREATE FUNCTION func(args) RETURN return_type AS $$
 $$ LANGUAGE [ plcsharp | plfsharp];
 ```
 
-where the types of the named arguments (~args~) and ~return_type~ are converted
+where the types of the named arguments (`args`) and `return_type` are converted
 following the table in Types section.
 
 The function body are composed to its respectively language chunk following the
@@ -174,14 +179,16 @@ CREATE FUNCTION
     + Basic data types
       * Expand F# supported basic types. Beta version.
     + F# Compiler Services
-      * Add [[http://fsharp.github.io/FSharp.Compiler.Service/][F# Compiler Services]] API for performance improvement regarding source code compilation.
+      * Add [F# Compiler Services](http://fsharp.github.io/FSharp.Compiler.Service/) API for performance improvement regarding source code compilation.
   - Additional data types
     + Add other data types support for F# and C#, like:
-      * ~binary~
-      * ~timezone~
-      * ~json~
-      * ~range~
-      * ~geometry~
-      * ~internet~
-      * ~bitstring~
-* License
+      * `binary`
+      * `timezone`
+      * `json`
+      * `range`
+      * `geometry`
+      * `internet`
+      * `bitstring`
+## License
+
+PL/.NET uses [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license.
