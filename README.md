@@ -11,10 +11,10 @@
 PL/.NET is installed like any regular PostgreSQL extension. It requires [[ ][.NET Core 3.0]] or later.
 First, obtain it by cloning the repository, after that just run:
 
-#+BEGIN_SRC shell
+```console
 $ make && make plnet-install
 $ psql -c "CREATE EXTENSION pldotnet;" <mydb>
-#+END_SRC
+```
 
 The PL/.NET extension installs both C# (~plcsharp~) and F# (~plfsharp~) modules
 for using them as loadable procedure languages.
@@ -47,11 +47,11 @@ The following table shows each type conversion equivalences:
 * Functions
   Functions PG/.NET languages are created as:
 
-#+BEGIN_SRC sql
+```sql
 CREATE FUNCTION func(args) RETURN return_type AS $$
     -- < C# / F# function body >
 $$ LANGUAGE [ plcsharp | plfsharp];
-#+END_SRC
+```
 
 where the types of the named arguments (~args~) and ~return_type~ are converted
 following the table in Types section.
@@ -61,22 +61,22 @@ templates below:
 
 + C#
 
-#+BEGIN_SRC csharp
+```csharp
 libargs.resu = FUNC(args);
 return_type FUNC(args) {
    // C# function body
 }
-#+END_SRC
+```
 
 + F#
 
-#+BEGIN_SRC fsharp
+```fsharp
 type Lib =
     static member FUNC =
         // F# function body
     static member Main =
         libargs.resu <- FUNC args
-#+END_SRC
+```
 
 PL/.NET hosts the .NET runtime using ~hostfxr~ for loading the delegates, that's why
 the procedure function body are inserted into a class structure for both C# and F#.
@@ -84,8 +84,8 @@ the procedure function body are inserted into a class structure for both C# and 
 ** Examples
    + C#
 
-#+BEGIN_SRC sql
-# CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
+```csharp
+CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
 return "Hello " + fname + lname + "!";
 $$ LANGUAGE plcsharp;
 CREATE FUNCTION
@@ -94,11 +94,10 @@ CREATE FUNCTION
 --------------------------
  Hello Homer Jay Simpson!
 (1 row)
+```
 
-#+END_SRC
-
-#+BEGIN_SRC sql
-# CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
+```csharp
+CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
 FormattableString res;
 if (age < 18)
     res = $"Hey {name} {lname}! Dude you are still a kid.";
@@ -108,6 +107,8 @@ else
     res = $"Hey {name} {lname}! You are getting experienced!";
 return res.ToString();
 $$ LANGUAGE plcsharp;
+```
+```console
 CREATE FUNCTION
 # SELECT ageTest('Billy', 10, 'The KID') = varchar 'Hey Billy The KID! Dude you are still a kid.';
                    agetest
@@ -126,39 +127,38 @@ CREATE FUNCTION
 -------------------------------------------------
  Hey Robson Cruzoe! You are getting experienced!
 (1 row)
+```
 
-#+END_SRC
-
-#+BEGIN_SRC sql
+```csharp
 # CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
     int? ret = 1;
     if (n == 1 || n == 2) 
         return ret;
     return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
 $$ LANGUAGE plcsharp;
+```
+```console
 CREATE FUNCTION
 # SELECT fibbb(30);
  fibbb
 --------
  832040
 (1 row)
-
-#+END_SRC
-
+```
    + F#
-
-#+BEGIN_SRC sql
-# CREATE FUNCTION returnInt() RETURNS integer AS $$
+```fsharp
+CREATE FUNCTION returnInt() RETURNS integer AS $$
 10
 $$ LANGUAGE plfsharp;
+```
+```console
 CREATE FUNCTION
 # SELECT returnInt();
  returnint
 -----------
         10
 (1 row)
-
-#+END_SRC
+```
 
 * Future Plans
   - Arrays
