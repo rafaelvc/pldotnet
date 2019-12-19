@@ -1,12 +1,12 @@
 # PL/.NET
 
-* Introduction
+## Introduction
  PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
  languages as loadable procedural language. Using PL/.NET one can enjoy all benefits from
  .NET and its powerful application development environment and also from a strongly-typed
  functional programming language, F#, when writing functions and triggers (check Future Plans)
  written in those languages. 
-* Installation
+## Installation
 
 PL/.NET is installed like any regular PostgreSQL extension. It requires [[ ][.NET Core 3.0]] or later.
 First, obtain it by cloning the repository, after that just run:
@@ -44,7 +44,8 @@ The following table shows each type conversion equivalences:
 | Arrays              | < Not yet supported >              | < Not yet supported > |
 | Composite           | < Not yet supported >              | < Not yet supported > |
 | Base, domain        | < Not yet supported >              | < Not yet supported > |
-* Functions
+
+## Functions
   Functions PG/.NET languages are created as:
 
 ```sql
