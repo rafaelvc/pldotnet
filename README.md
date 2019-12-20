@@ -2,12 +2,14 @@
 
 ## Introduction
 
- PL/.NET (**pldotnet**) adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
+ PL/.NET (***pldotnet***) adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
 as loadable procedural language.  
 
- Using PL/.NET one can enjoy all benefits from .NET and its powerful application development 
-environment and also from a strongly-typed functional programming language, F#, when writing 
-functions and triggers (check [Future Plans](#future_plans)) written in those languages.  
+ Using PL/.NET developers can enjoy all benefits from .NET and its powerful application development 
+environment to write code near the database using cool languages like C#.
+We at [Brick Abode](http://www.brickabode.com) love strongly-typed functional programming and as 
+so we are also working to support F# for writting PostgreSQL functions and triggers 
+in ***pldotnet*** (check [Future Plans](#future_plans)).
 
 PL/.NET is an open source project developed by [Brick Abode](http://www.brickabode.com). You are welcome!  
 
