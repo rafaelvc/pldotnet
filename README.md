@@ -9,7 +9,7 @@ as loadable procedural language.
 environment and also from a strongly-typed functional programming language, F#, when writing 
 functions and triggers (check [Future Plans](#future_plans)) written in those languages.  
 
-PL/.NET open source project developed by [Brick Abode](http://www.brickabode.com). You are welcome!  
+PL/.NET is an open source project developed by [Brick Abode](http://www.brickabode.com). You are welcome!  
 
 ## Installation
 
