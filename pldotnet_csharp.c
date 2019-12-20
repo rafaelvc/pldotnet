@@ -67,7 +67,8 @@ const char arg_flag_str[] = "bool[] argsnull;";
 static char cs_block_call1[] = "            \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-namespace DotNetLib                         \n\
+using DotNetSpi;                             \n\
+namespace DotNetSrc                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
@@ -929,6 +930,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
             , cs_block_call1, cs_block_call2, cs_block_call3
             , cs_block_call4, cs_block_call5, cs_block_call6);
 
+        //elog(ERROR,"\n\nSOURCE CODE: %s\n\n",source_code);
         rettype = procst->prorettype;
 
         ReleaseSysCache(proc);
