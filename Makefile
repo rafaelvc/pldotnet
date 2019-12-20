@@ -44,8 +44,7 @@ OBJS = \
 	#pldotnet_debug.o \
 
 PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) \
-			  -Iinc -D LINUX $(DEFINE_DOTNET_BUILD) $(PLNET_ENGINE_DIR) \
-			  -g -Wl,-rpath,'$$ORIGIN',--disable-new-dtags
+			  -Iinc -D LINUX $(DEFINE_DOTNET_BUILD) $(PLNET_ENGINE_DIR)
 
 SHLIB_LINK = $(DOTNET_HOSTLIB)
 
