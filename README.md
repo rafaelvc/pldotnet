@@ -7,9 +7,9 @@ as loadable procedural language.
 
  Using PL/.NET one can enjoy all benefits from .NET and its powerful application development 
 environment and also from a strongly-typed functional programming language, F#, when writing 
-functions and triggers (check Future Plans) written in those languages.  
+functions and triggers (check [Future Plans](#future_plans)) written in those languages.  
 
-PL/.NET is developed by [Brick Abode](http://www.brickabode.com) and free to receive contributions.  
+PL/.NET open source project developed by [Brick Abode](http://www.brickabode.com). You are welcome!  
 
 ## Installation
 
@@ -20,14 +20,14 @@ PL/.NET is developed by [Brick Abode](http://www.brickabode.com) and free to rec
 + [Docker](https://www.docker.com/) (Optional and only for non Linux OSes)
 
 Case you use Docker to experiment PL/.NET all requirements are installed/built
-automatically. Jump to the section [Other OSes](## Other OSes).
+automatically. Jump to the section [Other OSes](#other_oses).
 
 ### Linux Ubuntu/Debian flavours
 
-Download the binary package available [here](https://brickabode.com) and install it: 
+Download the binary package available [here](https://brickabode.com/pldtonet/postgres-10-pldotnet_0.0.1-1_amd64.deb) and install it: 
 
 ```console
-#sudo dpkg -i postgres-10-pldotnet_0.0.1-1.amd64.deb
+$sudo dpkg -i postgres-10-pldotnet_0.0.1-1_amd64.deb
 
 ```
 
@@ -45,7 +45,7 @@ for the `pldtonet_trust` SQL function:
 #postgres SELECT pldtonet_trust(true);
 ```
 
-### Other OSes 
+### <a name="other_oses"></a>Other OSes
 
 Currently we are developing for Linux Ubuntu 18.04 LTS however 
 we plan to support all OSes are also supported by Postgres and .NET and you
@@ -56,7 +56,7 @@ can benefit of it case your OS is not the supported one:
 
 
 ```console
-$ git clone https://github.com/pldotnet/pldotnet.git
+$ git clone https://github.com/brickabode/pldotnet.git
 $ docker-compose run pldotnet-devenv bash
 # make && make plnet-install
 # psql -c "CREATE EXTENSION pldotnet;"
@@ -65,7 +65,7 @@ $ docker-compose run pldotnet-devenv bash
 
 ## Examples
 
-Many samples can be checked in our [test folder](https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/tree/master/sql). Some of them:
+Many samples can be checked in our [test folder](https://github.com/brickabode/pldotnet/tree/master/sql). Some of them:
 
 ### C# (plcsharp)
 * Fibonnaci
@@ -179,7 +179,7 @@ The following table shows each type conversion equivalences:
 | Base, domain        | Planned to 1.0 Release             | < Not yet supported > |
 
 
-## Future Plans
+## <a name="future_plans"></a>Future Plans
   - Arrays
     + Add array support for plcsharp. Beta version.
   - Composites
