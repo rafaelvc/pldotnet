@@ -142,15 +142,13 @@ plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc)
     const char end_fun[] = "\n";
     int nargs = procst->pronargs;
     Datum *argname, argnames, prosrc;
-    text * t;
 
     /* Function name */
     func = NameStr(procst->proname);
 
     /* Source code */
     prosrc = SysCacheGetAttr(PROCOID, proc, Anum_pg_proc_prosrc, &isnull);
-    t = DatumGetTextP(prosrc);
-    source_text = DirectFunctionCall1(textout, DatumGetCString(t));
+    source_text = DatumGetCString(DirectFunctionCall1(textout, prosrc));
 
     argnames = SysCacheGetAttr(PROCOID, proc,
         Anum_pg_proc_proargnames, &isnull);
@@ -169,8 +167,7 @@ plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc)
 
     for (i = 0; i < nargs; i++) 
     {
-        argnm = DirectFunctionCall1(textout,
-                DatumGetCString(DatumGetTextP(argname[i])) );
+        argnm = DatumGetCString(DirectFunctionCall1(textout, argname[i]));
 
         argnm_size = strlen(argnm);
         /* +1 here is the space between type" "argname declaration */
@@ -196,8 +193,7 @@ plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc)
 
     for (i = 0; i < nargs; i++)
     {
-        argnm = DirectFunctionCall1(textout,
-                DatumGetCString(DatumGetTextP(argname[i])) );
+        argnm = DatumGetCString(DirectFunctionCall1(textout, argname[i]));
 
         argnm_size = strlen(argnm);
         str_ptr = (char *)(block2str + cursize);
@@ -443,7 +439,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(cmd
             , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
             , "dotnet build %s/src/fsharp > null", dnldir);
-        int compile_resp = system(cmd);
+        compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
         root_path = strdup(dnldir);
