@@ -56,7 +56,7 @@ pldotnet_GetExport(void *host, const char *name)
 
 /* Using the nethost library, discover the location of hostfxr and get exports */
 int
-pldotnet_LoadHostfxr()
+pldotnet_LoadHostfxr(void)
 {
     /* Pre-allocate a large buffer for the path to hostfxr */
     char_t buffer[MAX_PATH];
