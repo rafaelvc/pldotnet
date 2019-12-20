@@ -730,7 +730,7 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                 break;
             case NUMERICOID:
                 /* C String encoding */
-                *(unsigned long *)cur_arg =
+                *(unsigned long *)cur_arg = (unsigned long)
                     DatumGetCString(DirectFunctionCall1(numeric_out, argdatum));
                 break;
             case BPCHAROID:
@@ -754,7 +754,7 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                buff_len = VARSIZE( argdatum ) - VARHDRSZ;
                newargvl = (char *)palloc0(buff_len + 1);
                memcpy(newargvl, VARDATA( argdatum ), buff_len);
-               *(unsigned long *)cur_arg = (char *)
+               *(unsigned long *)cur_arg = (unsigned long)
                     pg_do_encoding_conversion((unsigned char*)newargvl,
                                               buff_len+1,
                                               GetDatabaseEncoding(), PG_UTF8);
@@ -810,7 +810,7 @@ pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
             return  Float8GetDatum ( *(double *)(result_ptr) );
         case NUMERICOID:
             str_num = (char *)*(unsigned long *)(result_ptr);
-            return DatumGetNumeric(
+            return NumericGetDatum(
                                    DirectFunctionCall3(numeric_in,
                                          CStringGetDatum(str_num),
                                          ObjectIdGetDatum(InvalidOid),
@@ -841,7 +841,7 @@ pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
             ret_ptr = *(unsigned long **)(result_ptr);
             /* str_len = pg_mbstrlen(ret_ptr); */
             str_len = strlen((char*)ret_ptr);
-            encoded_str = pg_do_encoding_conversion( (unsigned char*)ret_ptr, str_len, 
+            encoded_str = (char *)pg_do_encoding_conversion( (unsigned char*)ret_ptr, str_len,
                 PG_UTF8, GetDatabaseEncoding() );
              res_varchar = (VarChar *)SPI_palloc(str_len + VARHDRSZ);
 #if PG_VERSION_NUM < 80300
