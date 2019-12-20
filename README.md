@@ -41,7 +41,7 @@ Case you need later turn PL/.NET languages trusted/untrusted pass `true` or `fal
 for the `pldtonet_trust` SQL function:
 
 ```sql
-#postgres SELECT pldtonet_trust(true);
+postgres=# SELECT pldtonet_trust(true);
 ```
 
 ### <a name="other_oses"></a>Other OSes
@@ -58,7 +58,8 @@ can benefit of it case your OS is not the supported one:
 $ git clone https://github.com/brickabode/pldotnet.git
 $ docker-compose run pldotnet-devenv bash
 # make && make plnet-install
-# psql -c "CREATE EXTENSION pldotnet;"
+# su postgres
+$ psql -c "CREATE EXTENSION pldotnet;"
 
 ```
 
