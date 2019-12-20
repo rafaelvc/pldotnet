@@ -443,7 +443,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(cmd
             , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
             , "dotnet build %s/src/fsharp > null", dnldir);
-        int compile_resp = system(cmd);
+        compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
 
         root_path = strdup(dnldir);
