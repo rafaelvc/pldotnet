@@ -38,7 +38,7 @@ Be aware! In the end of the installation you are asked to turn `plcsharp` and `p
  trusted PL languages. You need to do this for using PL/.NET on the current Alpha 
  version. We do not consider PL/.NET ready for production but yet experimentable.
   
-Case you need later turn PL/.NET languages truted/untrusted pass `true` or `false`
+Case you need later turn PL/.NET languages trusted/untrusted pass `true` or `false`
 for the `pldtonet_trust` SQL function:
 
 ```sql
@@ -51,7 +51,7 @@ Currently we are developing for Linux Ubuntu 18.04 LTS however
 we plan to support all OSes are also supported by Postgres and .NET and you
 have an option to experiment PL/.NET: Docker.
   
-We constanly use Docker in our development computers then you also 
+We constantly use Docker in our development computers then you also 
 can benefit of it case your OS is not the supported one: 
 
 
@@ -174,9 +174,9 @@ The following table shows each type conversion equivalences:
 | char, varchar, text | System.String (`string`)           | < Not yet supported > |
 | "char"/bpchar       | System.String (`string`)           | < Not yet supported > |
 | numeric             | System.Decimal (`decimal`)         | < Not yet supported > |
-| Arrays              | Planned to Beta Release            | < Not yet supported > |
-| Composite           | Planned to Beta Release            | < Not yet supported > |
-| Base, domain        | Planned to 1.0 Release             | < Not yet supported > |
+| Arrays              | Planned for Beta Release           | < Not yet supported > |
+| Composite           | Planned for Beta Release           | < Not yet supported > |
+| Base, domain        | Planned for 1.0 Release            | < Not yet supported > |
 
 
 ## <a name="future_plans"></a>Future Plans
