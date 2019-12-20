@@ -165,12 +165,12 @@ The following table shows each type conversion equivalences:
 
 | PostgreSQL type     | C# type                            | F# type               |
 |---------------------|------------------------------------|-----------------------|
-| bool                | Nullable<System.Boolean> (`bool?`) | < Not yet supported > |
-| int2                | Nullable<System.Int16> (`short?`)  | < Not yet supported > |
-| int4                | Nullable<System.Int32> (`int?`)    | System.Int32 (`int`)  |
-| int8                | Nullable<System.Int64> (`long?`)   | < Not yet supported > |
-| float4              | System.Single (`float`)            | < Not yet supported > |
-| float8              | System.Double (`double`)           | < Not yet supported > |
+| boolean             | Nullable<System.Boolean> (`bool?`) | < Not yet supported > |
+| smallint (int2)     | Nullable<System.Int16> (`short?`)  | < Not yet supported > |
+| integer  (int4)     | Nullable<System.Int32> (`int?`)    | System.Int32 (`int`)  |
+| bigint   (int8)     | Nullable<System.Int64> (`long?`)   | < Not yet supported > |
+| real     (float4)   | System.Single (`float`)            | < Not yet supported > |
+| double   (float8)   | System.Double (`double`)           | < Not yet supported > |
 | char, varchar, text | System.String (`string`)           | < Not yet supported > |
 | "char"/bpchar       | System.String (`string`)           | < Not yet supported > |
 | numeric             | System.Decimal (`decimal`)         | < Not yet supported > |
