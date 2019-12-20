@@ -435,7 +435,7 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         fclose(output_file);
         setenv("DOTNET_CLI_HOME", dnldir, 1);
         cmd = palloc0(strlen("dotnet build ")
-                        + strlen(dnldir) + strlen("/src/csharp > null") + 1);
+                        + strlen(dnldir) + strlen("/src/fsharp > null") + 1);
         SNPRINTF(cmd
             , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
             , "dotnet build %s/src/fsharp > null", dnldir);
