@@ -2,7 +2,7 @@
 
 ## Introduction
 
- PL/.NET adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
+ PL/.NET (**pldotnet**) adds Microsoft's .NET framework to PostgreSQL by introducing both the C# and F#
 as loadable procedural language.  
 
  Using PL/.NET one can enjoy all benefits from .NET and its powerful application development 
