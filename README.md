@@ -16,7 +16,7 @@ PL/.NET is developed by [Brick Abode](http://www.brickabode.com) and free to rec
 ### Requirements
 
 + [PostgreSQL 9](https://www.postgresql.org/) or greater
-+ [.NET Core 3.0](https://github.com/dotnet/core) or greater.
++ [.NET Core 3.1](https://github.com/dotnet/core) or greater.
 + [Docker](https://www.docker.com/) (Optional and only for non Linux OSes)
 
 Case you use Docker to experiment PL/.NET all requirements are installed/built
@@ -57,7 +57,7 @@ can benefit of it case your OS is not the supported one:
 
 ```console
 $ git clone https://github.com/pldotnet/pldotnet.git
-$ docker-compose
+$ docker-compose run pldotnet-devenv bash
 # make && make plnet-install
 # psql -c "CREATE EXTENSION pldotnet;"
 
@@ -154,11 +154,11 @@ Function call and output:
 ## Types support
 
 PL/.NET uses different approaches for type conversion of function return and arguments 
-between PostgreSQL and .NET:
+for data exchange between PostgreSQL and .NET:
 
 1. .NET [Bittable](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) types are converted in its binary format.
-2. PG text types are converted back and forth as UTF8 strings for best compatibility.
-3. Numeric PG type is converted back and forth as C string.
+2. PG text types are converted back and forth as [UTF8](https://pt.wikipedia.org/wiki/UTF-8) strings for best compatibility.
+3. Numeric PG type is converted back and forth as [C String](https://en.wikipedia.org/wiki/C_string_handling).
 4. For null support, types are converted to its respective .NET `Nullable<>` type (`bool`, `integers`).
 
 The following table shows each type conversion equivalences:
