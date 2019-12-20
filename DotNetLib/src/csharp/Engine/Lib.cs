@@ -80,6 +80,16 @@ namespace DotNetLib
                 .Select(p => MetadataReference.CreateFromFile(p))
             .ToList();
 
+            List<String> referencesStr = trustedAssembliesPaths
+                .Where(p => neededAssemblies.Contains(Path.GetFileNameWithoutExtension(p)))
+            .ToList();
+
+            foreach (var item in referencesStr){
+                Console.WriteLine(item);
+            }
+
+            references.Add(MetadataReference.CreateFromFile("/var/lib/DotNetLib/src/csharp/Spi.dll"));
+
             CSharpCompilation compilation = CSharpCompilation.Create(
                 "plnetproc.dll",
                 options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
@@ -110,7 +120,7 @@ namespace DotNetLib
             Assembly compiledAssembly;     
             compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
 
-            Type procClassType = compiledAssembly.GetType("DotNetLib.ProcedureClass");
+            Type procClassType = compiledAssembly.GetType("DotNetSrc.ProcedureClass");
             MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
             procMethod.Invoke(null, new object[] {arg, argLength});
 
