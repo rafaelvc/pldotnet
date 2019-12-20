@@ -4,7 +4,7 @@ Section: database
 Maintainer: Rafael da Veiga Cabral  <rvc@brickabode.com>
 # Uploaders: Rafael da Veiga Cabral <rvc@brickabode.com>
 Build-Depends: debhelper (>= 9), pkg-config, postgresql-server-dev-all (>= 158~)
-Standards-Version: 0.0.1
+Standards-Version: 0.1
 Homepage: http://www.brickabode.com/pldotnet/
 
 Package: postgresql-PGVERSION-pldotnet
