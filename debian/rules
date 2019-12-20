@@ -1,6 +1,7 @@
 #!/usr/bin/make -f
 
 SRCDIR=$(CURDIR)
+PG_VER=$(shell pg_buildext supported-versions)
 include /usr/share/postgresql-common/pgxs_debian_control.mk
 
 override_dh_auto_build:
@@ -12,7 +13,7 @@ override_dh_auto_clean:
 
 override_dh_auto_install:
 	+pg_buildext install $(CURDIR) build-%v postgresql-%v-pldotnet
-	$(MAKE) DESTDIR=debian/postgresql-%v-pldotnet plnet-install-dpkg
+	$(MAKE) DESTDIR=debian/postgresql-$(PG_VER)-pldotnet plnet-install-dpkg
 
 %:
 	dh $@
