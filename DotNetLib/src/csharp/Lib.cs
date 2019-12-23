@@ -29,7 +29,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;      
 using Microsoft.CodeAnalysis;              
 using Microsoft.CodeAnalysis.CSharp;       
-using Microsoft.CodeAnalysis.Text;         
+using Microsoft.CodeAnalysis.CSharp.Syntax;         
                                            
 namespace DotNetLib                        
 {                                          
@@ -47,7 +47,14 @@ namespace DotNetLib
         static IDictionary<int, (string, MemoryStream)> funcBuiltCodeDict;
 
         public static int Compile(IntPtr arg, int argLength)
-        {                                  
+        {                         
+
+            string spiSrc = @"
+                public static class PlDotNet
+{
+    [DllImport(""/usr/lib/postgresql/10/lib/pldotnet.so"")]
+    public static extern int SPIExecute (string cmd, long limit);
+}";        
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
             string sourceCode = Marshal.PtrToStringAuto(libArgs.SourceCode);
 
@@ -65,7 +72,20 @@ namespace DotNetLib
                 }catch{}
             }
 
-            SyntaxTree tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+            SyntaxTree userTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+            NamespaceDeclarationSyntax parentNamespace = 
+                userTree.GetRoot().DescendantNodes()
+                .OfType<NamespaceDeclarationSyntax>().FirstOrDefault();
+
+            ClassDeclarationSyntax newSPIClassNode = 
+                SyntaxFactory.ParseSyntaxTree(spiSrc).GetRoot()
+                .DescendantNodes().OfType<ClassDeclarationSyntax>()
+                .FirstOrDefault();
+
+            SyntaxNode node = userTree.GetRoot().ReplaceNode(parentNamespace,parentNamespace.AddMembers(newSPIClassNode).NormalizeWhitespace());
+
+            userTree = SyntaxFactory.ParseSyntaxTree(node.ToFullString());
 
             var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
 
@@ -89,12 +109,10 @@ namespace DotNetLib
                 Console.WriteLine(item);
             }
 
-            references.Add(MetadataReference.CreateFromFile("/var/lib/DotNetLib/src/csharp/Spi.dll"));
-
             CSharpCompilation compilation = CSharpCompilation.Create(
                 "plnetproc.dll",
                 options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
-                syntaxTrees: new[] { tree },
+                syntaxTrees: new[] { userTree },
                 references: references);
                                            
             Lib.memStream = new MemoryStream();
@@ -118,7 +136,7 @@ namespace DotNetLib
 
         public static int Run(IntPtr arg, int argLength)
         {
-            Assembly compiledAssembly;     
+            Assembly compiledAssembly;
             compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
 
             Type procClassType = compiledAssembly.GetType("DotNetSrc.ProcedureClass");
@@ -127,5 +145,5 @@ namespace DotNetLib
 
             return 0;
         }                                  
-    }                                      
+    }
 }
