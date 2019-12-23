@@ -68,6 +68,7 @@ static char cs_block_call1[] = "            \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
 using DotNetSpi;                             \n\
+using System.Reflection;                    \n\
 namespace DotNetSrc                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\

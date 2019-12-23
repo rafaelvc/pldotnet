@@ -74,6 +74,7 @@ namespace DotNetLib
                 "System.Runtime",
                 "System.Private.CoreLib",
                 "System.Console",
+                "System.Reflection",
             };
 
             List<PortableExecutableReference> references = trustedAssembliesPaths

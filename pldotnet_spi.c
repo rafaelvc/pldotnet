@@ -22,17 +22,18 @@
  */
 
 #include "pldotnet_common.h"
+#include "pldotnet_spi.h"
 
 int 
 SPIExecute(char* cmd, long limit)
 {
-    MemoryContext oldcontext;
-    ResourceOwner oldowner;
+    //MemoryContext oldcontext;
+    //ResourceOwner oldowner;
     int rv;
 
     elog(ERROR,"Hello!!!!");
     rv = SPI_execute(cmd, false, limit);
-    return PldotnetSPIFetchResult(SPI_tuptable, rv);
+    return SPIFetchResult(SPI_tuptable, rv);
 }
 
 int
@@ -50,4 +51,5 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
         return DatumGetInt32(attr_val);
     }
 
+   return 1;
 }
