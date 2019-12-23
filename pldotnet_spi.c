@@ -22,6 +22,7 @@
  */
 
 #include "pldotnet_common.h"
+#include "pldotnet_spi.h"
 
 int 
 SPIExecute(char* cmd, long limit)
@@ -30,9 +31,8 @@ SPIExecute(char* cmd, long limit)
     ResourceOwner oldowner;
     int rv;
 
-    elog(ERROR,"Hello!!!!");
     rv = SPI_execute(cmd, false, limit);
-    return PldotnetSPIFetchResult(SPI_tuptable, rv);
+    return SPIFetchResult(SPI_tuptable, rv);
 }
 
 int

@@ -79,7 +79,6 @@ const char arg_flag_str[] = "bool[] argsnull;";
 static char cs_block_call1[] = "            \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-using DotNetSpi;                             \n\
 namespace DotNetSrc                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
