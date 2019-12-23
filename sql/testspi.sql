@@ -1,5 +1,4 @@
-CREATE OR REPLACE FUNCTION returnBool() RETURNS boolean AS $$
-PlDotNet.SPIExecute("Select 2", 1);
-return false;
+CREATE OR REPLACE FUNCTION returnSelect2() RETURNS integer AS $$
+return PlDotNet.SPIExecute("Select 2", 1);
 $$ LANGUAGE plcsharp;
-SELECT returnBool();
+SELECT returnSelect2();
