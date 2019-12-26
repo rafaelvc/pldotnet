@@ -24,7 +24,7 @@
 #include "pldotnet_common.h"
 #include "pldotnet_spi.h"
 
-int 
+unsigned long * 
 SPIExecute(char* cmd, long limit)
 {
     MemoryContext oldcontext;
@@ -35,19 +35,25 @@ SPIExecute(char* cmd, long limit)
     return SPIFetchResult(SPI_tuptable, rv);
 }
 
-int
+unsigned long *
 SPIFetchResult (SPITupleTable *tuptable, int status)
 {
     char *key;
     Datum attr_val;
     bool is_null;
-
+    TupleDesc tupdesc = tuptable->tupdesc;
+    Form_pg_attribute attr;
+    unsigned long *ptr;
+    
     if(status > 0 && tuptable != NULL)
     {
-		Form_pg_attribute attr = TupleDescAttr(tuptable->tupdesc, 0);
-        key = NameStr(attr->attname);
-        attr_val = heap_getattr(tuptable->vals[0],1,tuptable->tupdesc, &is_null);
-        return DatumGetInt32(attr_val);
+        for (int i = 0; i < tupdesc->natts; i++) 
+        {
+            attr = TupleDescAttr(tuptable->tupdesc, i);
+            key = NameStr(attr->attname);
+            attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
+            return (unsigned long *) DatumGetCString(attr_val);
+        }
     }
 
 }
