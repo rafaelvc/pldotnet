@@ -53,7 +53,14 @@ namespace DotNetLib
                 public static class PlDotNet
 {
     [DllImport(""/usr/lib/postgresql/10/lib/pldotnet.so"")]
-    public static extern int SPIExecute (string cmd, long limit);
+    public static extern IntPtr SPIExecute (string cmd, long limit);
+
+    public static int CExecute(string cmd, long limit){
+        IntPtr ptr = PlDotNet.SPIExecute(cmd, limit);
+        Console.Write($"" Number is: {Marshal.ReadInt64(ptr)}"");
+        return 1;
+    
+    }
 }";        
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
             string sourceCode = Marshal.PtrToStringAuto(libArgs.SourceCode);
