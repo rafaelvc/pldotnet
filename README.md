@@ -42,7 +42,7 @@ sudo apt-get update
 sudo apt install dotnet-runtime-3.1 dotnet-sdk-3.1 dotnet-hostfxr-3.1
 ```
 
-### Installing `pldotnet` in Linux - Ubuntu/Debian flavours
+### Installing PL/.NET in Linux - Ubuntu/Debian flavours
 
 Installing PostgreSQL:
 
@@ -74,7 +74,7 @@ Case you need later turn PL/.NET languages trusted/untrusted pass `true` or
 postgres=# SELECT pldtonet_trust(true);
 ```
 
-### <a name="other_oses"></a>Installing `pldotnet` on other OSes
+### <a name="other_oses"></a>Installing PL/.NET on other OSes
 
 Currently we are developing for Linux Ubuntu 18.04 LTS however 
 we plan to support all OSes are also supported by Postgres and .NET and you
