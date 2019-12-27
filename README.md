@@ -25,7 +25,7 @@ PL/.NET is an open source project developed by
 
 ### <a name="install_dotnetcore"></a>Installing .NET Core
 
-For installing .NET Core please follow the instructions at .NET Core 
+For installing .NET Core please follow the instructions at the .NET Core 
 [website](https://docs.microsoft.com/dotnet/core/install/linux-package-manager-ubuntu-1904).
   
 There is a button in the header of that page where you select the version of 
