@@ -85,21 +85,21 @@ can benefit of it case your OS is not the supported one:
 
 
 ```console
-$ git clone https://github.com/brickabode/pldotnet.git
-$ docker-compose run pldotnet-devenv bash
-# make && make plnet-install
-# su postgres
-$ psql -c "CREATE EXTENSION pldotnet;"
+$git clone https://github.com/brickabode/pldotnet.git
+$docker-compose run pldotnet-devenv bash
+#make && make plnet-install
+#su postgres
+$psql -c "CREATE EXTENSION pldotnet;"
 
 ```
 
 ###  Building Debian/Ubuntu package
 
-Check first [.NET Core](#install_dotnetcore) installation session verify if all
-.NET requirements are installed.
+Check [.NET Core](#install_dotnetcore) installation session first. All .NET 
+requirements must be installed.
 
 ```console
-$ git clone https://github.com/brickabode/pldotnet.git
+$git clone https://github.com/brickabode/pldotnet.git
 $sudo apt install devscripts debhelper pkg-config postgresql-server-dev-all
 $pg_buildext updatecontrol
 $debuild -b -uc -us
@@ -107,17 +107,16 @@ $debuild -b -uc -us
 
 `pg_buildext` is a script utility to build extensions for different PostgresSQL 
 versions. You need to run `pg_buildext updatecontrol` in order to update the 
-debian control according to te PG version found in your Linux box.
+debian control according to the PG version installed in your Linux box.
 
 #### Using different versions of PosgreSQL on Debian/Ubuntu
 
 [PostgreSQL project](https://www.postgresql.org/download/) keeps packages 
 repositories for different PG versions usually from 9x to newest versions and 
-for different Linux distributions flavours. You can follow steps 
-[there](https://www.postgresql.org/download/) if you want to test `pldotnet` 
-in a different PostgreSQL version. Remember to run `pg_buildext updatecontrol` 
-according this if you want build the package against your PostgreSQL current 
-installed version.
+also for different Linux distributions flavours. You can follow steps 
+[there](https://www.postgresql.org/download/) if you want to install others
+PG versions. *Remember to run `pg_buildext updatecontrol` before building the 
+`pldotnet` package for a newer PostgreSQL version.* 
 
 ## Examples
 
