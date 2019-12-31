@@ -141,7 +141,12 @@ namespace DotNetLib
 
         public static int AddProperty(IntPtr arg, int argLength)
         {
-            Console.WriteLine("\n\n CALLED ADD PROPERTY\n\n");
+            Assembly compiledAssembly;
+            compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
+
+            Type procClassType = compiledAssembly.GetType("DotNetSrc.ProcedureClass");
+            MethodInfo procMethod = procClassType.GetMethod("AddProperty");
+            procMethod.Invoke(null, new object[] {arg, argLength});
             return 0;
         }                                  
 
