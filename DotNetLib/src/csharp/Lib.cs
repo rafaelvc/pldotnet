@@ -53,11 +53,10 @@ namespace DotNetLib
                 public static class PlDotNet
 {
     [DllImport(""/usr/lib/postgresql/10/lib/pldotnet.so"")]
-    public static extern IntPtr SPIExecute (string cmd, long limit);
+    public static extern int SPIExecute (string cmd, long limit);
 
     public static int CExecute(string cmd, long limit){
-        IntPtr ptr = PlDotNet.SPIExecute(cmd, limit);
-        Console.Write($"" Number is: {Marshal.ReadInt64(ptr)}"");
+        PlDotNet.SPIExecute(cmd, limit);
         return 1;
     
     }
@@ -140,6 +139,12 @@ namespace DotNetLib
 
             return 0;
         }
+
+        public static int AddProperty(IntPtr arg, int argLength)
+        {
+            Console.WriteLine("\n\n CALLED ADD PROPERTY\n\n");
+            return 0;
+        }                                  
 
         public static int Run(IntPtr arg, int argLength)
         {

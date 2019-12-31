@@ -1,18 +1,17 @@
 #ifndef _PLDOTNET_SPI_H_
 	
 #define _PLDOTNET_SPI_H_
-	
 
+#include "pldotnet_common.h"
 	
-extern unsigned long *SPIExecute(char* cmd, long limit);
-extern unsigned long *SPIFetchResult (SPITupleTable *tuptable, int status);
-
+extern int SPIExecute(char* cmd, long limit);
+extern int SPIFetchResult (SPITupleTable *tuptable, int status);
 
 typedef struct PropertyValue
 {
-    int    typesize_nullflags;
-    char    typesize_params;
-    int    typesize_result;
+    long   *value;
+    char   *name;
+    int    type;
 }PropertyValue;
 	
 #endif
