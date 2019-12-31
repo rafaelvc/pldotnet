@@ -60,6 +60,8 @@ char csharp_srclib_path[MAXPGPATH];
 bool hostfxr_loaded = false;
 bool paths_defined = false;
 
+load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text
