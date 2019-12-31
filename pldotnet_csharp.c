@@ -73,6 +73,17 @@ namespace DotNetSrc                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
+        static IDictionary<int, ExpandoObjoect> funcExpandDo;\n\
+        static int funcOid;                 \n\
+                                            \n\
+        [StructLayout(LayoutKind.Sequential, Pack=1)]\n\
+        public struct PropertyValue         \n\
+        {                                   \n\
+             public IntPtr value;           \n\
+             public string name;            \n\
+             public int type;               \n\ 
+        }                                   \n\
+                                            \n\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs                \n\
         {";
@@ -102,6 +113,10 @@ static char cs_block_call3[] = "             \n\
 static char cs_block_call6[] = "              \n\
             Marshal.StructureToPtr<LibArgs>(libargs, arg, false);\n\
             return 0;                         \n\
+        }                                     \n\
+        public static void AddProperty(IntPtr arg, int funcoid)\n\
+        {                                     \n\
+            PropertyValue property = Marshal.PtrToStructure<PropertyValue>(arg);\n\
         }                                     \n\
     }                                         \n\
 }";
