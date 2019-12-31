@@ -48,6 +48,8 @@ static int   pldotnet_PublicDeclSize(Oid type);
 static char  *pldotnet_PublicDecl(Oid type);
 static const char * pldotnet_GetNullableTypeName(Oid id);
 
+load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text
@@ -883,7 +885,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     char dnldir[] = STR(PLNET_ENGINE_DIR);
     char *root_path;
     int rc;
-    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+//    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
     component_entry_point_fn csharp_method = nullptr;
     ArgsSource args;
     char *config_path;
