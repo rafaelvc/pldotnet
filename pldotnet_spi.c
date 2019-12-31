@@ -41,11 +41,11 @@ SPIExecute(char* cmd, long limit)
 int
 SPIFetchResult (SPITupleTable *tuptable, int status)
 {
-    //char *key;
-    //Datum attr_val;
-    //bool is_null;
+    char *key;
+    Datum attr_val;
+    bool is_null;
     TupleDesc tupdesc = tuptable->tupdesc;
-    //Form_pg_attribute attr;
+    Form_pg_attribute attr;
     //unsigned long *ptr;
     /* delegate related */
     const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
@@ -56,13 +56,14 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
     char *config_path;
     char *dotnetlib_path;
     int  rc;
+    PropertyValue *val;
 
     root_path = strdup(dnldir);
     if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
         root_path[strlen(root_path) - 1] = 0;
 
 
-    config_path = palloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
+    config_path = alloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
     SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
                     , "%s%s", root_path, csharp_json_path);
 
@@ -88,10 +89,10 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
         for (int i = 0; i < tupdesc->natts; i++) 
         {
             elog(WARNING,"\n\n CHECK 6 \n\n");
-            csharp_method(&p, 10);
-            //attr = TupleDescAttr(tuptable->tupdesc, i);
-            //key = NameStr(attr->attname);
-            //attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
+            attr = TupleDescAttr(tuptable->tupdesc, i);
+            val->name = NameStr(attr->attname);
+            attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
+            csharp_method(&val, sizeof(PropertyValue));
             //return DatumGetCString(attr_val);
         }
     }
