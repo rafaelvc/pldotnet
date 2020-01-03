@@ -56,14 +56,14 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
     char *config_path;
     char *dotnetlib_path;
     int  rc;
-    PropertyValue *val;
+    PropertyValue val;
 
     root_path = strdup(dnldir);
     if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
         root_path[strlen(root_path) - 1] = 0;
 
 
-    config_path = alloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
+    config_path = palloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
     SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
                     , "%s%s", root_path, csharp_json_path);
 
@@ -90,9 +90,14 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
         {
             elog(WARNING,"\n\n CHECK 6 \n\n");
             attr = TupleDescAttr(tuptable->tupdesc, i);
-            val->name = NameStr(attr->attname);
-            attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
-            csharp_method(&val, sizeof(PropertyValue));
+            val.name = NameStr(attr->attname);
+            if(attr->atttypid == INT4OID)
+            {
+               // attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
+                attr_val = heap_getattr(tuptable->vals[i], 1, tuptable->tupdesc, &is_null);
+                val.value = DatumGetCString(attr_val);
+                csharp_method(&val, sizeof(PropertyValue));
+            }
             //return DatumGetCString(attr_val);
         }
     }
