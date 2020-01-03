@@ -22,6 +22,7 @@
  */
 #include <postgres.h>
 #include "pldotnet.h"
+#include "pldotnet_common.h"
 #include "pldotnet_hostfxr.h"
 #include <funcapi.h>
 #include <dlfcn.h>
@@ -31,6 +32,10 @@ PG_MODULE_MAGIC;
 /* Declare extension variables/structs here */
 PGDLLEXPORT Datum _PG_init(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum _PG_fini(PG_FUNCTION_ARGS);
+
+char *root_path = NULL;
+char *dnldir = STR(PLNET_ENGINE_DIR);
+
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text
@@ -40,8 +45,11 @@ Datum _PG_init(PG_FUNCTION_ARGS)
     /* Initialize variable structs here
      * Init dotnet runtime here ?
      */
-
     elog(LOG, "[plldotnet]: _PG_init");
+
+    root_path = strdup(dnldir);
+    if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
+        root_path[strlen(root_path) - 1] = 0;
 
     PG_RETURN_VOID();
 }
