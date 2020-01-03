@@ -50,7 +50,6 @@ namespace DotNetLib
         {                                  
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
             string sourceCode = Marshal.PtrToStringAuto(libArgs.SourceCode);
-
             if (Lib.funcBuiltCodeDict == null)
                 Lib.funcBuiltCodeDict = new Dictionary<int, (string, MemoryStream)>();
             else {

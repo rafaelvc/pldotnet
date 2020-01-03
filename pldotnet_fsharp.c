@@ -35,8 +35,10 @@ static pldotnet_CStructInfo dotnet_cstruct_info;
 static char   *plfsharp_BuildBlock2(Form_pg_proc procst);
 static char   *plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc);
 static char   *plfsharp_BuildBlock6(Form_pg_proc procst);
-static char   *plfsharp_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst);
-static Datum  plfsharp_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo);
+static char   *plfsharp_CreateCStructLibargs(FunctionCallInfo fcinfo,
+                                                           Form_pg_proc procst);
+static Datum  plfsharp_GetNetResult(char * libargs, Oid rettype,
+                                                       FunctionCallInfo fcinfo);
 static bool   plfsharp_TypeSupported(Oid type);
 
 static char fs_block_call1[] = "\n\
@@ -357,10 +359,9 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     char dotnet_type[]  = "DotNetLib.Lib, DotNetLib";
     char dotnet_type_method[64] = "ProcedureMethod";
     FILE *output_file;
-    char dnldir[] = STR(PLNET_ENGINE_DIR);
-    char *root_path;
     int rc;
-    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+    load_assembly_and_get_function_pointer_fn
+                                         load_assembly_and_get_function_pointer;
     component_entry_point_fn fsharp_method = nullptr;
 
     char *filename;
@@ -414,9 +415,6 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         rettype = procst->prorettype;
 
         ReleaseSysCache(proc);
-        pfree(fs_block_call2);
-        pfree(fs_block_call4);
-        pfree(fs_block_call6);
 
         filename = palloc0(strlen(dnldir) + strlen(fsharp_srccode_path) + 1);
         SNPRINTF(filename, strlen(dnldir) + strlen(fsharp_srccode_path) + 1
@@ -437,14 +435,12 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         cmd = palloc0(strlen("dotnet build ")
                         + strlen(dnldir) + strlen("/src/fsharp > null") + 1);
         SNPRINTF(cmd
-            , strlen("dotnet build ") + strlen(dnldir) + strlen("/src/fsharp > null") + 1
+            , strlen("dotnet build ") +
+              strlen(dnldir) + 
+              strlen("/src/fsharp > null") + 1
             , "dotnet build %s/src/fsharp > null", dnldir);
         compile_resp = system(cmd);
         assert(compile_resp != -1 && "Failure: Cannot compile C# source code");
-
-        root_path = strdup(dnldir);
-        if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
-            root_path[strlen(root_path) - 1] = 0;
 
         /*
          * STEP 1: Load HostFxr and get exported hosting functions
@@ -459,14 +455,15 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         SNPRINTF(config_path, strlen(root_path) + strlen(fsharp_json_path) + 1
                         , "%s%s", root_path, fsharp_json_path);
 
-        load_assembly_and_get_function_pointer = GetNetLoadAssembly(config_path);
+        load_assembly_and_get_function_pointer =GetNetLoadAssembly(config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
             "Failure: GetNetLoadAssembly()");
 
         /*
-         * STEP 3: Load managed assembly and get function pointer to a managed method
+         * STEP 3: Load managed assembly and 
+         *         get function pointer to a managed method
          */
-        dotnetlib_path = palloc0(strlen(root_path) + strlen(fsharp_dll_path) + 1);
+        dotnetlib_path = palloc0(strlen(root_path) +strlen(fsharp_dll_path) +1);
         SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(fsharp_dll_path) + 1
                         , "%s%s", root_path, fsharp_dll_path);
         /* Function pointer to managed delegate */
@@ -481,8 +478,9 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
             "Failure: load_assembly_and_get_function_pointer()");
 
         libargs = plfsharp_CreateCStructLibargs(fcinfo, procst);
-        fsharp_method(libargs,dotnet_cstruct_info.typesize_nullflags +
-            dotnet_cstruct_info.typesize_params + dotnet_cstruct_info.typesize_result);
+        fsharp_method(libargs, dotnet_cstruct_info.typesize_nullflags +
+                               dotnet_cstruct_info.typesize_params +
+                               dotnet_cstruct_info.typesize_result);
         retval = plfsharp_GetNetResult( libargs, rettype, fcinfo );
         if (libargs != NULL)
             pfree(libargs);

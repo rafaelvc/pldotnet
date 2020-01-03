@@ -101,5 +101,7 @@ bool pldotnet_TypeSupported(Oid type);
 const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);
 int pldotnet_GetTypeSize(Oid id);
 
+char *root_path;
+char *dnldir;
 
 #endif /* PLDOTNETCOMMON_H */
