@@ -1061,7 +1061,8 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
     PG_RETURN_VOID();
 }
 
-int plcsharp_LoadDotNetEngine(void)
+int
+plcsharp_LoadDotNetEngine(void)
 {
     char *config_path;
     const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
