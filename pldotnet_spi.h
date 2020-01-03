@@ -9,7 +9,7 @@ extern int SPIFetchResult (SPITupleTable *tuptable, int status);
 
 typedef struct PropertyValue
 {
-    long   *value;
+    char   *value;
     char   *name;
     int    type;
 }PropertyValue;
