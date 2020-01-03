@@ -25,5 +25,12 @@
 
 #include "pldotnet_common.h"
 
+int plcsharp_LoadDotNetEngine(void);
+int plcsharp_CompileFunction(char * src, FunctionCallInfo fcinfo);
+int plcsharp_CompileFunctionNetBuild(char * source_code);
+Datum plcsharp_RunFunction(char * libArgs, FunctionCallInfo fcinfo);
+int plcsharp_Run(char * dotnet_type, char * dotnet_type_method, char * libargs,
+                                                                 int args_size);
+
 #endif  /* PLFCHARP_H */
 
