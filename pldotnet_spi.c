@@ -57,6 +57,7 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
     char *dotnetlib_path;
     int  rc;
     PropertyValue val;
+    int intvalue;
 
     root_path = strdup(dnldir);
     if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
@@ -95,9 +96,8 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
             {
                // attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
                 attr_val = heap_getattr(tuptable->vals[i], 1, tuptable->tupdesc, &is_null);
-                int * intvalue = palloc0(sizeof(int));
-                *intvalue = DatumGetInt32(attr_val);
-                val.value = (unsigned long) intvalue;
+                intvalue = DatumGetInt32(attr_val);
+                val.value = (unsigned long) (&intvalue);
                 csharp_method(&val, sizeof(PropertyValue));
             }
             //return DatumGetCString(attr_val);
