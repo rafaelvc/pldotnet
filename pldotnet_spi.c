@@ -56,7 +56,9 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
     char *config_path;
     char *dotnetlib_path;
     int  rc;
-    PropertyValue val;
+    char * val_member_p = NULL;
+    char * val; // val needs to be allocated in the heap
+    val = palloc0(sizeof(PropertyValue));
 
     root_path = strdup(dnldir);
     if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
@@ -90,13 +92,18 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
         {
             elog(WARNING,"\n\n CHECK 6 \n\n");
             attr = TupleDescAttr(tuptable->tupdesc, i);
-            val.name = NameStr(attr->attname);
+            val_member_p = val + sizeof(char *); // offset to val->name
+            *(unsigned long *)val_member_p  = (unsigned long) NameStr(attr->attname);
             if(attr->atttypid == INT4OID)
             {
                // attr_val = GetAttributeByNum(tuptable, attr->attnum, &is_null);
                 attr_val = heap_getattr(tuptable->vals[i], 1, tuptable->tupdesc, &is_null);
-                val.value = DatumGetCString(attr_val);
-                csharp_method(&val, sizeof(PropertyValue));
+                int * intvalue = palloc0(sizeof(int));
+                *intvalue = DatumGetInt32(attr_val);
+                // val is pointing to first element of val (val->value)
+                // so offset is not necessary
+                *(unsigned long *)val = (unsigned long) intvalue;
+                csharp_method(val, sizeof(PropertyValue));
             }
             //return DatumGetCString(attr_val);
         }
