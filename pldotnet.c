@@ -33,9 +33,6 @@ PG_MODULE_MAGIC;
 PGDLLEXPORT Datum _PG_init(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum _PG_fini(PG_FUNCTION_ARGS);
 
-char *root_path = NULL;
-char *dnldir = STR(PLNET_ENGINE_DIR);
-
 #if PG_VERSION_NUM >= 90000
 #define CODEBLOCK \
   ((InlineCodeBlock *) DatumGetPointer(PG_GETARG_DATUM(0)))->source_text

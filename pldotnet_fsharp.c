@@ -364,13 +364,16 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
                                          load_assembly_and_get_function_pointer;
     component_entry_point_fn fsharp_method = nullptr;
 
-    char *filename;
     char *cmd;
-    char *config_path;
-    char *dotnetlib_path;
-    char fsharp_srccode_path[] = "/src/fsharp/Lib.fs";
-    const char fsharp_json_path[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
-    const char fsharp_dll_path[] = "/src/fsharp/DotNetLib.dll";
+
+    const char json_path_suffix[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
+    const char src_path_suffix[] = "/src/fsharp/Lib.fs";
+    const char dll_path_suffix[] = "/src/fsharp/DotNetLib.dll";
+
+    char fsharp_config_path[MAXPGPATH];
+    char fsharp_lib_path[MAXPGPATH];
+    char fsharp_srclib_path[MAXPGPATH];
+
     int compile_resp;
 
     if (SPI_connect() != SPI_OK_CONNECT)
@@ -416,18 +419,17 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 
         ReleaseSysCache(proc);
 
-        filename = palloc0(strlen(dnldir) + strlen(fsharp_srccode_path) + 1);
-        SNPRINTF(filename, strlen(dnldir) + strlen(fsharp_srccode_path) + 1
-                        , "%s%s", dnldir, fsharp_srccode_path);
-        output_file = fopen(filename, "w");
+        SNPRINTF(fsharp_srclib_path, MAXPGPATH, "%s%s", dnldir,
+                                                               src_path_suffix);
+        output_file = fopen(fsharp_srclib_path, "w");
         if (!output_file)
         {
-            fprintf(stderr, "Cannot open file: '%s'\n", filename);
+            fprintf(stderr, "Cannot open file: '%s'\n", fsharp_srclib_path);
             exit(-1);
         }
         if (fputs(source_code, output_file) == EOF)
         {
-            fprintf(stderr, "Cannot write to file: '%s'\n", filename);
+            fprintf(stderr, "Cannot write to file: '%s'\n", fsharp_srclib_path);
             exit(-1);
         }
         fclose(output_file);
@@ -451,11 +453,10 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         /*
          * STEP 2: Initialize and start the .NET Core runtime
          */
-        config_path = palloc0(strlen(root_path) + strlen(fsharp_json_path) + 1);
-        SNPRINTF(config_path, strlen(root_path) + strlen(fsharp_json_path) + 1
-                        , "%s%s", root_path, fsharp_json_path);
-
-        load_assembly_and_get_function_pointer =GetNetLoadAssembly(config_path);
+        SNPRINTF(fsharp_config_path, MAXPGPATH, "%s%s", root_path,
+                                                              json_path_suffix);
+        load_assembly_and_get_function_pointer =
+                                         GetNetLoadAssembly(fsharp_config_path);
         assert(load_assembly_and_get_function_pointer != nullptr && \
             "Failure: GetNetLoadAssembly()");
 
@@ -463,12 +464,11 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
          * STEP 3: Load managed assembly and 
          *         get function pointer to a managed method
          */
-        dotnetlib_path = palloc0(strlen(root_path) +strlen(fsharp_dll_path) +1);
-        SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(fsharp_dll_path) + 1
-                        , "%s%s", root_path, fsharp_dll_path);
+        SNPRINTF(fsharp_lib_path, MAXPGPATH, "%s%s", root_path,
+                                                               dll_path_suffix);
         /* Function pointer to managed delegate */
         rc = load_assembly_and_get_function_pointer(
-            dotnetlib_path,
+            fsharp_lib_path,
             dotnet_type,
             dotnet_type_method,
             nullptr /* delegate_type_name */,
