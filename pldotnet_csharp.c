@@ -1006,7 +1006,7 @@ PG_FUNCTION_INFO_V1(plcsharp_inline_handler);
 Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 {
     int source_code_size;
-	char* block_inline3;
+    char* block_inline3;
     char* source_code;
 
     if (SPI_connect() != SPI_OK_CONNECT)
