@@ -98,11 +98,11 @@ namespace DotNetLib
             var neededAssemblies = new[]
             {
                 "System.Runtime",
-                "System.ObjectModel",
-                "System.Linq.Expressions",
                 "System.Private.CoreLib",
                 "System.Console",
-                "Microsoft.CSharp",
+                "netstandard",             /* For Expando/dynamic */
+                "System.Linq.Expressions", /* For Expando/dynamic */
+                "Microsoft.CSharp",        /* For Expando/dynamic */
             };
 
             List<PortableExecutableReference> references = trustedAssembliesPaths

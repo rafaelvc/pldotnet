@@ -69,7 +69,6 @@ const char arg_flag_str[] = "bool[] argsnull;";
 static char cs_block_call1[] = "            \n\
 using System;                               \n\
 using System.Dynamic;                       \n\
-using Microsoft.CSharp;       \n\
 using System.Collections.Generic;           \n\
 using System.Runtime.InteropServices;       \n\
 namespace DotNetSrc                         \n\
