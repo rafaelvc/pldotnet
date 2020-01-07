@@ -68,13 +68,15 @@ const char arg_flag_str[] = "bool[] argsnull;";
 /* C# CODE TEMPLATE */
 static char cs_block_call1[] = "            \n\
 using System;                               \n\
+using System.Dynamic;                       \n\
+using System.Collections.Generic;           \n\
 using System.Runtime.InteropServices;       \n\
 namespace DotNetSrc                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
-        //static IDictionary<int, ExpandoObjoect> funcExpandDo;\n\
-        //static int funcOid;                 \n\
+        static IDictionary<string, object> funcExpandDo;\n\
+        //static int funcOid;               \n\
                                             \n\
         [StructLayout(LayoutKind.Sequential, Pack=1)]\n\
         public struct PropertyValue         \n\
@@ -118,7 +120,12 @@ static char cs_block_call6[] = "              \n\
         {                                     \n\
             PropertyValue property = Marshal.PtrToStructure<PropertyValue>(arg);\n\
             int resu = Marshal.ReadInt32(property.value);\n\
-            Console.WriteLine($\" \\n\\n CALLED ADDPROPERTY 2 {resu} \\n\\n \");\n\
+            // Goal here is to build a iterable obj with the column properties \n\
+            funcExpandDo = new ExpandoObject() as IDictionary<string, object>;\n\
+            funcExpandDo.Add(\"0\", new ExpandoObject());\n\
+            //funcExpandDo[\"0\"].Add(\"value\", resu);\n\
+            funcExpandDo[\"0\"].value = resu;\n\
+            //Console.WriteLine($\" \\n\\n CALLED ADDPROPERTY 2 {funcExpandDo[\"0\"].value} \\n\\n \");\n\
         }                                     \n\
     }                                         \n\
 }";
