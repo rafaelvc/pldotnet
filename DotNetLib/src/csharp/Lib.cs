@@ -101,6 +101,7 @@ namespace DotNetLib
                 "System.Linq.Expressions",
                 "System.Private.CoreLib",
                 "System.Console",
+                "Microsoft.CSharp",
             };
 
             List<PortableExecutableReference> references = trustedAssembliesPaths
