@@ -22,6 +22,7 @@
  */
 #include "pldotnet_csharp.h"
 #include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
+#include "pldotnet_composites.h"
 #include <math.h>
 #include <mb/pg_wchar.h> /* For UTF8 support */
 #include <utils/numeric.h>
@@ -34,7 +35,8 @@ PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 #if PG_VERSION_NUM >= 90000
 PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
-
+static int plcsharp_BuildBlockComposites(FunctionCallInfo fcinfo,
+                                                           Form_pg_proc procst);
 static char  *plcsharp_BuildBlock2(Form_pg_proc procst);
 static char  *plcsharp_BuildBlock4(Form_pg_proc procst);
 static char  *plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc);
@@ -62,6 +64,7 @@ bool hostfxr_loaded = false;
 
 const char public_bool[] = "\n[MarshalAs(UnmanagedType.U1)]public ";
 const char public_string_utf8[] = "\n[MarshalAs(UnmanagedType.LPUTF8Str)]public ";
+const char public_struct[] = "\n[MarshalAs(UnmanagedType.Struct)]public ";
 const char public_[] = "\npublic ";
 /* nullable related constants */
 const char resu_nullable_value[] = "libargs.resu = resu_nullable.GetValueOrDefault();\n";
@@ -78,7 +81,23 @@ using System.Runtime.InteropServices;       \n\
 namespace DotNetLib                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
-    {                                       \n\
+    {                                       \n";
+/********** cs_block_composites *********
+ *   [StructLayout(LayoutKind.Sequential,Pack=1)]
+ *   public struct CompositeName1;
+ *   {
+ *       public fielType1 fieldName1;
+ *       public fielType2 fieldName2;
+ *       ...
+ *       public fielTypeN fieldNameN;
+ *   }
+ *
+ *   [StructLayout(LayoutKind.Sequential,Pack=1)]
+ *   public struct CompositeNameN;
+ *    { ... }
+ *
+ */
+static char cs_block_call11[] = "\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs                \n\
         {";
@@ -141,6 +160,8 @@ pldotnet_PublicDeclSize(Oid type)
         case VARCHAROID:
         case TEXTOID:
             return strlen(public_string_utf8);
+        case TYPTYPE_COMPOSITE:
+            return strlen(public_struct);
         default:
             return strlen(public_);
     }
@@ -162,6 +183,25 @@ pldotnet_PublicDecl(Oid type)
             return (char *)&public_;
     }
     return  0;
+}
+
+
+char composite_declarations[1024];
+static int
+plcsharp_BuildBlockComposites(FunctionCallInfo fcinfo, Form_pg_proc procst)
+{
+    int cursize=0, i;
+    Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
+    for (i = 0;i < procst->pronargs; i++)
+    {
+        if (argtype[i] != TYPTYPE_COMPOSITE)
+            continue;
+        pldotnet_BuildCSharpStructFromTuple( composite_declarations + cursize,
+                                       sizeof(composite_declarations) - cursize,
+                                       fcinfo->arg[i], argtype[i], i);
+        cursize += strlen(composite_declarations);
+    }
+    return 0;
 }
 
 static char *
@@ -906,17 +946,21 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         /* STEP 3.1: Fills the C# template source code */
+        plcsharp_BuildBlockComposites(fcinfo, procst);
         cs_block_call2 = plcsharp_BuildBlock2( procst );
         cs_block_call4 = plcsharp_BuildBlock4( procst );
         cs_block_call5 = plcsharp_BuildBlock5( procst , proc );
 
-        source_code_size = strlen(cs_block_call1) + strlen(cs_block_call2)
+        source_code_size = strlen(cs_block_call1)
+            + strlen(composite_declarations) + strlen(cs_block_call11)
+            + strlen(cs_block_call2)
             + strlen(cs_block_call3) + strlen(cs_block_call4)
             + strlen(cs_block_call5) + strlen(cs_block_call6) + 1;
 
         source_code = palloc0(source_code_size);
-        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s"
-            , cs_block_call1, cs_block_call2, cs_block_call3
+        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s%s"
+            , cs_block_call1, composite_declarations, cs_block_call11
+            , cs_block_call2, cs_block_call3
             , cs_block_call4, cs_block_call5, cs_block_call6);
         rettype = procst->prorettype;
         ReleaseSysCache(proc);

@@ -5,7 +5,7 @@
  *   Builds a C# struct in the source from a composite like: 
  *
  *   [StructLayout(LayoutKind.Sequential,Pack=1)]
- *   public struct CompositeN;
+ *   public struct CompositeName1;
  *   {
  *       public fielType1 fieldName1;
  *       public fielType2 fieldName2;
@@ -15,14 +15,14 @@
 */
 
 int
-pldotnet_BuildCSharpStructFromTuple(char * src, int src_size, Datum dat, int nr, 
-                                                                        Oid oid)
+pldotnet_BuildCSharpStructFromTuple(char * src, int src_size,
+                                                  Datum dat, Oid oid, int nr)
 {
     const char composite_header[] = \
 "[StructLayout(LayoutKind.Sequential,Pack=1)]\n\
 public struct ";
-    const char composite_name[] = \
-              "Composite";
+//    const char composite_name[] = \
+//              "Composite";
     const char composite_start[] = \
 "{";
     const char composite_end[] = \
@@ -50,8 +50,8 @@ public struct ";
 
     tup = DatumGetHeapTupleHeader(dat);
 
-    SNPRINTF(src, src_size, "%s%s%d%s", composite_header, composite_name, nr,
-                                                               composite_start);
+    SNPRINTF(src, src_size, "%s%s%d%s", composite_header,
+                          NameStr( typeinfo->typname ), nr, composite_start);
     cursize = strlen(src);
     src_size -= cursize;
     src += cursize;
@@ -80,4 +80,18 @@ public struct ";
     return 0;
 }
 
+char * 
+pldotnet_GetCompositeName(Oid oid)
+{
+    char * nm;
+    HeapTuple type;
+    Form_pg_type typeinfo;
+    type = SearchSysCache(TYPEOID, ObjectIdGetDatum(oid), 0, 0, 0);
+    if (!HeapTupleIsValid(type))
+        elog(ERROR, "[pldotnet]: cache lookup failed for type %u", oid);
+    typeinfo = (Form_pg_type) GETSTRUCT(type);
+    nm = NameStr( typeinfo->typname );
+    ReleaseSysCache(type);
+    return nm;
+}
 

@@ -21,6 +21,7 @@
  *
  */
 #include "pldotnet_common.h"
+#include "pldotnet_composites.h"
 
 bool
 pldotnet_TypeSupported(Oid type)
@@ -29,7 +30,7 @@ pldotnet_TypeSupported(Oid type)
        || type == INT2OID   || type == FLOAT4OID
        || type == FLOAT8OID || type == VARCHAROID
        || type == BOOLOID   || type == TEXTOID
-       || type == BPCHAROID || type == NUMERICOID);
+       || type == BPCHAROID || type == NUMERICOID || TYPTYPE_COMPOSITE);
 }
 
 const char *
@@ -55,6 +56,8 @@ pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
         case TEXTOID:
         case VARCHAROID:
             return "string"; /* System.String */
+        case TYPTYPE_COMPOSITE:
+            return pldotnet_GetCompositeName(id);
     }
     return "";
 }
