@@ -96,10 +96,11 @@ namespace DotNetSrc                         \n\
              public IntPtr value;           \n\
              public string name;            \n\
              public int type;               \n\ 
+             public int nrow;               \n\
         }                                   \n\
                                             \n\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
-        public struct LibArgs                \n\
+        public struct LibArgs               \n\
         {";
 /*********** cs_block_call2 **********
  *          public argType1 argname1;
@@ -131,15 +132,24 @@ static char cs_block_call6[] = "              \n\
         public static void AddProperty(IntPtr arg, int funcoid)\n\
         {                                     \n\
             PropertyValue property = Marshal.PtrToStructure<PropertyValue>(arg);\n\
-            int resu = Marshal.ReadInt32(property.value);\n\
-            dynamic expaux = new ExpandoObject();\n\
-            expaux.value = 10;\n\
-            // Goal here is to build a iterable obj with the column properties \n\
-            //funcExpandDo = new ExpandoObject() as IDictionary<string, object>;\n\
-            //funcExpandDo.Add(\"0\", new ExpandoObject());\n\
-            //funcExpandDo[\"0\"].Add(\"value\", resu);\n\
-            //funcExpandDo[\"0\"].value = resu;\n\
-            //Console.WriteLine($\" \\n\\n CALLED ADDPROPERTY 2 {funcExpandDo[\"0\"].value} \\n\\n \");\n\
+            if(ProcedureClass.funcExpandDo.Count < property.nrow + 1)\n\
+            {                                 \n\
+                ProcedureClass.funcExpandDo.Add(new ExpandoObject());\n\
+            }                                 \n\
+            ProcedureClass.ReadValue(property, ProcedureClass.funcExpandDo[property.nrow]);\n\
+            Console.WriteLine(ProcedureClass.funcExpandDo[property.nrow].column);\n\
+        }                                     \n\
+        public static void ReadValue(PropertyValue prop, dynamic exp)\n\
+        {                                     \n\
+            switch(prop.type)                 \n\
+            {                                 \n\
+                case 16: //BOOLOID            \n\
+                case 20: //INT8OID            \n\
+                case 21: //INT2OID            \n\
+                case 23: //INT4OID            \n\
+                    ((IDictionary<String,Object>)exp).Add(prop.name,Marshal.ReadInt32(prop.value));\n\
+                    break;                    \n\
+            }                                 \n\
         }                                     \n\
     }                                         \n\
 }";
@@ -148,17 +158,17 @@ static char cs_block_call6[] = "              \n\
 static char block_inline1[] = "             \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-namespace DotNetLib                       \n\
+namespace DotNetLib                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {";
-static char block_inline2[] = "                    \n\
+static char block_inline2[] = "             \n\
         public static int ProcedureMethod(IntPtr arg, int argLength)\n\
         {";                                   
 /* block_inline3   Function body */
-static char block_inline4[] = "              \n\
-	    return 0; \n\
-	}                                   \n\
+static char block_inline4[] = "             \n\
+	    return 0;                           \n\
+	}                                       \n\
      }                                      \n\
 }";
 
