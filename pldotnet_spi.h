@@ -12,6 +12,7 @@ typedef struct PropertyValue
     char   *value;
     char   *name;
     int    type;
+    int    nrow;
 }PropertyValue;
 	
 #endif
