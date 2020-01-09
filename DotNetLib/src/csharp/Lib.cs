@@ -100,6 +100,7 @@ namespace DotNetLib
                 "System.Runtime",
                 "System.Private.CoreLib",
                 "System.Console",
+                "System.ObjectModel",
                 "netstandard",             /* For Expando/dynamic */
                 "System.Linq.Expressions", /* For Expando/dynamic */
                 "Microsoft.CSharp",        /* For Expando/dynamic */
