@@ -47,6 +47,7 @@
 #include <utils/rel.h>
 #include <utils/syscache.h>
 #include <utils/typcache.h>
+#include <mb/pg_wchar.h> /* For UTF8 support */
 
 #include <assert.h>
 #include "pldotnet_hostfxr.h"
@@ -100,7 +101,9 @@ typedef struct ArgsSource
 bool pldotnet_TypeSupported(Oid type);
 const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);
 int pldotnet_GetTypeSize(Oid id);
-
+char * pldotnet_PublicDecl(Oid type);
+int pldotnet_SetScalarValue(char * argp, Datum datum, FunctionCallInfo fcinfo, 
+                                              int narg, Oid type, bool * nullp);
 char *root_path;
 char *dnldir;
 

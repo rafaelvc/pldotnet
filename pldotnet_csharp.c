@@ -24,7 +24,6 @@
 #include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
 #include "pldotnet_composites.h"
 #include <math.h>
-#include <mb/pg_wchar.h> /* For UTF8 support */
 #include <utils/numeric.h>
 
 static pldotnet_CStructInfo dotnet_cstruct_info;
@@ -35,8 +34,8 @@ PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 #if PG_VERSION_NUM >= 90000
 PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
-static int plcsharp_BuildBlockComposites(FunctionCallInfo fcinfo,
-                                                           Form_pg_proc procst);
+static int plcsharp_BuildBlockComposites(char * composites_decl, 
+                                  FunctionCallInfo fcinfo, Form_pg_proc procst);
 static char  *plcsharp_BuildBlock2(Form_pg_proc procst);
 static char  *plcsharp_BuildBlock4(Form_pg_proc procst);
 static char  *plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc);
@@ -49,7 +48,6 @@ static Datum pldotnet_GetNetResult(char * libargs, Oid rettype,
                                                        FunctionCallInfo fcinfo);
 static int   GetSizeArgsNullArray(int nargs);
 static int   pldotnet_PublicDeclSize(Oid type);
-static char  *pldotnet_PublicDecl(Oid type);
 static const char * pldotnet_GetNullableTypeName(Oid id);
 
 load_assembly_and_get_function_pointer_fn
@@ -152,54 +150,109 @@ static char block_inline4[] = "              \n\
 static int
 pldotnet_PublicDeclSize(Oid type)
 {
+    Oid id;
+    Form_pg_type typeinfo;
+    HeapTuple typ;
+
     switch (type)
     {
+        case INT4OID:
+        case INT8OID:
+        case INT2OID:
+        case FLOAT4OID:
+        case FLOAT8OID:
+        case NUMERICOID:
+            return strlen(public_);
         case BOOLOID:
             return strlen(public_bool);
         case BPCHAROID:
         case VARCHAROID:
         case TEXTOID:
             return strlen(public_string_utf8);
-        case TYPTYPE_COMPOSITE:
-            return strlen(public_struct);
         default:
-            return strlen(public_);
+            typ = SearchSysCache(TYPEOID, 
+                                  ObjectIdGetDatum(type), 0, 0, 0);
+            if (!HeapTupleIsValid(typ)) 
+            {
+                elog(ERROR, "[pldotnet]: cache lookup failed for type %u", 
+                                                                         type);
+            }
+            typeinfo = (Form_pg_type) GETSTRUCT(typ);
+            id = typeinfo->typtype;
+            ReleaseSysCache(typ);
+            if (id == TYPTYPE_COMPOSITE)
+                return strlen(public_struct);
     }
     return  0;
 }
 
-static char *
+char *
 pldotnet_PublicDecl(Oid type)
 {
+    Oid id;
+    Form_pg_type typeinfo;
+    HeapTuple typ;
+
     switch (type)
     {
+        case INT4OID:
+        case INT8OID:
+        case INT2OID:
+        case FLOAT4OID:
+        case FLOAT8OID:
+        case NUMERICOID:
+            return (char *)&public_;
         case BOOLOID:
             return (char *)&public_bool;
         case BPCHAROID:
         case VARCHAROID:
         case TEXTOID:
             return (char *)&public_string_utf8;
+        case TYPTYPE_COMPOSITE:
         default:
-            return (char *)&public_;
+            typ = SearchSysCache(TYPEOID, 
+                                  ObjectIdGetDatum(type), 0, 0, 0);
+            if (!HeapTupleIsValid(typ)) 
+            {
+                elog(ERROR, "[pldotnet]: cache lookup failed for type %u", 
+                                                                         type);
+            }
+            typeinfo = (Form_pg_type) GETSTRUCT(typ);
+            id = typeinfo->typtype;
+            ReleaseSysCache(typ);
+            if (id == TYPTYPE_COMPOSITE)
+                return (char *)&public_struct;
     }
     return  0;
 }
 
 
-char composite_declarations[1024];
 static int
-plcsharp_BuildBlockComposites(FunctionCallInfo fcinfo, Form_pg_proc procst)
+plcsharp_BuildBlockComposites(char * composite_decls, FunctionCallInfo fcinfo, 
+                                                            Form_pg_proc procst)
 {
     int cursize=0, i;
-    Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
+    Oid *argtype = procst->proargtypes.values;
+    Form_pg_type typeinfo;
+    HeapTuple type;
+
     for (i = 0;i < procst->pronargs; i++)
     {
-        if (argtype[i] != TYPTYPE_COMPOSITE)
-            continue;
-        pldotnet_BuildCSharpStructFromTuple( composite_declarations + cursize,
-                                       sizeof(composite_declarations) - cursize,
-                                       fcinfo->arg[i], argtype[i], i);
-        cursize += strlen(composite_declarations);
+        /* TODO: review this */
+        type = SearchSysCache(TYPEOID, ObjectIdGetDatum(argtype[i]), 0, 0, 0);
+        if (!HeapTupleIsValid(type)) 
+        {
+            elog(ERROR, "[pldotnet]: cache lookup failed for type %u", 
+                                                                    argtype[i]);
+        }
+        typeinfo = (Form_pg_type) GETSTRUCT(type);
+        if (typeinfo->typtype == TYPTYPE_COMPOSITE)
+        {
+            pldotnet_BuildStructFromCompositeTuple( composite_decls + cursize,
+                               1024 - cursize, fcinfo->arg[i], argtype[i], i);
+            cursize += strlen(composite_decls);
+        }
+        ReleaseSysCache(type);
     }
     return 0;
 }
@@ -688,16 +741,12 @@ static char *
 pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
-    int cursize = 0;
     char *libargs_ptr = NULL;
     char *cur_arg = NULL;
     Oid *argtype = procst->proargtypes.values;
     Oid rettype = procst->prorettype;
-    Oid type;
-    int buff_len;
-    char * newargvl;
     /* nullable related */
-    bool nullable_arg_flag = false, fcinfo_null_flag;
+    bool nullable_arg_flag = false;
     bool *argsnull_ptr;
     Datum argdatum;
 
@@ -724,76 +773,20 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 
     argsnull_ptr = (bool *) libargs_ptr;
     cur_arg = libargs_ptr + dotnet_cstruct_info.typesize_nullflags;
-
     for (i = 0; i < fcinfo->nargs; i++)
     {
-        type = argtype[i];
 #if PG_VERSION_NUM >= 120000
-        fcinfo_null_flag=fcinfo->args[i].isnull;
         argdatum = fcinfo->args[i].value;
 #else
-        fcinfo_null_flag=fcinfo->argnull[i];
         argdatum = fcinfo->arg[i];
 #endif
-        switch (type)
-        {
-            case BOOLOID:
-                *(bool *)cur_arg = DatumGetBool(argdatum);
-                argsnull_ptr[i] = fcinfo_null_flag;
-                break;
-            case INT4OID:
-                *(int *)cur_arg = DatumGetInt32(argdatum);
-                argsnull_ptr[i] = fcinfo_null_flag;
-                break;
-            case INT8OID:
-                *(long *)cur_arg = DatumGetInt64(argdatum);
-                argsnull_ptr[i] = fcinfo_null_flag;
-                break;
-            case INT2OID:
-                *(short *)cur_arg = DatumGetInt16(argdatum);
-                argsnull_ptr[i] = fcinfo_null_flag;
-                break;
-            case FLOAT4OID:
-                *(float *)cur_arg = DatumGetFloat4(argdatum);
-                break;
-            case FLOAT8OID:
-                *(double *)cur_arg = DatumGetFloat8(argdatum);
-                break;
-            case NUMERICOID:
-                /* C String encoding */
-                *(unsigned long *)cur_arg = (unsigned long)
-                    DatumGetCString(DirectFunctionCall1(numeric_out, argdatum));
-                break;
-            case BPCHAROID:
-                /* C String encoding
-                 * *(unsigned long *)cur_arg =
-                 *    DirectFunctionCall1(bpcharout, DatumGetCString(argdatum));
-                 * break;
-                 */
-            case TEXTOID:
-                /* C String encoding
-                 * *(unsigned long *)cur_arg =
-                 *    DirectFunctionCall1(textout, DatumGetCString(argdatum));
-                 * break;
-                 */ 
-            case VARCHAROID:
-                /* C String encoding
-                 * *(unsigned long *)cur_arg =
-                 *    DirectFunctionCall1(varcharout, DatumGetCString(argdatum));
-                 */
-               /* UTF8 encoding */
-               buff_len = VARSIZE( argdatum ) - VARHDRSZ;
-               newargvl = (char *)palloc0(buff_len + 1);
-               memcpy(newargvl, VARDATA( argdatum ), buff_len);
-               *(unsigned long *)cur_arg = (unsigned long)
-                    pg_do_encoding_conversion((unsigned char*)newargvl,
-                                              buff_len+1,
-                                              GetDatabaseEncoding(), PG_UTF8);
-                break;
-
-        }
-        cursize += pldotnet_GetTypeSize(argtype[i]);
-        cur_arg = libargs_ptr + dotnet_cstruct_info.typesize_nullflags + cursize;
+        if (argtype[i] == TYPTYPE_COMPOSITE)
+            pldotnet_FillCompositeValues(cur_arg, argdatum, argtype[i], 
+                                                               fcinfo, procst);
+        else
+            pldotnet_SetScalarValue(cur_arg, argdatum, fcinfo, i, argtype[i], 
+                                                             argsnull_ptr + i);
+        cur_arg += pldotnet_GetTypeSize(argtype[i]);
     }
 
     return libargs_ptr;
@@ -900,6 +893,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     Form_pg_proc procst;
     Datum retval = 0;
     Oid rettype;
+    char composite_decls[1024];
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -946,24 +940,29 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         /* STEP 3.1: Fills the C# template source code */
-        plcsharp_BuildBlockComposites(fcinfo, procst);
+        plcsharp_BuildBlockComposites(composite_decls, fcinfo, procst);
+
+        elog(WARNING, "%s", composite_decls);
+
         cs_block_call2 = plcsharp_BuildBlock2( procst );
         cs_block_call4 = plcsharp_BuildBlock4( procst );
         cs_block_call5 = plcsharp_BuildBlock5( procst , proc );
 
         source_code_size = strlen(cs_block_call1)
-            + strlen(composite_declarations) + strlen(cs_block_call11)
+            + strlen(composite_decls) + strlen(cs_block_call11)
             + strlen(cs_block_call2)
             + strlen(cs_block_call3) + strlen(cs_block_call4)
             + strlen(cs_block_call5) + strlen(cs_block_call6) + 1;
 
         source_code = palloc0(source_code_size);
         SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s%s"
-            , cs_block_call1, composite_declarations, cs_block_call11
+            , cs_block_call1, composite_decls, cs_block_call11
             , cs_block_call2, cs_block_call3
             , cs_block_call4, cs_block_call5, cs_block_call6);
         rettype = procst->prorettype;
         ReleaseSysCache(proc);
+
+        elog(WARNING, "%s", source_code);
 
         /* STEP 4: Build the LibArgs which holds all
          * function input values accoring to .NET interop possibilites.

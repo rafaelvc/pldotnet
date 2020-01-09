@@ -31,6 +31,7 @@ int plcsharp_CompileFunctionNetBuild(char * source_code);
 Datum plcsharp_RunFunction(char * libArgs, FunctionCallInfo fcinfo);
 int plcsharp_Run(char * dotnet_type, char * dotnet_type_method, char * libargs,
                                                                  int args_size);
+char * pldotnet_PublicDecl(Oid type);
 
 #endif  /* PLFCHARP_H */
 

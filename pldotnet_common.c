@@ -36,6 +36,10 @@ pldotnet_TypeSupported(Oid type)
 const char *
 pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
 {
+    Form_pg_type typeinfo;
+    HeapTuple typ;
+    char * composite_nm;
+
     switch (id)
     {
         case BOOLOID:
@@ -56,8 +60,22 @@ pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
         case TEXTOID:
         case VARCHAROID:
             return "string"; /* System.String */
-        case TYPTYPE_COMPOSITE:
-            return pldotnet_GetCompositeName(id);
+        default:
+            typ = SearchSysCache(TYPEOID, 
+                                  ObjectIdGetDatum(id), 0, 0, 0);
+            if (!HeapTupleIsValid(typ)) 
+            {
+                elog(ERROR, "[pldotnet]: cache lookup failed for type %u", 
+                                                                         id);
+            }
+            typeinfo = (Form_pg_type) GETSTRUCT(typ);
+            if (typeinfo->typtype == TYPTYPE_COMPOSITE)
+            {
+                composite_nm = NameStr(typeinfo->typname);
+                ReleaseSysCache(typ);
+                return composite_nm;
+            }
+            ReleaseSysCache(typ);
     }
     return "";
 }
@@ -85,7 +103,82 @@ pldotnet_GetTypeSize(Oid id)
         case TEXTOID:
         case VARCHAROID:
             return sizeof(char *);
+        case TYPTYPE_COMPOSITE:
+            return pldotnet_GetCompositeTypeSize(id);
     }
     return -1;
 }
+
+int pldotnet_SetScalarValue(char * argp, Datum datum,
+                      FunctionCallInfo fcinfo, int narg, Oid type, bool * nullp)
+{
+    char * newstr;
+    int len;
+    bool isnull = false;
+    //bool isarr = pldotnet_IsArray(narg);
+    bool isarr = false;
+
+#if PG_VERSION_NUM >= 120000
+    if (nullp)
+        isnull=datum.isnull;
+#else
+    if (nullp)
+        isnull=fcinfo->argnull[narg];
+#endif
+
+    switch (type)
+    {
+        case BOOLOID:
+            *(bool *)(argp) = DatumGetBool(isarr ? *(Datum *)datum: datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT4OID:
+            *(int *)(argp) = DatumGetInt32(isarr ? *(Datum *)datum: datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT8OID:
+            *(long *)(argp) = DatumGetInt64(isarr ? *(Datum *)datum: datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT2OID:
+            *(short *)(argp) = DatumGetInt16(isarr ? *(Datum *)datum: datum);
+            if (argp)
+                *nullp = isnull;
+            break;
+        case FLOAT4OID:
+            *(float *)(argp) = DatumGetFloat4(isarr ? *(Datum *)datum: datum);
+            break;
+        case FLOAT8OID:
+            *(double *)(argp) = DatumGetFloat8(isarr ? *(Datum *)datum: datum);
+            break;
+        case NUMERICOID:
+            /* C String encoding (numeric_out) is used here as it
+             is a number. Unlikely to have encoding issues. */
+            *(unsigned long *)(argp) = (unsigned long)
+                DatumGetCString(DirectFunctionCall1(numeric_out, datum));
+            break;
+        case BPCHAROID:
+        case TEXTOID:
+        case VARCHAROID:
+
+           /* UTF8 encoding */
+           len = VARSIZE( datum ) - VARHDRSZ;
+           newstr = (char *)palloc0(len+1);
+           memcpy(newstr, VARDATA( datum ), len);
+           *(unsigned long *)(argp) = (unsigned long)
+                    pg_do_encoding_conversion((unsigned char *)newstr,
+                                              len+1,
+                                              GetDatabaseEncoding(), PG_UTF8);
+            /*  If you need C String encoding do like this:
+                *(unsigned long *)argp =
+                DirectFunctionCall1(cstrfunc, DatumGetCString(datum));
+                where cstrfunc is bpcharout, textout or varcharout */
+            break;
+    }
+    return 0;
+}
+
 
