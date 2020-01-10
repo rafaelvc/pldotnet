@@ -1,5 +1,3 @@
-#include  "pldotnet_csharp.h"
-#include  "pldotnet_common.h"
 #include  "pldotnet_composites.h"
 
 /*
@@ -16,8 +14,8 @@
 */
 
 int
-pldotnet_BuildStructFromCompositeTuple(char * src, int src_size,
-                                                  Datum dat, Oid oid, int nr)
+pldotnet_GetStructFromCompositeTuple(char * src, int src_size, Datum dat,
+                                       Form_pg_type typeinfo, TupleDesc tupdesc)
 {
     const char composite_header[] = \
 "[StructLayout(LayoutKind.Sequential,Pack=1)]\n\
@@ -25,31 +23,20 @@ public struct ";
     const char composite_start[] = \
 "\n{";
     const char composite_end[] = \
-"\n}\n"; 
+"\n}";
     const char semicon[] = ";";
     int cursize = 0;
 
-    Form_pg_type typeinfo;
-    HeapTuple type;
-    TupleDesc tupdesc;
     HeapTupleHeader tup;
 
     const char *key;
     bool isnull;
     Oid type_attr;
 
-    type = SearchSysCache(TYPEOID, ObjectIdGetDatum(oid), 0, 0, 0);
-    if (!HeapTupleIsValid(type))
-      elog(ERROR, "[pldotnet]: cache lookup failed for type %u", oid);
-
-    typeinfo = (Form_pg_type) GETSTRUCT(type);
-    tupdesc = lookup_rowtype_tupdesc(oid, typeinfo->typtypmod);
-
     tup = DatumGetHeapTupleHeader(dat);
 
     SNPRINTF(src, src_size, "%s%s%s", composite_header,
                           NameStr( typeinfo->typname ), composite_start);
-    elog(WARNING, "%s", src);
     cursize = strlen(src);
     src_size -= cursize;
     src += cursize;
@@ -71,8 +58,6 @@ public struct ";
         }
     }
     SNPRINTF(src, src_size, "%s", composite_end);
-
-    ReleaseSysCache(type);   
 
     return 0;
 }
@@ -104,12 +89,18 @@ pldotnet_GetCompositeTypeSize(Oid oid)
     if (!HeapTupleIsValid(type))
       elog(ERROR, "[pldotnet]: cache lookup failed for type %u", oid);
     typeinfo = (Form_pg_type) GETSTRUCT(type);
+    if (typeinfo->typtype != TYPTYPE_COMPOSITE)
+    {
+        ReleaseSysCache(type);
+        return -1;
+    }
     tupdesc = lookup_rowtype_tupdesc(oid, typeinfo->typtypmod);
     for (int i = 0; i < tupdesc->natts; i++)
     {
         type_attr = TupleDescAttr(tupdesc, i)->atttypid;
         typtotal_size += pldotnet_GetTypeSize(type_attr);
     }
+    ReleaseTupleDesc(tupdesc);
     ReleaseSysCache(type);
     return typtotal_size;
 }
@@ -133,6 +124,12 @@ pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid,
       elog(ERROR, "[pldotnet]: cache lookup failed for type %u", oid);
 
     typeinfo = (Form_pg_type) GETSTRUCT(type);
+    if (typeinfo->typtype != TYPTYPE_COMPOSITE)
+    {
+        ReleaseSysCache(type);
+        return -1;
+    }
+
     tupdesc = lookup_rowtype_tupdesc(oid, typeinfo->typtypmod);
     tup = DatumGetHeapTupleHeader(dat);
 
@@ -144,6 +141,7 @@ pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid,
         pldotnet_SetScalarValue(cur_arg, value, fcinfo, i, type_attr, &isnull);
         cur_arg += pldotnet_GetTypeSize(type_attr);
     }
+    ReleaseTupleDesc(tupdesc);
     ReleaseSysCache(type);
     return 0;
 }

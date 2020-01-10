@@ -21,7 +21,6 @@
  *
  */
 #include "pldotnet_csharp.h"
-#include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
 #include "pldotnet_composites.h"
 #include <math.h>
 #include <utils/numeric.h>
@@ -183,7 +182,7 @@ pldotnet_PublicDeclSize(Oid type)
             if (id == TYPTYPE_COMPOSITE)
                 return strlen(public_struct);
     }
-    return  0;
+    return 0;
 }
 
 char *
@@ -208,7 +207,6 @@ pldotnet_PublicDecl(Oid type)
         case VARCHAROID:
         case TEXTOID:
             return (char *)&public_string_utf8;
-        case TYPTYPE_COMPOSITE:
         default:
             typ = SearchSysCache(TYPEOID, 
                                   ObjectIdGetDatum(type), 0, 0, 0);
@@ -235,10 +233,14 @@ plcsharp_BuildBlockComposites(char * composite_decls, FunctionCallInfo fcinfo,
     Oid *argtype = procst->proargtypes.values;
     Form_pg_type typeinfo;
     HeapTuple type;
+    TupleDesc tupdesc;
 
     for (i = 0;i < procst->pronargs; i++)
     {
         /* TODO: review this */
+        if (pldotnet_IsSimpleType(argtype[i]))
+            continue;
+
         type = SearchSysCache(TYPEOID, ObjectIdGetDatum(argtype[i]), 0, 0, 0);
         if (!HeapTupleIsValid(type)) 
         {
@@ -248,8 +250,11 @@ plcsharp_BuildBlockComposites(char * composite_decls, FunctionCallInfo fcinfo,
         typeinfo = (Form_pg_type) GETSTRUCT(type);
         if (typeinfo->typtype == TYPTYPE_COMPOSITE)
         {
-            pldotnet_BuildStructFromCompositeTuple( composite_decls + cursize,
-                               1024 - cursize, fcinfo->arg[i], argtype[i], i);
+            tupdesc = lookup_rowtype_tupdesc(argtype[i], typeinfo->typtypmod);
+            pldotnet_GetStructFromCompositeTuple( composite_decls + cursize,
+                           1024 - cursize, fcinfo->arg[i], typeinfo, tupdesc);
+
+            ReleaseTupleDesc(tupdesc);
             cursize += strlen(composite_decls);
         }
         ReleaseSysCache(type);
@@ -780,7 +785,7 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 #else
         argdatum = fcinfo->arg[i];
 #endif
-        if (argtype[i] == TYPTYPE_COMPOSITE)
+        if (!pldotnet_IsSimpleType(argtype[i]))
             pldotnet_FillCompositeValues(cur_arg, argdatum, argtype[i], 
                                                                fcinfo, procst);
         else
@@ -942,8 +947,6 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         /* STEP 3.1: Fills the C# template source code */
         plcsharp_BuildBlockComposites(composite_decls, fcinfo, procst);
 
-        elog(WARNING, "%s", composite_decls);
-
         cs_block_call2 = plcsharp_BuildBlock2( procst );
         cs_block_call4 = plcsharp_BuildBlock4( procst );
         cs_block_call5 = plcsharp_BuildBlock5( procst , proc );
@@ -962,7 +965,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         rettype = procst->prorettype;
         ReleaseSysCache(proc);
 
-        elog(WARNING, "%s", source_code);
+        //elog(WARNING, "%s", source_code);
 
         /* STEP 4: Build the LibArgs which holds all
          * function input values accoring to .NET interop possibilites.

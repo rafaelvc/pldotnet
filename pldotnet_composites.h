@@ -22,11 +22,12 @@
  */
 #ifndef PLDOTNETCOMPOSITES_H
 #define PLDOTNETCOMPOSITES_H
+#include  "pldotnet_common.h"
 
 char * pldotnet_GetCompositeName(Oid oid);
-int pldotnet_BuildStructFromCompositeTuple(char * src, int src_size, 
-                                                  Datum dat, Oid oid, int nr);
 int pldotnet_GetCompositeTypeSize(Oid oid);
+int pldotnet_GetStructFromCompositeTuple(char * src, int src_size, Datum dat,
+                                     Form_pg_type typeinfo, TupleDesc tupdesc);
 int pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid, 
                                  FunctionCallInfo fcinfo, Form_pg_proc procst);
 #endif

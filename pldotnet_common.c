@@ -26,11 +26,17 @@
 bool
 pldotnet_TypeSupported(Oid type)
 {
+    return (pldotnet_IsSimpleType(type) || TYPTYPE_COMPOSITE);
+}
+
+bool
+pldotnet_IsSimpleType(Oid type)
+{
     return (type == INT4OID || type == INT8OID
        || type == INT2OID   || type == FLOAT4OID
        || type == FLOAT8OID || type == VARCHAROID
        || type == BOOLOID   || type == TEXTOID
-       || type == BPCHAROID || type == NUMERICOID || TYPTYPE_COMPOSITE);
+       || type == BPCHAROID || type == NUMERICOID);
 }
 
 const char *
@@ -103,7 +109,7 @@ pldotnet_GetTypeSize(Oid id)
         case TEXTOID:
         case VARCHAROID:
             return sizeof(char *);
-        case TYPTYPE_COMPOSITE:
+        default:
             return pldotnet_GetCompositeTypeSize(id);
     }
     return -1;
