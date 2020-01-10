@@ -53,6 +53,11 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
     char *root_path;
     char *config_path;
     char *dotnetlib_path;
+    /* Auxiliary vars for obtaning the correct pointer
+     * TODO: Remove it for a generic one, maybe union?
+     */
+    bool bool_aux;
+    float float_aux;
     int  rc;
     PropertyValue val;
     int num_row;
@@ -86,18 +91,36 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
                 attr = TupleDescAttr(tuptable->tupdesc, i);
                 val.name = NameStr(attr->attname);
                 val.type = attr->atttypid;
+                val.nrow = num_row;
 
-                if(strcmp(val.name,"?column?") == 0)
+                /* Edge case for special character
+                 * in column name from SELECT X command */
+                if(strcmp(val.name,"?column?") == 0 ||
+                   strcmp(val.name,"bool") == 0
+                )
                     val.name = "column";
 
-                val.nrow = num_row;
                 attr_val = heap_getattr(
                                tuptable->vals[num_row],
                                attr->attnum,
                                tuptable->tupdesc,
                                &is_null);
 
-                val.value = &attr_val;
+                switch (val.type)
+                {
+                    /* TODO: Review pointer manipulation */
+                    case INT4OID:
+                        val.value = &attr_val;
+                        break;
+                    case BOOLOID:
+                        bool_aux = DatumGetBool(attr_val);
+                        val.value = &bool_aux;
+                        break;
+                    case FLOAT4OID:
+                    case FLOAT8OID:
+                        float_aux = DatumGetFloat4(attr_val);
+                        val.value = &float_aux;
+                }
                 csharp_method(&val, sizeof(PropertyValue));
             }
         }
