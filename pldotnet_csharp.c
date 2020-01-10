@@ -137,7 +137,7 @@ static char cs_block_call6[] = "              \n\
                 ProcedureClass.funcExpandDo.Add(new ExpandoObject());\n\
             }                                 \n\
             ProcedureClass.ReadValue(property, ProcedureClass.funcExpandDo[property.nrow]);\n\
-            Console.WriteLine(ProcedureClass.funcExpandDo[property.nrow].float4);\n\
+            Console.WriteLine(ProcedureClass.funcExpandDo[property.nrow].column);\n\
         }                                     \n\
         public static void ReadValue(PropertyValue prop, dynamic exp)\n\
         {                                     \n\
@@ -156,6 +156,9 @@ static char cs_block_call6[] = "              \n\
                     float[] aux = new float[1];\n\
                     Marshal.Copy(prop.value,aux,0,1);\n\
                     ((IDictionary<String,Object>)exp).Add(prop.name, aux[0]);\n\
+                    break;                    \n\
+                case 1700: //NUMERICOID       \n\
+                    ((IDictionary<String,Object>)exp).Add(prop.name, Convert.ToDecimal(Marshal.PtrToStringAnsi(prop.value)));\n\
                     break;                    \n\
             }                                 \n\
         }                                     \n\
