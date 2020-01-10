@@ -120,6 +120,8 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
                     case FLOAT8OID:
                         float_aux = DatumGetFloat4(attr_val);
                         val.value = &float_aux;
+                    case NUMERICOID:
+                        val.value = (unsigned long) DatumGetCString(DirectFunctionCall1(numeric_out, attr_val));
                 }
                 csharp_method(&val, sizeof(PropertyValue));
             }
