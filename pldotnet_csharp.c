@@ -132,11 +132,15 @@ static char cs_block_call6[] = "              \n\
             switch(prop.type)                 \n\
             {                                 \n\
                 case 16: //BOOLOID            \n\
+                    ((IDictionary<String,Object>)exp).Add(prop.name, Convert.ToBoolean(Marshal.ReadInt32(prop.value)));\n\
+                    break;                    \n\
                 case 20: //INT8OID            \n\
                 case 21: //INT2OID            \n\
                 case 23: //INT4OID            \n\
                     ((IDictionary<String,Object>)exp).Add(prop.name,Marshal.ReadInt32(prop.value));\n\
                     break;                    \n\
+                case 700: //FLOAT4OID            \n\
+                case 701: //FLOAT8OID            \n\
             }                                 \n\
         }                                     \n\
     }                                         \n\
