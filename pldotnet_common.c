@@ -171,13 +171,14 @@ int pldotnet_SetScalarValue(char * argp, Datum datum,
         case VARCHAROID:
 
            /* UTF8 encoding */
-           len = VARSIZE( datum ) - VARHDRSZ;
+           len = VARSIZE( DatumGetTextP (datum) ) - VARHDRSZ;
            newstr = (char *)palloc0(len+1);
-           memcpy(newstr, VARDATA( datum ), len);
+           memcpy(newstr, VARDATA( DatumGetTextP(datum) ), len);
            *(unsigned long *)(argp) = (unsigned long)
                     pg_do_encoding_conversion((unsigned char *)newstr,
                                               len+1,
                                               GetDatabaseEncoding(), PG_UTF8);
+
             /*  If you need C String encoding do like this:
                 *(unsigned long *)argp =
                 DirectFunctionCall1(cstrfunc, DatumGetCString(datum));

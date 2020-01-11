@@ -1,18 +1,22 @@
 
---CREATE TYPE NameAgeC AS (
---    name            integer,
---    age             integer
---);
+CREATE TYPE PersonG AS (
+    name            text,
+    idade           integer,
+    peso            double precision,
+    altura          real,
+    salario         double precision,
+    casado          boolean
+);
 
-CREATE OR REPLACE FUNCTION hellonew3(a NameAgeC) RETURNS integer AS $$
+CREATE OR REPLACE FUNCTION hellonew7(a PersonG) RETURNS integer AS $$
 int n = 1;
 FormattableString res;
-a.age += n;
-res = $"Hello M(r)(s). {a.name}! Your age plus {n} is equal to {a.age}.";
+a.idade += n;
+res = $"Hello M(r)(s). {a.name}! Your age {a.idade}, {a.peso}, {a.altura}, {a.salario}. {a.casado}";
 Console.WriteLine(res.ToString());
-return 1;
+return a.idade;
 $$ LANGUAGE plcsharp;
-SELECT hellonew3((38, 38));
+SELECT hellonew7(('Rafael da Veiga Cabral', 38, 85.5, 1.71, 10.5555, true));
 
 --CREATE OR REPLACE FUNCTION hello_aaa(a NameAge) RETURNS text AS $$
 --BEGIN

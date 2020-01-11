@@ -1,4 +1,5 @@
-#include  "pldotnet_composites.h"
+#include "pldotnet_composites.h"
+#include "pldotnet_csharp.h"
 
 /*
  *   Builds a C# struct in the source from a composite like: 
@@ -136,7 +137,7 @@ pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid,
     for (int i = 0; i < tupdesc->natts; i++) 
     {
         type_attr = TupleDescAttr(tupdesc, i)->atttypid;
-        value  = GetAttributeByNum(tup, TupleDescAttr(tupdesc, i)->attnum, 
+        value = GetAttributeByNum(tup, TupleDescAttr(tupdesc, i)->attnum,
                                                                        &isnull);
         pldotnet_SetScalarValue(cur_arg, value, fcinfo, i, type_attr, &isnull);
         cur_arg += pldotnet_GetTypeSize(type_attr);

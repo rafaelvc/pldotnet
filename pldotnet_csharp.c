@@ -899,6 +899,7 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     Datum retval = 0;
     Oid rettype;
     char composite_decls[1024];
+    composite_decls[0] = 0;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -964,8 +965,6 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
             , cs_block_call4, cs_block_call5, cs_block_call6);
         rettype = procst->prorettype;
         ReleaseSysCache(proc);
-
-        //elog(WARNING, "%s", source_code);
 
         /* STEP 4: Build the LibArgs which holds all
          * function input values accoring to .NET interop possibilites.
