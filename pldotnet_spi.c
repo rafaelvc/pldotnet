@@ -22,6 +22,7 @@
  */
 
 #include "pldotnet_spi.h"
+#include <mb/pg_wchar.h> /* For UTF8 support */
 #include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
 
 extern load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
@@ -58,6 +59,9 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
      */
     bool bool_aux;
     float float_aux;
+    int buff_len;
+    char *newargvl;
+    /**/
     int  rc;
     PropertyValue val;
     int num_row;
@@ -123,6 +127,15 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
                         break;
                     case NUMERICOID:
                         val.value = (unsigned long) DatumGetCString(DirectFunctionCall1(numeric_out, attr_val));
+                        break;
+                    case VARCHAROID:
+                        buff_len = VARSIZE(attr_val) - VARHDRSZ;
+                        newargvl = (char *)palloc0(buff_len + 1);
+                        memcpy(newargvl, VARDATA(attr_val), buff_len);
+                        val.value = (unsigned long)
+                             pg_do_encoding_conversion((unsigned char*)newargvl,
+                                                       buff_len+1,
+                                                       GetDatabaseEncoding(), PG_UTF8);
                         break;
                 }
                 csharp_method(&val, sizeof(PropertyValue));

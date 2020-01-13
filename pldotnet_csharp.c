@@ -117,38 +117,48 @@ static char cs_block_call6[] = "              \n\
             Marshal.StructureToPtr<LibArgs>(libargs, arg, false);\n\
             return 0;                         \n\
         }                                     \n\
+        public static T ReadValue<T>(IntPtr handle)\n\
+        {                                     \n\
+            if (typeof(T) == typeof(decimal)) \n\
+            {                                 \n\
+                return (decimal) Convert.ToDecimal(Marshal.PtrToStringAnsi(handle));\n\
+            }                                 \n\
+            return Marshal.PtrToStructure<T>(handle);\n\
+        }                                     \n\
         public static void AddProperty(IntPtr arg, int funcoid)\n\
         {                                     \n\
-            PropertyValue property = Marshal.PtrToStructure<PropertyValue>(arg);\n\
-            if(ProcedureClass.funcExpandDo.Count < property.nrow + 1)\n\
+            PropertyValue prop = Marshal.PtrToStructure<PropertyValue>(arg);\n\
+            if(ProcedureClass.funcExpandDo.Count < prop.nrow + 1)\n\
             {                                 \n\
                 ProcedureClass.funcExpandDo.Add(new ExpandoObject());\n\
             }                                 \n\
-            ProcedureClass.ReadValue(property, ProcedureClass.funcExpandDo[property.nrow]);\n\
-            Console.WriteLine(ProcedureClass.funcExpandDo[property.nrow].column);\n\
-        }                                     \n\
-        public static void ReadValue(PropertyValue prop, dynamic exp)\n\
-        {                                     \n\
             switch(prop.type)                 \n\
             {                                 \n\
                 case 16: //BOOLOID            \n\
-                    ((IDictionary<String,Object>)exp).Add(prop.name, Convert.ToBoolean(Marshal.ReadInt32(prop.value)));\n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<bool>(prop.value) );\n\
                     break;                    \n\
                 case 20: //INT8OID            \n\
                 case 21: //INT2OID            \n\
                 case 23: //INT4OID            \n\
-                    ((IDictionary<String,Object>)exp).Add(prop.name,Marshal.ReadInt32(prop.value));\n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<int>(prop.value) );\n\
                     break;                    \n\
                 case 700: //FLOAT4OID         \n\
                 case 701: //FLOAT8OID         \n\
-                    float[] aux = new float[1];\n\
-                    Marshal.Copy(prop.value,aux,0,1);\n\
-                    ((IDictionary<String,Object>)exp).Add(prop.name, aux[0]);\n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<float>(prop.value));\n\
                     break;                    \n\
                 case 1700: //NUMERICOID       \n\
-                    ((IDictionary<String,Object>)exp).Add(prop.name, Convert.ToDecimal(Marshal.PtrToStringAnsi(prop.value)));\n\
+                    //((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                    //    .Add(prop.name, ProcedureClass.ReadValue<decimal>(prop.value) );\n\
+                    break;                    \n\
+                case 1043: //VARCHAROID       \n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<string>(prop.value) );\n\
                     break;                    \n\
             }                                 \n\
+            Console.WriteLine(ProcedureClass.funcExpandDo[prop.nrow].float4);\n\
         }                                     \n\
     }                                         \n\
 }";
