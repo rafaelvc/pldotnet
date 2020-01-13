@@ -119,9 +119,13 @@ static char cs_block_call6[] = "              \n\
         }                                     \n\
         public static T ReadValue<T>(IntPtr handle)\n\
         {                                     \n\
+            if (typeof(T) == typeof(string)) \n\
+            {                                 \n\
+                return (T)(object)Marshal.PtrToStringUTF8(handle);\n\
+            }                                 \n\
             if (typeof(T) == typeof(decimal)) \n\
             {                                 \n\
-                return (decimal) Convert.ToDecimal(Marshal.PtrToStringAnsi(handle));\n\
+                return (T)(object)Convert.ToDecimal(Marshal.PtrToStringAnsi(handle));\n\
             }                                 \n\
             return Marshal.PtrToStructure<T>(handle);\n\
         }                                     \n\
@@ -132,6 +136,7 @@ static char cs_block_call6[] = "              \n\
             {                                 \n\
                 ProcedureClass.funcExpandDo.Add(new ExpandoObject());\n\
             }                                 \n\
+            Console.WriteLine(prop.type);     \n\
             switch(prop.type)                 \n\
             {                                 \n\
                 case 16: //BOOLOID            \n\
@@ -139,26 +144,36 @@ static char cs_block_call6[] = "              \n\
                         .Add(prop.name, ProcedureClass.ReadValue<bool>(prop.value) );\n\
                     break;                    \n\
                 case 20: //INT8OID            \n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<long>(prop.value) );\n\
+                    break;                    \n\
                 case 21: //INT2OID            \n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<short>(prop.value) );\n\
+                    break;                    \n\
                 case 23: //INT4OID            \n\
                     ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
                         .Add(prop.name, ProcedureClass.ReadValue<int>(prop.value) );\n\
                     break;                    \n\
                 case 700: //FLOAT4OID         \n\
-                case 701: //FLOAT8OID         \n\
                     ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
                         .Add(prop.name, ProcedureClass.ReadValue<float>(prop.value));\n\
+                            break;            \n\
+                case 701: //FLOAT8OID         \n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<double>(prop.value));\n\
                     break;                    \n\
                 case 1700: //NUMERICOID       \n\
-                    //((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                    //    .Add(prop.name, ProcedureClass.ReadValue<decimal>(prop.value) );\n\
+                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
+                        .Add(prop.name, ProcedureClass.ReadValue<decimal>(prop.value) );\n\
                     break;                    \n\
                 case 1043: //VARCHAROID       \n\
                     ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
                         .Add(prop.name, ProcedureClass.ReadValue<string>(prop.value) );\n\
                     break;                    \n\
             }                                 \n\
-            Console.WriteLine(ProcedureClass.funcExpandDo[prop.nrow].float4);\n\
+            Console.WriteLine(((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])[prop.name].GetType());\n\
+            Console.Write(((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])[prop.name]);\n\
         }                                     \n\
     }                                         \n\
 }";
