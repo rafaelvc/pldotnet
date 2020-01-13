@@ -22,8 +22,8 @@
  */
 
 #include "pldotnet_spi.h"
-#include <mb/pg_wchar.h> /* For UTF8 support */
 #include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
+#include <mb/pg_wchar.h> /* For UTF8 support */
 
 extern load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
 
@@ -59,6 +59,7 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
      */
     bool bool_aux;
     float float_aux;
+    double double_aux;
     int buff_len;
     char *newargvl;
     /**/
@@ -97,7 +98,7 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
                 val.type = attr->atttypid;
                 val.nrow = num_row;
 
-                /* Edge case for special character
+                /* Edge cases for special character
                  * in column name from SELECT X command */
                 if(strcmp(val.name,"?column?") == 0 ||
                    strcmp(val.name,"bool") == 0
@@ -113,7 +114,9 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
                 switch (val.type)
                 {
                     /* TODO: Review pointer manipulation */
+                    case INT2OID:
                     case INT4OID:
+                    case INT8OID:
                         val.value = &attr_val;
                         break;
                     case BOOLOID:
@@ -121,17 +124,20 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
                         val.value = &bool_aux;
                         break;
                     case FLOAT4OID:
-                    case FLOAT8OID:
                         float_aux = DatumGetFloat4(attr_val);
                         val.value = &float_aux;
+                        break;
+                    case FLOAT8OID:
+                        double_aux = DatumGetFloat8(attr_val);
+                        val.value = &double_aux;
                         break;
                     case NUMERICOID:
                         val.value = (unsigned long) DatumGetCString(DirectFunctionCall1(numeric_out, attr_val));
                         break;
                     case VARCHAROID:
-                        buff_len = VARSIZE(attr_val) - VARHDRSZ;
+                        buff_len = VARSIZE(DatumGetTextP(attr_val)) - VARHDRSZ;
                         newargvl = (char *)palloc0(buff_len + 1);
-                        memcpy(newargvl, VARDATA(attr_val), buff_len);
+                        memcpy(newargvl, VARDATA(DatumGetTextP(attr_val)), buff_len);
                         val.value = (unsigned long)
                              pg_do_encoding_conversion((unsigned char*)newargvl,
                                                        buff_len+1,
