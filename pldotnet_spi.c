@@ -28,19 +28,17 @@
 extern load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
 
 int
-SPIExecute(char* cmd, long limit)
+pl_SPIExecute(char* cmd, long limit)
 {
-    //MemoryContext oldcontext;
-    //ResourceOwner oldowner;
     int rv;
 
     rv = SPI_execute(cmd, false, limit);
-    SPIFetchResult(SPI_tuptable, rv);
+    pl_SPIFetchResult(SPI_tuptable, rv);
     return 0;
 }
 
 int
-SPIFetchResult (SPITupleTable *tuptable, int status)
+pl_SPIFetchResult (SPITupleTable *tuptable, int status)
 {
     Datum attr_val;
     bool is_null;
@@ -113,7 +111,6 @@ SPIFetchResult (SPITupleTable *tuptable, int status)
 
                 switch (val.type)
                 {
-                    /* TODO: Review pointer manipulation */
                     case INT2OID:
                     case INT4OID:
                     case INT8OID:

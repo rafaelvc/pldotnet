@@ -87,18 +87,6 @@ namespace DotNetSrc                         \n\
 {                                           \n\
     public static class ProcedureClass      \n\
     {                                       \n\
-        static List<dynamic> funcExpandDo = new List<dynamic>();\n\
-        //static int funcOid;               \n\
-                                            \n\
-        [StructLayout(LayoutKind.Sequential, Pack=1)]\n\
-        public struct PropertyValue         \n\
-        {                                   \n\
-             public IntPtr value;           \n\
-             public string name;            \n\
-             public int type;               \n\ 
-             public int nrow;               \n\
-        }                                   \n\
-                                            \n\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs               \n\
         {";
@@ -128,64 +116,6 @@ static char cs_block_call3[] = "             \n\
 static char cs_block_call6[] = "              \n\
             Marshal.StructureToPtr<LibArgs>(libargs, arg, false);\n\
             return 0;                         \n\
-        }                                     \n\
-        public static T ReadValue<T>(IntPtr handle)\n\
-        {                                     \n\
-            if (typeof(T) == typeof(string)) \n\
-            {                                 \n\
-                return (T)(object)Marshal.PtrToStringUTF8(handle);\n\
-            }                                 \n\
-            if (typeof(T) == typeof(decimal)) \n\
-            {                                 \n\
-                return (T)(object)Convert.ToDecimal(Marshal.PtrToStringAnsi(handle));\n\
-            }                                 \n\
-            return Marshal.PtrToStructure<T>(handle);\n\
-        }                                     \n\
-        public static void AddProperty(IntPtr arg, int funcoid)\n\
-        {                                     \n\
-            PropertyValue prop = Marshal.PtrToStructure<PropertyValue>(arg);\n\
-            if(ProcedureClass.funcExpandDo.Count < prop.nrow + 1)\n\
-            {                                 \n\
-                ProcedureClass.funcExpandDo.Add(new ExpandoObject());\n\
-            }                                 \n\
-            Console.WriteLine(prop.type);     \n\
-            switch(prop.type)                 \n\
-            {                                 \n\
-                case 16: //BOOLOID            \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<bool>(prop.value) );\n\
-                    break;                    \n\
-                case 20: //INT8OID            \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<long>(prop.value) );\n\
-                    break;                    \n\
-                case 21: //INT2OID            \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<short>(prop.value) );\n\
-                    break;                    \n\
-                case 23: //INT4OID            \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<int>(prop.value) );\n\
-                    break;                    \n\
-                case 700: //FLOAT4OID         \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<float>(prop.value));\n\
-                            break;            \n\
-                case 701: //FLOAT8OID         \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<double>(prop.value));\n\
-                    break;                    \n\
-                case 1700: //NUMERICOID       \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<decimal>(prop.value) );\n\
-                    break;                    \n\
-                case 1043: //VARCHAROID       \n\
-                    ((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])\n\
-                        .Add(prop.name, ProcedureClass.ReadValue<string>(prop.value) );\n\
-                    break;                    \n\
-            }                                 \n\
-            Console.WriteLine(((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])[prop.name].GetType());\n\
-            Console.Write(((IDictionary<String,Object>)ProcedureClass.funcExpandDo[prop.nrow])[prop.name]);\n\
         }                                     \n\
     }                                         \n\
 }";
