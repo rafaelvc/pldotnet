@@ -4,8 +4,8 @@
 
 #include "pldotnet_common.h"
 
-extern int SPIExecute(char* cmd, long limit);
-extern int SPIFetchResult (SPITupleTable *tuptable, int status);
+extern int pl_SPIExecute(char* cmd, long limit);
+extern int pl_SPIFetchResult (SPITupleTable *tuptable, int status);
 
 typedef struct PropertyValue
 {
