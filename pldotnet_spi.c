@@ -85,6 +85,9 @@ pl_SPIFetchResult (SPITupleTable *tuptable, int status)
         nullptr,
         (void**)&csharp_method);
 
+    assert(rc == 0 && csharp_method != nullptr && \
+            "Failure: load_assembly_and_get_function_pointer()");
+
     if(status > 0 && tuptable != NULL)
     {
         for (num_row = 0; num_row < SPI_processed; num_row++)
@@ -114,19 +117,19 @@ pl_SPIFetchResult (SPITupleTable *tuptable, int status)
                     case INT2OID:
                     case INT4OID:
                     case INT8OID:
-                        val.value = &attr_val;
+                        val.value = (unsigned long) &attr_val;
                         break;
                     case BOOLOID:
                         bool_aux = DatumGetBool(attr_val);
-                        val.value = &bool_aux;
+                        val.value = (unsigned long) &bool_aux;
                         break;
                     case FLOAT4OID:
                         float_aux = DatumGetFloat4(attr_val);
-                        val.value = &float_aux;
+                        val.value = (unsigned long) &float_aux;
                         break;
                     case FLOAT8OID:
                         double_aux = DatumGetFloat8(attr_val);
-                        val.value = &double_aux;
+                        val.value = (unsigned long) &double_aux;
                         break;
                     case NUMERICOID:
                         val.value = (unsigned long) DatumGetCString(DirectFunctionCall1(numeric_out, attr_val));
