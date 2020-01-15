@@ -91,37 +91,37 @@ namespace DotNetLib
         {
             PlDotNet.funcExpandDo.Add(new ExpandoObject());
         }
-        switch(prop.type)
+        switch((TypeOid)prop.type)
         {
-            case 16: //BOOLOID
+            case TypeOid.BOOLOID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<bool>(prop.value) );
                 break;
-            case 20: //INT8OID
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<long>(prop.value) );
-                break;
-            case 21: //INT2OID
+            case TypeOid.INT2OID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<short>(prop.value) );
                 break;
-            case 23: //INT4OID
+            case TypeOid.INT4OID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<int>(prop.value) );
                 break;
-            case 700: //FLOAT4OID
+            case TypeOid.INT8OID:
+                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
+                    .Add(prop.name, PlDotNet.ReadValue<long>(prop.value) );
+                break;
+            case TypeOid.FLOAT4OID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<float>(prop.value));
                         break;
-            case 701: //FLOAT8OID
+            case TypeOid.FLOAT8OID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<double>(prop.value));
                 break;
-            case 1700: //NUMERICOID
+            case TypeOid.NUMERICOID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<decimal>(prop.value) );
                 break;
-            case 1043: //VARCHAROID
+            case TypeOid.VARCHAROID:
                 ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
                     .Add(prop.name, PlDotNet.ReadValue<string>(prop.value) );
                 break;

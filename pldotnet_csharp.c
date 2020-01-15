@@ -85,6 +85,17 @@ using System.Collections.Generic;           \n\
 using System.Runtime.InteropServices;       \n\
 namespace DotNetSrc                         \n\
 {                                           \n\
+    enum TypeOid                            \n\
+    {                                       \n\
+       BOOLOID    = 16,                     \n\
+       INT8OID    = 20,                     \n\
+       INT2OID    = 21,                     \n\
+       INT4OID    = 23,                     \n\
+       FLOAT4OID  = 700,                    \n\
+       FLOAT8OID  = 701,                    \n\
+       VARCHAROID = 1043,                   \n\
+       NUMERICOID = 1700,                   \n\
+    }                                       \n\
     public static class ProcedureClass      \n\
     {                                       \n\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
