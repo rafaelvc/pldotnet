@@ -33,14 +33,14 @@ Debian/Ubuntu distribution.
 
 Typically for Ubuntu 19.04 those are the steps:
 
-```console
-wget -q https://packages.microsoft.com/config/ubuntu/19.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-sudo dpkg -i packages-microsoft-prod.deb
-sudo apt-get update
-sudo apt-get install apt-transport-https
-sudo apt-get update
-sudo apt install dotnet-runtime-3.1 dotnet-sdk-3.1 dotnet-hostfxr-3.1
-```
+
+        wget -q https://packages.microsoft.com/config/ubuntu/19.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+        sudo dpkg -i packages-microsoft-prod.deb
+        sudo apt-get update
+        sudo apt-get install apt-transport-https
+        sudo apt-get update
+        sudo apt install dotnet-runtime-3.1 dotnet-sdk-3.1 dotnet-hostfxr-3.1
+
 
 ### Installing PL/.NET in Linux - Ubuntu/Debian flavours
 
