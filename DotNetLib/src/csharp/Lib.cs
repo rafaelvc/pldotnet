@@ -53,9 +53,9 @@ namespace DotNetLib
             string spiSrc = @"
                 public static class PlDotNet
 {
-    public static List<dynamic> funcExpandDo = new List<dynamic>();
+    static List<dynamic> funcExpandDo = new List<dynamic>();
 
-    [DllImport(""/usr/lib/postgresql/10/lib/pldotnet.so"")]
+    [DllImport(""@PKG_LIBDIR/pldotnet.so"")]
     public static extern int pl_SPIExecute (string cmd, long limit);
 
     [StructLayout(LayoutKind.Sequential, Pack=1)]
@@ -67,11 +67,10 @@ namespace DotNetLib
          public int nrow;
     }
 
-    public static List<dynamic> SPIExecute(string cmd, long limit){
+    public static List<dynamic> SPIExecute(string cmd, long limit)
+    {
         PlDotNet.pl_SPIExecute(cmd, limit);
-        Console.WriteLine(PlDotNet.funcExpandDo.Count);
         return PlDotNet.funcExpandDo;
-
     }
     public static T ReadValue<T>(IntPtr handle)
     {
@@ -92,8 +91,6 @@ namespace DotNetLib
         {
             PlDotNet.funcExpandDo.Add(new ExpandoObject());
         }
-        Console.WriteLine(prop.type);
-        Console.WriteLine(prop.name);
         switch(prop.type)
         {
             case 16: //BOOLOID
@@ -129,9 +126,6 @@ namespace DotNetLib
                     .Add(prop.name, PlDotNet.ReadValue<string>(prop.value) );
                 break;
         }
-        Console.WriteLine(((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])[prop.name].GetType());
-        Console.WriteLine(((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])[prop.name]);
-        Console.WriteLine(PlDotNet.funcExpandDo.Count);
     }
 }";
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
@@ -218,7 +212,6 @@ namespace DotNetLib
 
         public static int AddProperty(IntPtr arg, int argLength)
         {
-            Console.WriteLine("\n\n CALLED ADD PROPERTY 1 \n\n");
             if(Lib.compiledAssembly == null)
             {
                 Lib.compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
