@@ -67,7 +67,7 @@ namespace DotNetLib
          public int nrow;
     }
 
-    public static dynamic SPIExecute(string cmd, long limit){
+    public static List<dynamic> SPIExecute(string cmd, long limit){
         PlDotNet.pl_SPIExecute(cmd, limit);
         Console.WriteLine(PlDotNet.funcExpandDo.Count);
         return PlDotNet.funcExpandDo;
@@ -231,10 +231,8 @@ namespace DotNetLib
 
         public static int Run(IntPtr arg, int argLength)
         {
-            Assembly compiledAssembly;
-            compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
-
-            Type procClassType = compiledAssembly.GetType("DotNetSrc.ProcedureClass");
+            Lib.compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
+            Type procClassType = Lib.compiledAssembly.GetType("DotNetSrc.ProcedureClass");
             MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
             procMethod.Invoke(null, new object[] {arg, argLength});
 
