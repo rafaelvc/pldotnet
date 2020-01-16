@@ -33,7 +33,8 @@ REGRESS = \
 	testchar \
 	testmixedtypes \
 	testrecursive \
-	testfsintegers
+	testfsintegers \
+	testspi
 
 OBJS = \
 	pldotnet.o \
