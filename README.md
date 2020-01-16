@@ -33,24 +33,24 @@ Debian/Ubuntu distribution.
 
 Typically for Ubuntu 19.04 those are the steps:
 
-  $ wget -q https://packages.microsoft.com/config/ubuntu/19.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-  $ sudo dpkg -i packages-microsoft-prod.deb
-  $ sudo apt-get update
-  $ sudo apt-get install apt-transport-https
-  $ sudo apt-get update
-  $ sudo apt install dotnet-runtime-3.1 dotnet-sdk-3.1 dotnet-hostfxr-3.1
+    $ wget -q https://packages.microsoft.com/config/ubuntu/19.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+    $ sudo dpkg -i packages-microsoft-prod.deb
+    $ sudo apt-get update
+    $ sudo apt-get install apt-transport-https
+    $ sudo apt-get update
+    $ sudo apt install dotnet-runtime-3.1 dotnet-sdk-3.1 dotnet-hostfxr-3.1
 
 ### Installing PL/.NET in Linux - Ubuntu/Debian flavours
 
 Installing PostgreSQL:
 
-  $ sudo apt install postgresql postgresql-common
+    $ sudo apt install postgresql postgresql-common
 
 Download the `pldotnet` binary package available 
 [here](https://brickabode.com/pldtonet/postgres-10-pldotnet_0.1-1_amd64.deb) and 
 install it: 
 
-  $ sudo dpkg -i postgres-10-pldotnet_0.1-1_amd64.deb
+    $ sudo dpkg -i postgres-10-pldotnet_0.1-1_amd64.deb
 
 The PL/.NET extension will be installed automatically and enabled
  by the `postgres` admin user for both C# (`plcsharp`) and F# (`plfsharp`).  
@@ -64,7 +64,7 @@ Case you need later turn PL/.NET languages trusted/untrusted pass `true` or
 `false` for the `pldtonet_trust` SQL function:
 
 ```sql
-   postgres=# SELECT pldtonet_trust(true);
+    postgres=# SELECT pldtonet_trust(true);
 ```
 
 ### <a name="other_oses"></a>Installing PL/.NET on other OSes
@@ -76,11 +76,11 @@ have an option to experiment PL/.NET: Docker.
 We constantly use Docker in our development computers then you also 
 can benefit of it case your OS is not the supported one: 
 
-  $ git clone https://github.com/brickabode/pldotnet.git
-  $ docker-compose run pldotnet-devenv bash
-  # make && make plnet-install
-  # su postgres
-  $ psql -c "CREATE EXTENSION pldotnet;"
+    $ git clone https://github.com/brickabode/pldotnet.git
+    $ docker-compose run pldotnet-devenv bash
+    # make && make plnet-install
+    # su postgres
+    $ psql -c "CREATE EXTENSION pldotnet;"
 
 
 ###  Building Debian/Ubuntu package
@@ -88,10 +88,10 @@ can benefit of it case your OS is not the supported one:
 Check [.NET Core](#install_dotnetcore) installation session first. All .NET 
 requirements must be installed.
 
-  $ git clone https://github.com/brickabode/pldotnet.git
-  $ sudo apt install devscripts debhelper pkg-config postgresql-server-dev-all
-  $ pg_buildext updatecontrol
-  $ debuild -b -uc -us
+    $ git clone https://github.com/brickabode/pldotnet.git
+    $ sudo apt install devscripts debhelper pkg-config postgresql-server-dev-all
+    $ pg_buildext updatecontrol
+    $ debuild -b -uc -us
 
 `pg_buildext` is a script utility to build extensions for different PostgresSQL 
 versions. You need to run `pg_buildext updatecontrol` in order to update the 
@@ -114,7 +114,7 @@ them:
 
 ### C# (plcsharp)
 * Fibonnaci
-```csharp
+```fsharp
   CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
       int? ret = 1; // C# code
       if (n == 1 || n == 2) 
@@ -131,7 +131,7 @@ Function call and output:
   (1 row)
 ```
 * Input and Output of Text 1
-```csharp
+```fsharp
   CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
       return "Hello " + fname + lname + "!"; // C# code
   $$ LANGUAGE plcsharp;
@@ -147,7 +147,7 @@ Function call and output:
 ```
 * Input and Output of Text 2
 
-```csharp
+```fsharp
   CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
       FormattableString res; // C# code
       if (age < 18)
