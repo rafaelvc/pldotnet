@@ -64,7 +64,7 @@ Case you need later turn PL/.NET languages trusted/untrusted pass `true` or
 `false` for the `pldtonet_trust` SQL function:
 
 ```sql
-    postgres=# SELECT pldtonet_trust(true);
+   postgres=# SELECT pldtonet_trust(true);
 ```
 
 ### <a name="other_oses"></a>Installing PL/.NET on other OSes
