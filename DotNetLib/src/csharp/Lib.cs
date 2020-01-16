@@ -177,14 +177,6 @@ namespace DotNetLib
                 .Select(p => MetadataReference.CreateFromFile(p))
             .ToList();
 
-            List<String> referencesStr = trustedAssembliesPaths
-                .Where(p => neededAssemblies.Contains(Path.GetFileNameWithoutExtension(p)))
-            .ToList();
-
-            foreach (var item in referencesStr){
-                Console.WriteLine(item);
-            }
-
             CSharpCompilation compilation = CSharpCompilation.Create(
                 "plnetproc.dll",
                 options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary),
