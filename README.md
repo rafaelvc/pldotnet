@@ -113,7 +113,8 @@ Many samples can be checked in our
 them:
 
 ### C# (plcsharp)
-* Fibonnaci
+
+Fibonnaci:
 ```fsharp
   CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
       int? ret = 1; // C# code
@@ -130,7 +131,8 @@ Function call and output:
    832040
   (1 row)
 ```
-* Input and Output of Text 1
+  
+Input and Output of Text 1:
 ```fsharp
   CREATE FUNCTION retVarCharText(fname varchar, lname varchar) RETURNS text AS $$
       return "Hello " + fname + lname + "!"; // C# code
@@ -145,8 +147,8 @@ Function call and output:
    Hello Homer Jay Simpson!
   (1 row)
 ```
-* Input and Output of Text 2
-
+  
+Input and Output of Text 2:
 ```fsharp
   CREATE FUNCTION ageTest(name varchar, age integer, lname varchar) RETURNS varchar AS $$
       FormattableString res; // C# code
@@ -181,7 +183,8 @@ Function call and output:
 ```
 
 ### <a name="fsharp_sample"></a>F# (plfsharp)
-* Integers return
+
+Integer return:
 ```fsharp
   CREATE FUNCTION returnInt() RETURNS integer AS $$
       10 // F# code
@@ -220,9 +223,9 @@ The following table shows each type conversion equivalences:
 | char, varchar, text | System.String (`string`)           | < Not yet supported > |
 | "char"/bpchar       | System.String (`string`)           | < Not yet supported > |
 | numeric             | System.Decimal (`decimal`)         | < Not yet supported > |
-| Arrays              | Planned for Beta Release           | < Not yet supported > |
-| Composite           | Planned for Beta Release           | < Not yet supported > |
-| Base, domain        | Planned for 1.0 Release            | < Not yet supported > |
+| Arrays              | (Planned for Beta Release)         | < Not yet supported > |
+| Composite           | (Planned for Beta Release)         | < Not yet supported > |
+| Base, domain        | (Planned for 1.0 Release)          | < Not yet supported > |
 
 
 ## <a name="future_plans"></a>Future Plans
@@ -250,6 +253,7 @@ API for performance improvement regarding source code compilation.
       * `geometry`
       * `internet`
       * `bitstring`
+
 ## License
 
 PL/.NET uses [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license.
