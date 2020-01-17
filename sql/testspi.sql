@@ -67,7 +67,7 @@ foreach (var user in exp)
 res += ".";
 return res;
 $$ LANGUAGE plcsharp;
-SELECT getUsersWithBalance(2304.55) = varchar 'User(s) found with 2304.55 account balance, Homer Simpson (Social Security Number 123456789).'; 
+SELECT getUsersWithBalance(2304.55) = varchar 'User(s) found with 2304.55 account balance, Homer Simpson (Social Security Number 123456789).';
 
 CREATE OR REPLACE FUNCTION getUserDescription(ssnum bigint) RETURNS varchar AS $$
 var exp = PlDotNet.SPIExecute($"SELECT * from usersavings WHERE ssnum={ssnum}", 1);

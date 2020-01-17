@@ -2,18 +2,18 @@
 
 ## Introduction
 
- PL/.NET a.k.a (***pldotnet***) adds Microsoft's .NET framework to PostgreSQL by 
-introducing both the C# and F# as loadable procedural language.  
+ PL/.NET a.k.a (***pldotnet***) adds Microsoft's .NET framework to PostgreSQL by
+introducing both the C# and F# as loadable procedural language.
 
- Using PL/.NET developers can enjoy all benefits from .NET and its powerful 
-application development environment to write code near the database using cool 
-languages like C#. We at [Brick Abode](http://www.brickabode.com) love 
-strongly-typed functional programming and as so we are also working to support 
-F# for writting PostgreSQL functions and triggers in ***pldotnet*** 
+ Using PL/.NET developers can enjoy all benefits from .NET and its powerful
+application development environment to write code near the database using cool
+languages like C#. We at [Brick Abode](http://www.brickabode.com) love
+strongly-typed functional programming and as so we are also working to support
+F# for writting PostgreSQL functions and triggers in ***pldotnet***
 (check [Future Plans](#future_plans) and [F# sample](#fsharp_sample)).
 
-PL/.NET is an open source project developed by 
-[Brick Abode](http://www.brickabode.com). You are welcome!  
+PL/.NET is an open source project developed by
+[Brick Abode](http://www.brickabode.com). You are welcome!
 
 ## Installation
 
@@ -25,11 +25,11 @@ PL/.NET is an open source project developed by
 
 ### <a name="install_dotnetcore"></a>Installing .NET Core
 
-For installing .NET Core please follow the instructions at the .NET Core 
+For installing .NET Core please follow the instructions at the .NET Core
 [website](https://docs.microsoft.com/dotnet/core/install/linux-package-manager-ubuntu-1904).
-  
-There is a button in the header of that page where you select the version of 
-Debian/Ubuntu distribution.  
+
+There is a button in the header of that page where you select the version of
+Debian/Ubuntu distribution.
 
 Typically for Ubuntu 19.04 those are the steps:
 
@@ -50,9 +50,9 @@ Installing PostgreSQL:
 sudo apt install postgresql postgresql-common
 ```
 
-Download the `pldotnet` binary package available 
-[here](https://brickabode.com/pldtonet/postgres-10-pldotnet_0.1-1_amd64.deb) and 
-install it: 
+Download the `pldotnet` binary package available
+[here](https://brickabode.com/pldtonet/postgres-10-pldotnet_0.1-1_amd64.deb) and
+install it:
 
 ```console
 $sudo dpkg -i postgres-10-pldotnet_0.1-1_amd64.deb
@@ -60,14 +60,14 @@ $sudo dpkg -i postgres-10-pldotnet_0.1-1_amd64.deb
 ```
 
 The PL/.NET extension will be installed automatically and enabled
- by the `postgres` admin user for both C# (`plcsharp`) and F# (`plfsharp`).  
+ by the `postgres` admin user for both C# (`plcsharp`) and F# (`plfsharp`).
 
-Be aware! In the end of the installation you are asked to turn `plcsharp` and 
-`plfsharp` trusted PL languages. You need to do this for using PL/.NET on the 
-current Alpha version. We do not consider PL/.NET ready for production but yet 
+Be aware! In the end of the installation you are asked to turn `plcsharp` and
+`plfsharp` trusted PL languages. You need to do this for using PL/.NET on the
+current Alpha version. We do not consider PL/.NET ready for production but yet
 experimentable.
-  
-Case you need later turn PL/.NET languages trusted/untrusted pass `true` or 
+
+Case you need later turn PL/.NET languages trusted/untrusted pass `true` or
 `false` for the `pldtonet_trust` SQL function:
 
 ```sql
@@ -76,12 +76,12 @@ postgres=# SELECT pldtonet_trust(true);
 
 ### <a name="other_oses"></a>Installing PL/.NET on other OSes
 
-Currently we are developing for Linux Ubuntu 18.04 LTS however 
+Currently we are developing for Linux Ubuntu 18.04 LTS however
 we plan to support all OSes are also supported by Postgres and .NET and you
 have an option to experiment PL/.NET: Docker.
-  
-We constantly use Docker in our development computers then you also 
-can benefit of it case your OS is not the supported one: 
+
+We constantly use Docker in our development computers then you also
+can benefit of it case your OS is not the supported one:
 
 
 ```console
@@ -95,7 +95,7 @@ $psql -c "CREATE EXTENSION pldotnet;"
 
 ###  Building Debian/Ubuntu package
 
-Check [.NET Core](#install_dotnetcore) installation session first. All .NET 
+Check [.NET Core](#install_dotnetcore) installation session first. All .NET
 requirements must be installed.
 
 ```console
@@ -105,23 +105,23 @@ $pg_buildext updatecontrol
 $debuild -b -uc -us
 ```
 
-`pg_buildext` is a script utility to build extensions for different PostgresSQL 
-versions. You need to run `pg_buildext updatecontrol` in order to update the 
+`pg_buildext` is a script utility to build extensions for different PostgresSQL
+versions. You need to run `pg_buildext updatecontrol` in order to update the
 debian control according to the PG version installed in your Linux box.
 
 #### Using different versions of PosgreSQL on Debian/Ubuntu
 
-[PostgreSQL project](https://www.postgresql.org/download/) keeps packages 
-repositories for different PG versions usually from 9x to newest versions and 
-also for different Linux distributions flavours. You can follow steps 
+[PostgreSQL project](https://www.postgresql.org/download/) keeps packages
+repositories for different PG versions usually from 9x to newest versions and
+also for different Linux distributions flavours. You can follow steps
 [there](https://www.postgresql.org/download/) if you want to install others
-PG versions. *Remember to run `pg_buildext updatecontrol` before building the 
-`pldotnet` package for a newer PostgreSQL version.* 
+PG versions. *Remember to run `pg_buildext updatecontrol` before building the
+`pldotnet` package for a newer PostgreSQL version.*
 
 ## Examples
 
-Many samples can be checked in our 
-[test folder](https://github.com/brickabode/pldotnet/tree/master/sql). Some of 
+Many samples can be checked in our
+[test folder](https://github.com/brickabode/pldotnet/tree/master/sql). Some of
 them:
 
 ### C# (plcsharp)
@@ -129,7 +129,7 @@ them:
 ```csharp
 CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
     int? ret = 1; // C# code
-    if (n == 1 || n == 2) 
+    if (n == 1 || n == 2)
         return ret;
     return fibbb(n.GetValueOrDefault()-1) + fibbb(n.GetValueOrDefault()-2);;
 $$ LANGUAGE plcsharp;
@@ -210,13 +210,13 @@ Function call and output:
 
 ## Types support
 
-PL/.NET uses different approaches for type conversion of function return and 
+PL/.NET uses different approaches for type conversion of function return and
 arguments for data exchange between PostgreSQL and .NET:
 
 1. .NET [Bittable](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) types are converted in its binary format.
 2. PG text types are converted back and forth as [UTF8](https://pt.wikipedia.org/wiki/UTF-8) strings for best compatibility.
 3. Numeric PG type is converted back and forth as [C String](https://en.wikipedia.org/wiki/C_string_handling).
-4. For null support, types are converted to its respective .NET `Nullable<>` 
+4. For null support, types are converted to its respective .NET `Nullable<>`
 type (`bool`, `integers`).
 
 The following table shows each type conversion equivalences:
@@ -243,7 +243,7 @@ The following table shows each type conversion equivalences:
   - Composites
     + Add composites support for plcsharp. Beta version.
   - SPI
-    + Add support to the PostgeSQL SPI (Server Programming API) enabling 
+    + Add support to the PostgeSQL SPI (Server Programming API) enabling
 query/plans and database access. Beta version.
   - Triggers
     + Add trigger writing support in plcsharp. Beta version.
@@ -251,7 +251,7 @@ query/plans and database access. Beta version.
     + Basic data types
       * Expand F# basic types support. Beta version.
     + F# Compiler Services
-      * Add [F# Compiler Services](http://fsharp.github.io/FSharp.Compiler.Service/) 
+      * Add [F# Compiler Services](http://fsharp.github.io/FSharp.Compiler.Service/)
 API for performance improvement regarding source code compilation.
   - Additional data types
     + Add other data types support for F# and C#, like:
