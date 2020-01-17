@@ -109,7 +109,7 @@ pldotnet_GetCompositeTypeSize(Oid oid)
 
 int 
 pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid, 
-                                  FunctionCallInfo fcinfo, Form_pg_proc procst)
+                                 FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     Form_pg_type typeinfo;
     HeapTuple type;
@@ -147,3 +147,54 @@ pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid,
     return 0;
 }
 
+Datum 
+pldotnet_CreateCompositeResult(char * composite_p, Oid oid,
+                                                      FunctionCallInfo fcinfo)
+{
+    Datum dat = 0; /* NULL */
+    Form_pg_type typeinfo;
+    HeapTuple type;
+    TupleDesc tupdesc;
+    Oid type_attr;
+
+    Datum * values;
+    bool  * nullflags;
+
+    type = SearchSysCache(TYPEOID, ObjectIdGetDatum(oid), 0, 0, 0);
+    if (!HeapTupleIsValid(type))
+      elog(ERROR, "[pldotnet]: cache lookup failed for type %u", oid);
+
+    typeinfo = (Form_pg_type) GETSTRUCT(type);
+    if (typeinfo->typtype != TYPTYPE_COMPOSITE)
+    {
+        ReleaseSysCache(type);
+        return -1;
+    }
+
+    tupdesc = lookup_rowtype_tupdesc(oid, typeinfo->typtypmod);
+    values = palloc0(sizeof(Datum) * tupdesc->natts);
+
+    /* TODO: fill nullflags with composite fields are null
+     *  null flags are also false meaning there is no null field values
+     */
+     nullflags = palloc0(sizeof(bool) * tupdesc->natts);
+
+    for (int i = 0; i < tupdesc->natts; i++)
+    {
+        nullflags[i] = false;
+        type_attr = TupleDescAttr(tupdesc, i)->atttypid;
+        values[i] = pldotnet_GetScalarValue(composite_p, nullflags+i, fcinfo,
+                                                                   type_attr);
+        composite_p += pldotnet_GetTypeSize(type_attr);
+    }
+
+    /* make copy in upper executor memory context */
+    dat = PointerGetDatum(
+              SPI_returntuple( heap_form_tuple(tupdesc, values, nullflags),
+                              tupdesc) );
+
+    ReleaseTupleDesc(tupdesc);
+    ReleaseSysCache(type);
+
+    return dat;
+}

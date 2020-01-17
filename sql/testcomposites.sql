@@ -1,29 +1,27 @@
-
-CREATE TYPE PersonG AS (
+CREATE TYPE Person AS (
     name            text,
-    idade           integer,
-    peso            double precision,
-    altura          real,
-    salario         double precision,
-    casado          boolean
+    age             integer,
+    weight          double precision,
+    height          real,
+    salary          double precision,
+    married         boolean
 );
 
-CREATE OR REPLACE FUNCTION hellonew7(a PersonG) RETURNS integer AS $$
-int n = 1;
-FormattableString res;
-a.idade += n;
-res = $"Hello M(r)(s). {a.name}! Your age {a.idade}, {a.peso}, {a.altura}, {a.salario}. {a.casado}";
-Console.WriteLine(res.ToString());
-return a.idade;
+CREATE OR REPLACE FUNCTION helloPersonAge(per Person) RETURNS integer AS $$
+    int n = 1;
+    FormattableString res;
+    res = $"Hello M(r)(s). {per.name}! Your age {per.age}, {per.weight}, {per.height}, {per.salary}. {per.married}";
+    Console.WriteLine(res.ToString());
+    return per.age;
 $$ LANGUAGE plcsharp;
-SELECT hellonew7(('Rafael da Veiga Cabral', 38, 85.5, 1.71, 10.5555, true));
+SELECT helloPersonAge(('John Smith', 38, 85.5, 1.71, 999.999, true));
 
---CREATE OR REPLACE FUNCTION hello_aaa(a NameAge) RETURNS text AS $$
---BEGIN
---    RETURN a.name;
---END;
---$$ LANGUAGE plpgsql;
---SELECT hello_aaa(('Rafael Cabral', 38));
-
-
-
+CREATE OR REPLACE FUNCTION helloPerson(p Person) RETURNS Person AS $$
+    int n = 1;
+    FormattableString res;
+    p.age += n;
+    res = $"Hello M(r)(s). {p.name}! Your age {p.age}, {p.weight}, {p.height}, {p.salary}. {p.married}";
+    Console.WriteLine(res.ToString());
+    return p;
+$$ LANGUAGE plcsharp;
+SELECT helloPerson(('John Smith', 38, 85.5, 1.71, 999.999, true));

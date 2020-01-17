@@ -101,9 +101,10 @@ typedef struct ArgsSource
 const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);
 int pldotnet_GetTypeSize(Oid id);
 char * pldotnet_PublicDecl(Oid type);
-int pldotnet_SetScalarValue(char * argp, Datum datum, FunctionCallInfo fcinfo, 
-                                              int narg, Oid type, bool * nullp);
-
+int pldotnet_SetScalarValue(char * argp, Datum datum, FunctionCallInfo fcinfo,
+                                             int narg, Oid type, bool * nullp);
+Datum pldotnet_GetScalarValue(char * result_ptr, char * resultnull_ptr,
+                                            FunctionCallInfo fcinfo, Oid type);
 bool pldotnet_TypeSupported(Oid type);
 bool pldotnet_IsSimpleType(Oid type);
 
