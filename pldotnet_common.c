@@ -25,7 +25,7 @@
 /*
  * Directories where C#/F# projects for user code are built when
  * USE_DOTNETBUILD is defined. Otherwise that is where our C#/F# compiler
- * projects are located. Default for Linux is /var/lib/DotNetLib/
+ * projects are located. Default for Linux is /var/lib/DotNetEngine/
  */
 char *root_path = NULL;
 char *dnldir = STR(PLNET_ENGINE_DIR);

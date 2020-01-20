@@ -3,7 +3,9 @@ set -e
 # Add nethost to ld.so search path.  We welcome more subtle solutions.
 DOTNET_VERSION=3.1.0
 DOTNET_LIBDIR=/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64/${DOTNET_VERSION}/runtimes/linux-x64/native/
-PLNET_ENGINE_DIR=/var/lib/DotNetLib
+PLNET_ENGINE_DIR=/var/lib/DotNetEngine
+PKG_LIBDIR=$(pg_config --pkglibdir | sed 's/\//\\\//g')
+sed -i "s/@PKG_LIBDIR/${PKG_LIBDIR}/g" ${PLNET_ENGINE_DIR}/src/csharp/Engine.cs
 dotnet build ${PLNET_ENGINE_DIR}/src/csharp
 echo "${DOTNET_LIBDIR}" > /etc/ld.so.conf.d/nethost_pldotnet.conf
 ldconfig -v &> /dev/null # We need -v for ldconfig otherwise it won't work
