@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * DotNetLib/src/csharp/Lib.cs - pldotnet assembly compiler and runner
+ * DotNetEngine/src/csharp/Lib.cs - pldotnet assembly compiler and runner
  *
  */
 using System;
@@ -31,9 +31,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace DotNetLib
+namespace PlDotNET
 {
-    public static class Lib
+    public static class Engine
     {
         [StructLayout(LayoutKind.Sequential)]
         public struct LibArgs
@@ -51,12 +51,12 @@ namespace DotNetLib
         {
 
             string spiSrc = @"
-                public static class PlDotNet
+                public static class SPI
 {
     static List<dynamic> funcExpandDo = new List<dynamic>();
 
     [DllImport(""@PKG_LIBDIR/pldotnet.so"")]
-    public static extern int pl_SPIExecute (string cmd, long limit);
+    public static extern int pldotnet_SPIExecute (string cmd, long limit);
 
     [StructLayout(LayoutKind.Sequential, Pack=1)]
     public struct PropertyValue
@@ -67,10 +67,10 @@ namespace DotNetLib
          public int nrow;
     }
 
-    public static List<dynamic> SPIExecute(string cmd, long limit)
+    public static List<dynamic> Execute(string cmd, long limit)
     {
-        PlDotNet.pl_SPIExecute(cmd, limit);
-        return PlDotNet.funcExpandDo;
+        SPI.pldotnet_SPIExecute(cmd, limit);
+        return SPI.funcExpandDo;
     }
     public static T ReadValue<T>(IntPtr handle)
     {
@@ -87,58 +87,58 @@ namespace DotNetLib
     public static void AddProperty(IntPtr arg, int funcoid)
     {
         PropertyValue prop = Marshal.PtrToStructure<PropertyValue>(arg);
-        if(PlDotNet.funcExpandDo.Count < prop.nrow + 1)
+        if(SPI.funcExpandDo.Count < prop.nrow + 1)
         {
-            PlDotNet.funcExpandDo.Add(new ExpandoObject());
+            SPI.funcExpandDo.Add(new ExpandoObject());
         }
         switch((TypeOid)prop.type)
         {
             case TypeOid.BOOLOID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<bool>(prop.value) );
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<bool>(prop.value) );
                 break;
             case TypeOid.INT2OID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<short>(prop.value) );
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<short>(prop.value) );
                 break;
             case TypeOid.INT4OID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<int>(prop.value) );
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<int>(prop.value) );
                 break;
             case TypeOid.INT8OID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<long>(prop.value) );
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<long>(prop.value) );
                 break;
             case TypeOid.FLOAT4OID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<float>(prop.value));
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<float>(prop.value));
                         break;
             case TypeOid.FLOAT8OID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<double>(prop.value));
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<double>(prop.value));
                 break;
             case TypeOid.NUMERICOID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<decimal>(prop.value) );
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<decimal>(prop.value) );
                 break;
             case TypeOid.VARCHAROID:
-                ((IDictionary<String,Object>)PlDotNet.funcExpandDo[prop.nrow])
-                    .Add(prop.name, PlDotNet.ReadValue<string>(prop.value) );
+                ((IDictionary<String,Object>)SPI.funcExpandDo[prop.nrow])
+                    .Add(prop.name, SPI.ReadValue<string>(prop.value) );
                 break;
         }
     }
 }";
             LibArgs libArgs = Marshal.PtrToStructure<LibArgs>(arg);
             string sourceCode = Marshal.PtrToStringAuto(libArgs.SourceCode);
-            if (Lib.funcBuiltCodeDict == null)
-                Lib.funcBuiltCodeDict = new Dictionary<int, (string, MemoryStream)>();
+            if (Engine.funcBuiltCodeDict == null)
+                Engine.funcBuiltCodeDict = new Dictionary<int, (string, MemoryStream)>();
             else {
                 // Code has not changed then it is not needed to build it
                 try {
-                    Lib.funcBuiltCodeDict.TryGetValue(libArgs.FuncOid,
+                    Engine.funcBuiltCodeDict.TryGetValue(libArgs.FuncOid,
                     out (string src, MemoryStream builtCode) pair);
                     if  (pair.src == sourceCode) {
-                        Lib.memStream = pair.builtCode;
+                        Engine.memStream = pair.builtCode;
                         return 0;
                     }
                 }catch{}
@@ -183,8 +183,8 @@ namespace DotNetLib
                 syntaxTrees: new[] { userTree },
                 references: references);
 
-            Lib.memStream = new MemoryStream();
-            Microsoft.CodeAnalysis.Emit.EmitResult compileResult = compilation.Emit(Lib.memStream);
+            Engine.memStream = new MemoryStream();
+            Microsoft.CodeAnalysis.Emit.EmitResult compileResult = compilation.Emit(Engine.memStream);
 
             if(!compileResult.Success)
             {
@@ -197,18 +197,18 @@ namespace DotNetLib
                 return 0;
             }
 
-            funcBuiltCodeDict[libArgs.FuncOid] = (sourceCode, Lib.memStream);
+            funcBuiltCodeDict[libArgs.FuncOid] = (sourceCode, Engine.memStream);
 
             return 0;
         }
 
-        public static int AddProperty(IntPtr arg, int argLength)
+        public static int InvokeAddProperty(IntPtr arg, int argLength)
         {
-            if(Lib.compiledAssembly == null)
+            if(Engine.compiledAssembly == null)
             {
-                Lib.compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
+                Engine.compiledAssembly = Assembly.Load(Engine.memStream.GetBuffer());
             }
-            Type procClassType = Lib.compiledAssembly.GetType("DotNetSrc.PlDotNet");
+            Type procClassType = Engine.compiledAssembly.GetType("PlDotNETUserSpace.SPI");
             MethodInfo procMethod = procClassType.GetMethod("AddProperty");
             procMethod.Invoke(null, new object[] {arg, argLength});
             return 0;
@@ -216,9 +216,9 @@ namespace DotNetLib
 
         public static int Run(IntPtr arg, int argLength)
         {
-            Lib.compiledAssembly = Assembly.Load(Lib.memStream.GetBuffer());
-            Type procClassType = Lib.compiledAssembly.GetType("DotNetSrc.ProcedureClass");
-            MethodInfo procMethod = procClassType.GetMethod("ProcedureMethod");
+            Engine.compiledAssembly = Assembly.Load(Engine.memStream.GetBuffer());
+            Type procClassType = Engine.compiledAssembly.GetType("PlDotNETUserSpace.UserClass");
+            MethodInfo procMethod = procClassType.GetMethod("CallFunction");
             procMethod.Invoke(null, new object[] {arg, argLength});
 
             return 0;

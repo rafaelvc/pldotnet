@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION returnCompositeSum() RETURNS integer AS $$
-var exp = PlDotNet.SPIExecute("SELECT 1 as c, 2 as b", 1);
+var exp = SPI.Execute("SELECT 1 as c, 2 as b", 1);
 int sum = 0;
 foreach (var row in exp)
 {
@@ -30,7 +30,7 @@ INSERT INTO pldotnettypes VALUES (
     'StringSample;'
 );
 CREATE OR REPLACE FUNCTION checkTypes() RETURNS boolean AS $$
-var exp = PlDotNet.SPIExecute("SELECT * from pldotnettypes", 1);
+var exp = SPI.Execute("SELECT * from pldotnettypes", 1);
 foreach (var row in exp)
 {
     if(
@@ -55,7 +55,7 @@ CREATE TABLE usersavings(ssnum int8, name varchar, sname varchar, balance float4
 INSERT INTO usersavings VALUES (123456789,'Homer','Simpson',2304.55);
 INSERT INTO usersavings VALUES (987654321,'Charles Montgomery','Burns',3000000.65);
 CREATE OR REPLACE FUNCTION getUsersWithBalance(searchbalance real) RETURNS varchar AS $$
-var exp = PlDotNet.SPIExecute("SELECT * from usersavings", 1);
+var exp = SPI.Execute("SELECT * from usersavings", 1);
 string res = $"User(s) found with {searchbalance} account balance";
 foreach (var user in exp)
 {
@@ -70,7 +70,7 @@ $$ LANGUAGE plcsharp;
 SELECT getUsersWithBalance(2304.55) = varchar 'User(s) found with 2304.55 account balance, Homer Simpson (Social Security Number 123456789).';
 
 CREATE OR REPLACE FUNCTION getUserDescription(ssnum bigint) RETURNS varchar AS $$
-var exp = PlDotNet.SPIExecute($"SELECT * from usersavings WHERE ssnum={ssnum}", 1);
+var exp = SPI.Execute($"SELECT * from usersavings WHERE ssnum={ssnum}", 1);
 string res = "No user found";
 foreach (var user in exp)
 {

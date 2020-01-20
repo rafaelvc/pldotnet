@@ -25,14 +25,14 @@
 
 #define _PLDOTNET_SPI_H_
 
-#include "pldotnet_common.h"
+#include "pldotnet_csharp.h"
 
-extern int pl_SPIExecute(char* cmd, long limit);
-extern int pl_SPIFetchResult (SPITupleTable *tuptable, int status);
+extern int pldotnet_SPIExecute(char* cmd, long limit);
+extern int pldotnet_SPIFetchResult (SPITupleTable *tuptable, int status);
 
 typedef struct PropertyValue
 {
-    unsigned long value;
+    Datum value;
     char   *name;
     int    type;
     int    nrow;
