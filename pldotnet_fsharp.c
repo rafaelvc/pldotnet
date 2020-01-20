@@ -42,7 +42,7 @@ static Datum  plfsharp_GetNetResult(char * libargs, Oid rettype,
 static bool   plfsharp_TypeSupported(Oid type);
 
 static char fs_block_call1[] = "\n\
-namespace DotNetLib      \n\
+namespace PlDotNET\n\
     open System.Runtime.InteropServices\n\
     [<Struct>]           \n\
     [<StructLayout (LayoutKind.Sequential)>]\n\
@@ -54,13 +54,13 @@ namespace DotNetLib      \n\
  *      val mutable resu:int
  */
 static char fs_block_call3[] = "\n\
-    type Lib =\n";
+    type UserClass =\n";
 /********* fs_block_call4 ******
  *         static member <function_name> =
  *             <function_body>
  */
 static char fs_block_call5[] = "\n\
-        static member ProcedureMethod (arg:System.IntPtr) (argLength:int) = \n\
+        static member CallFunction (arg:System.IntPtr) (argLength:int) = \n\
            let mutable libargs = Marshal.PtrToStructure<LibArgs> arg\n";
 
 static char fs_block_call7[] = "\n\
@@ -235,7 +235,7 @@ plfsharp_BuildBlock6(Form_pg_proc procst)
     char argname[] = "argN";
     const char end_fun[] = "\n";
     const char func_line_indent[] = "           ";
-    const char result[] = "libargs.resu <- Lib.";
+    const char result[] = "libargs.resu <- UserClass.";
     int nargs = procst->pronargs;
 
     /* Function name */
@@ -356,8 +356,8 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
     Oid rettype;
 
     /* .NET HostFxr declarations */
-    char dotnet_type[]  = "DotNetLib.Lib, DotNetLib";
-    char dotnet_type_method[64] = "ProcedureMethod";
+    char dotnet_type[]  = "PlDotNET.UserClass, PlDotNET";
+    char dotnet_type_method[64] = "CallFunction";
     FILE *output_file;
     int rc;
     load_assembly_and_get_function_pointer_fn
@@ -366,9 +366,9 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 
     char *cmd;
 
-    const char json_path_suffix[] = "/src/fsharp/DotNetLib.runtimeconfig.json";
-    const char src_path_suffix[] = "/src/fsharp/Lib.fs";
-    const char dll_path_suffix[] = "/src/fsharp/DotNetLib.dll";
+    const char json_path_suffix[] = "/src/fsharp/PlDotNET.runtimeconfig.json";
+    const char src_path_suffix[] = "/src/fsharp/Engine.fs";
+    const char dll_path_suffix[] = "/src/fsharp/PlDotNET.dll";
 
     char fsharp_config_path[MAXPGPATH];
     char fsharp_lib_path[MAXPGPATH];
