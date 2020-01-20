@@ -83,7 +83,7 @@ using System;                               \n\
 using System.Dynamic;                       \n\
 using System.Collections.Generic;           \n\
 using System.Runtime.InteropServices;       \n\
-namespace DotNetSrc                         \n\
+namespace PlDotNETUserSpace                 \n\
 {                                           \n\
     enum TypeOid                            \n\
     {                                       \n\
@@ -96,7 +96,7 @@ namespace DotNetSrc                         \n\
        VARCHAROID = 1043,                   \n\
        NUMERICOID = 1700,                   \n\
     }                                       \n\
-    public static class ProcedureClass      \n\
+    public static class UserClass           \n\
     {                                       \n\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs               \n\
@@ -109,7 +109,7 @@ namespace DotNetSrc                         \n\
  */
 static char cs_block_call3[] = "             \n\
         }                                    \n\
-        public static int ProcedureMethod(IntPtr arg, int argLength)\n\
+        public static int CallFunction(IntPtr arg, int argLength)\n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
@@ -135,12 +135,12 @@ static char cs_block_call6[] = "              \n\
 static char block_inline1[] = "             \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
-namespace DotNetLib                         \n\
+namespace PlDotNETUserSpace                 \n\
 {                                           \n\
-    public static class ProcedureClass      \n\
+    public static class UserClass           \n\
     {";
 static char block_inline2[] = "             \n\
-        public static int ProcedureMethod(IntPtr arg, int argLength)\n\
+        public static int CallFunction(IntPtr arg, int argLength)\n\
         {";                                   
 /* block_inline3   Function body */
 static char block_inline4[] = "             \n\
@@ -1109,9 +1109,9 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 static inline void
 plcsharp_BuildPaths(void)
 {
-    const char json_path_suffix[] = "/src/csharp/DotNetLib.runtimeconfig.json";
+    const char json_path_suffix[] = "/src/csharp/PlDotNET.runtimeconfig.json";
     const char src_path_suffix[] = "/src/csharp/Lib.cs";
-    const char dll_path_suffix[] = "/src/csharp/DotNetLib.dll";
+    const char dll_path_suffix[] = "/src/csharp/PlDotNET.dll";
     SNPRINTF(csharp_config_path,MAXPGPATH, "%s%s", root_path, json_path_suffix);
     SNPRINTF(csharp_lib_path, MAXPGPATH, "%s%s", root_path, dll_path_suffix);
     SNPRINTF(csharp_srclib_path, MAXPGPATH, "%s%s", dnldir, src_path_suffix);
@@ -1149,7 +1149,7 @@ plcsharp_CompileFunctionNetBuild(char * source_code)
 int 
 plcsharp_CompileFunction(char * src, FunctionCallInfo fcinfo)
 {
-    char dotnet_type[] = "DotNetLib.Lib, DotNetLib";
+    char dotnet_type[] = "PlDotNET.Engine, PlDotNET";
     char dotnet_type_method[64] = "Compile";
 
     ArgsSource args;
@@ -1166,11 +1166,11 @@ plcsharp_RunFunction(char * libargs, FunctionCallInfo fcinfo)
 {
     Datum retval = 0;
 #ifdef USE_DOTNETBUILD
-    char dotnet_type[]  = "DotNetLib.ProcedureClass, DotNetLib";
-    char dotnet_type_method[64] = "ProcedureMethod";
+    char dotnet_type[]  = "PlDotNETUserSpace.UserClass, PlDotNETUserSpace";
+    char dotnet_type_method[64] = "CallFunction";
     FILE *output_file;
 #else
-    char dotnet_type[] = "DotNetLib.Lib, DotNetLib";
+    char dotnet_type[] = "PlDotNET.Engine, PlDotNET";
     char dotnet_type_method[64] = "Run";
 #endif
 

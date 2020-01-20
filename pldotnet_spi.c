@@ -28,25 +28,25 @@
 extern load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
 
 int
-pl_SPIExecute(char* cmd, long limit)
+pldotnet_SPIExecute(char* cmd, long limit)
 {
     int rv;
 
     rv = SPI_execute(cmd, false, limit);
-    pl_SPIFetchResult(SPI_tuptable, rv);
+    pldotnet_SPIFetchResult(SPI_tuptable, rv);
     return 0;
 }
 
 int
-pl_SPIFetchResult (SPITupleTable *tuptable, int status)
+pldotnet_SPIFetchResult (SPITupleTable *tuptable, int status)
 {
     Datum attr_val;
     bool is_null;
     TupleDesc tupdesc = tuptable->tupdesc;
     Form_pg_attribute attr;
     /* delegate related */
-    const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
-    const char csharp_dll_path[] = "/src/csharp/DotNetLib.dll";
+    const char csharp_json_path[] = "/src/csharp/PlDotNET.runtimeconfig.json";
+    const char csharp_dll_path[] = "/src/csharp/PlDotNET.dll";
     component_entry_point_fn csharp_method = nullptr;
     char dnldir[] = STR(PLNET_ENGINE_DIR);
     char *root_path;
@@ -79,8 +79,8 @@ pl_SPIFetchResult (SPITupleTable *tuptable, int status)
 
     rc = load_assembly_and_get_function_pointer(
         dotnetlib_path,
-        "DotNetLib.Lib, DotNetLib",
-        "AddProperty",
+        "PlDotNET.Engine, PlDotNET",
+        "InvokeAddProperty",
         nullptr /* delegate_type_name */,
         nullptr,
         (void**)&csharp_method);
