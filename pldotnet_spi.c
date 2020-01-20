@@ -25,33 +25,41 @@
 #include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
 #include <mb/pg_wchar.h> /* For UTF8 support */
 
-extern load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer;
+extern load_assembly_and_get_function_pointer_fn
+load_assembly_and_get_function_pointer;
 
 int
-pl_SPIExecute(char* cmd, long limit)
+pldotnet_SPIExecute(char* cmd, long limit)
 {
     int rv;
 
-    rv = SPI_execute(cmd, false, limit);
-    pl_SPIFetchResult(SPI_tuptable, rv);
+    PG_TRY();
+    {
+        rv = SPI_execute(cmd, false, limit);
+        pldotnet_SPIFetchResult(SPI_tuptable, rv);
+    }
+    PG_CATCH();
+    {
+        /* Do the excption handling */
+        elog(WARNING, "Exception");
+        PG_RE_THROW();
+    }
+    PG_END_TRY();
+
     return 0;
 }
 
 int
-pl_SPIFetchResult (SPITupleTable *tuptable, int status)
+pldotnet_SPIFetchResult (SPITupleTable *tuptable, int status)
 {
     Datum attr_val;
     bool is_null;
     TupleDesc tupdesc = tuptable->tupdesc;
     Form_pg_attribute attr;
+    PropertyValue val;
     /* delegate related */
-    const char csharp_json_path[] = "/src/csharp/DotNetLib.runtimeconfig.json";
-    const char csharp_dll_path[] = "/src/csharp/DotNetLib.dll";
-    component_entry_point_fn csharp_method = nullptr;
-    char dnldir[] = STR(PLNET_ENGINE_DIR);
-    char *root_path;
-    char *config_path;
-    char *dotnetlib_path;
+    char dotnet_type[] = "PlDotNET.Engine, PlDotNET";
+    char dotnet_type_method[64] = "InvokeAddProperty";
     /* Auxiliary vars for obtaning the correct pointer
      * TODO: Remove it for a generic one, maybe union?
      */
@@ -60,33 +68,7 @@ pl_SPIFetchResult (SPITupleTable *tuptable, int status)
     double double_aux;
     int buff_len;
     char *newargvl;
-    /**/
-    int  rc;
-    PropertyValue val;
     int num_row;
-
-    root_path = strdup(dnldir);
-    if (root_path[strlen(root_path) - 1] == DIR_SEPARATOR)
-        root_path[strlen(root_path) - 1] = 0;
-
-    config_path = palloc0(strlen(root_path) + strlen(csharp_json_path) + 1);
-    SNPRINTF(config_path, strlen(root_path) + strlen(csharp_json_path) + 1
-                    , "%s%s", root_path, csharp_json_path);
-
-    dotnetlib_path = palloc0(strlen(root_path) + strlen(csharp_dll_path) + 1);
-    SNPRINTF(dotnetlib_path,strlen(root_path) + strlen(csharp_dll_path) + 1
-                    , "%s%s", root_path, csharp_dll_path);
-
-    rc = load_assembly_and_get_function_pointer(
-        dotnetlib_path,
-        "DotNetLib.Lib, DotNetLib",
-        "AddProperty",
-        nullptr /* delegate_type_name */,
-        nullptr,
-        (void**)&csharp_method);
-
-    assert(rc == 0 && csharp_method != nullptr && \
-            "Failure: load_assembly_and_get_function_pointer()");
 
     if(status > 0 && tuptable != NULL)
     {
@@ -117,37 +99,44 @@ pl_SPIFetchResult (SPITupleTable *tuptable, int status)
                     case INT2OID:
                     case INT4OID:
                     case INT8OID:
-                        val.value = (unsigned long) &attr_val;
+                        val.value = (Datum) &attr_val;
                         break;
                     case BOOLOID:
                         bool_aux = DatumGetBool(attr_val);
-                        val.value = (unsigned long) &bool_aux;
+                        val.value = (Datum) &bool_aux;
                         break;
                     case FLOAT4OID:
                         float_aux = DatumGetFloat4(attr_val);
-                        val.value = (unsigned long) &float_aux;
+                        val.value = (Datum) &float_aux;
                         break;
                     case FLOAT8OID:
                         double_aux = DatumGetFloat8(attr_val);
-                        val.value = (unsigned long) &double_aux;
+                        val.value = (Datum) &double_aux;
                         break;
                     case NUMERICOID:
-                        val.value = (unsigned long) DatumGetCString(DirectFunctionCall1(numeric_out, attr_val));
+                        val.value = (Datum) DatumGetCString(
+                                        DirectFunctionCall1(numeric_out,
+                                                            attr_val));
                         break;
                     case VARCHAROID:
                         buff_len = VARSIZE(DatumGetTextP(attr_val)) - VARHDRSZ;
                         newargvl = (char *)palloc0(buff_len + 1);
-                        memcpy(newargvl, VARDATA(DatumGetTextP(attr_val)), buff_len);
-                        val.value = (unsigned long)
+                        memcpy(newargvl, VARDATA(DatumGetTextP(attr_val)),
+                                                 buff_len);
+                        val.value = (Datum)
                              pg_do_encoding_conversion((unsigned char*)newargvl,
                                                        buff_len+1,
-                                                       GetDatabaseEncoding(), PG_UTF8);
+                                                       GetDatabaseEncoding(),
+                                                       PG_UTF8);
                         break;
                 }
-                csharp_method(&val, sizeof(PropertyValue));
+                plcsharp_Run(dotnet_type,
+                             dotnet_type_method,
+                             (char *)&val,
+                             sizeof(PropertyValue));
             }
         }
     }
 
-    return 1;
+    return 0;
 }
