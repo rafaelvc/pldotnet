@@ -8,12 +8,12 @@ DOTNET_LIBDIR ?= /usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64/$(
 DOTNET_INCHOSTDIR ?= $(DOTNET_HOSTDIR) $(shell env > /tmp/pgdotnet-make-env)
 DOTNET_HOSTLIB ?= -L$(DOTNET_LIBDIR) -lnethost
 PLNET_ENGINE_ROOT ?= /var/lib
-PLNET_ENGINE_DIR := -D PLNET_ENGINE_DIR=$(PLNET_ENGINE_ROOT)/DotNetLib
+PLNET_ENGINE_DIR := -D PLNET_ENGINE_DIR=$(PLNET_ENGINE_ROOT)/DotNetEngine
 
 ifeq ("$(shell echo $(USE_DOTNETBUILD) | tr A-Z a-z)", "true")
 	DEFINE_DOTNET_BUILD := -D USE_DOTNETBUILD
 else
-	GENERATE_BUILD_FILES := dotnet build $(PLNET_ENGINE_ROOT)/DotNetLib/src/csharp
+	GENERATE_BUILD_FILES := dotnet build $(PLNET_ENGINE_ROOT)/DotNetEngine/src/csharp
 endif
 
 PG_CONFIG ?= pg_config
@@ -33,14 +33,16 @@ REGRESS = \
 	testchar \
 	testmixedtypes \
 	testrecursive \
-	testfsintegers
+	testfsintegers \
+	testspi
 
 OBJS = \
 	pldotnet.o \
 	pldotnet_common.o \
 	pldotnet_hostfxr.o \
 	pldotnet_csharp.o \
-	pldotnet_fsharp.o
+	pldotnet_fsharp.o \
+	pldotnet_spi.o
 	#pldotnet_debug.o \
 
 PG_CPPFLAGS = -I$(DOTNET_INCHOSTDIR) \
@@ -54,12 +56,14 @@ include $(PGXS)
 
 plnet-install: install
 	echo $(DOTNET_LIBDIR) > /etc/ld.so.conf.d/nethost_pldotnet.conf && ldconfig
-	cp -r DotNetLib $(PLNET_ENGINE_ROOT) && chown -R postgres $(PLNET_ENGINE_ROOT)/DotNetLib
+	cp -r DotNetEngine $(PLNET_ENGINE_ROOT) && chown -R postgres $(PLNET_ENGINE_ROOT)/DotNetEngine
+	sed -i 's/@PKG_LIBDIR/$(shell echo $(PKG_LIBDIR) | sed 's/\//\\\//g')/' $(PLNET_ENGINE_ROOT)/DotNetEngine/src/csharp/Engine.cs
 	$(GENERATE_BUILD_FILES)
 
 plnet-uninstall: uninstall
-	rm -rf $(PLNET_ENGINE_ROOT)/DotNetLib
+	rm -rf $(PLNET_ENGINE_ROOT)/DotNetEngine
 
 plnet-install-dpkg:
-	install -D -m 0755 -o postgres DotNetLib/src/csharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/csharp
-	install -D -m 0755 -o postgres DotNetLib/src/fsharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetLib/src/fsharp
+	install -D -m 0755 -o postgres DotNetEngine/src/csharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetEngine/src/csharp
+	install -D -m 0755 -o postgres DotNetEngine/src/fsharp/* -t $(DESTDIR)$(PLNET_ENGINE_ROOT)/DotNetEngine/src/fsharp
+
