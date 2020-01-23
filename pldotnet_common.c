@@ -21,6 +21,7 @@
  *
  */
 #include "pldotnet_common.h"
+#include "pldotnet_composites.h"
 
 /*
  * Directories where C#/F# projects for user code are built when
@@ -30,19 +31,13 @@
 char *root_path = NULL;
 char *dnldir = STR(PLNET_ENGINE_DIR);
 
-bool
-pldotnet_TypeSupported(Oid type)
-{
-    return (type == INT4OID || type == INT8OID
-       || type == INT2OID   || type == FLOAT4OID
-       || type == FLOAT8OID || type == VARCHAROID
-       || type == BOOLOID   || type == TEXTOID
-       || type == BPCHAROID || type == NUMERICOID);
-}
-
 const char *
 pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
 {
+    Form_pg_type typeinfo;
+    HeapTuple typ;
+    char * composite_nm;
+
     switch (id)
     {
         case BOOLOID:
@@ -63,6 +58,22 @@ pldotnet_GetNetTypeName(Oid id, bool hastypeconversion)
         case TEXTOID:
         case VARCHAROID:
             return "string"; /* System.String */
+        default:
+            typ = SearchSysCache(TYPEOID,
+                                  ObjectIdGetDatum(id), 0, 0, 0);
+            if (!HeapTupleIsValid(typ))
+            {
+                elog(ERROR, "[pldotnet]: cache lookup failed for type %u",
+                                                                         id);
+            }
+            typeinfo = (Form_pg_type) GETSTRUCT(typ);
+            if (typeinfo->typtype == TYPTYPE_COMPOSITE)
+            {
+                composite_nm = NameStr(typeinfo->typname);
+                ReleaseSysCache(typ);
+                return composite_nm;
+            }
+            ReleaseSysCache(typ);
     }
     return "";
 }
@@ -90,6 +101,8 @@ pldotnet_GetTypeSize(Oid id)
         case TEXTOID:
         case VARCHAROID:
             return sizeof(char *);
+        default:
+            return pldotnet_GetCompositeTypeSize(id);
     }
     return -1;
 }
@@ -122,9 +135,9 @@ pldotnet_GetUnmanagedTypeName(Oid type)
     return  "";
 }
 
-int pldotnet_SetScalarValue(char * argp, Datum datum,
-                      pldotnet_FuncInOutInfo * funinout_info,
-                      FunctionCallInfo fcinfo, int narg, Oid type, bool * nullp)
+int pldotnet_SetScalarValue(char * argp, Datum datum, FunctionCallInfo fcinfo,
+                            int narg, Oid type, bool * nullp)
+
 {
     char * newstr;
     int len;
@@ -194,11 +207,117 @@ int pldotnet_SetScalarValue(char * argp, Datum datum,
     return 0;
 }
 
+Datum 
+pldotnet_GetScalarValue(char * result_ptr, char * resultnull_ptr,
+                                             FunctionCallInfo fcinfo, Oid type)
+{
+    Datum retval = 0;
+    VarChar * res_varchar; /* For Unicode/UTF8 support */
+    char * str_num;
+    char * encoded_str;
+    unsigned long * ret_ptr;
+    int str_len;
+
+    switch (type)
+    {
+        case BOOLOID:
+            /* Recover flag for null result */
+            fcinfo->isnull = *(bool *) (resultnull_ptr);
+            if (fcinfo->isnull)
+                return (Datum) 0;
+            return  BoolGetDatum  ( *(bool *)(result_ptr) );
+        case INT4OID:
+            fcinfo->isnull = *(bool *) (resultnull_ptr);
+            if (fcinfo->isnull)
+                return (Datum) 0;
+            return Int32GetDatum ( *(int *)(result_ptr) );
+        case INT8OID:
+            fcinfo->isnull = *(bool *) (resultnull_ptr);
+            if (fcinfo->isnull)
+                return (Datum) 0;
+            return  Int64GetDatum ( *(long *)(result_ptr) );
+        case INT2OID:
+            fcinfo->isnull = *(bool *) (resultnull_ptr);
+            if (fcinfo->isnull)
+                return (Datum) 0;
+            return  Int16GetDatum ( *(short *)(result_ptr) );
+        case FLOAT4OID:
+            return  Float4GetDatum ( *(float *)(result_ptr) );
+        case FLOAT8OID:
+            return  Float8GetDatum ( *(double *)(result_ptr) );
+        case NUMERICOID:
+            str_num = (char *)*(unsigned long *)(result_ptr);
+            return NumericGetDatum(
+                                   DirectFunctionCall3(numeric_in,
+                                         CStringGetDatum(str_num),
+                                         ObjectIdGetDatum(InvalidOid),
+                                         Int32GetDatum(-1)));
+        case TEXTOID:
+             /* C String encoding
+              * retval = DirectFunctionCall1(textin,
+              *               CStringGetDatum(
+              *                       *(unsigned long *)(libargs
+              *                       + dotnet_cstruct_info.typesize_params)));
+              */
+        case BPCHAROID:
+ /* https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
+         * We should try to get atttymod which is n size in char(n)
+         * and use it in bpcharin (I did not find a way to get it)
+         * case BPCHAROID:
+         *    retval = DirectFunctionCall1(bpcharin,
+         *                           CStringGetDatum(
+         *                            *(unsigned long *)(libargs
+         *                  + dotnet_cstruct_info.typesize_params)), attypmod);
+         */
+        case VARCHAROID:
+             /* C String encoding
+              * retval = DirectFunctionCall1(varcharin,
+              *               CStringGetDatum(
+              *                       *(unsigned long *)(libargs
+              *                       + dotnet_cstruct_info.typesize_params)));
+              */
+            /* UTF8 encoding */
+            ret_ptr = *(unsigned long **)(result_ptr);
+            /* str_len = pg_mbstrlen(ret_ptr); */
+            str_len = strlen((char*)ret_ptr);
+            encoded_str = (char *)pg_do_encoding_conversion( 
+            (unsigned char*)ret_ptr, str_len, PG_UTF8, GetDatabaseEncoding() );
+            res_varchar = (VarChar *)SPI_palloc(str_len + VARHDRSZ);
+#if PG_VERSION_NUM < 80300
+            /* Total size of structure, not just data */
+            VARATT_SIZEP(res_varchar) = str_len + VARHDRSZ;
+#else
+            /* Total size of structure, not just data */
+            SET_VARSIZE(res_varchar, str_len + VARHDRSZ);
+#endif
+            memcpy(VARDATA(res_varchar), encoded_str , str_len);
+            /* pfree(encoded_str); */
+            PG_RETURN_VARCHAR_P(res_varchar);
+    }
+
+    return retval;
+}
+
+bool
+pldotnet_TypeSupported(Oid type)
+{
+   return (pldotnet_IsSimpleType(type) || pldotnet_IsTextType(type)
+           || TYPTYPE_COMPOSITE);
+}
+
 bool 
 pldotnet_IsSimpleType(Oid type)
 {
     return (type == INT2OID || type == INT4OID || type == INT8OID ||
             type == FLOAT4OID || type == FLOAT8OID || type == BOOLOID);
+}
+
+bool
+pldotnet_IsTextType(Oid type)
+{
+    /* NUMERIC appears here because it is converted to a CString type */
+    return (type == TEXTOID || type == VARCHAROID ||
+            type == BPCHAROID || type == NUMERICOID);
 }
 
 bool 

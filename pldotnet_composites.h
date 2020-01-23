@@ -1,6 +1,6 @@
 /* 
  * PL/.NET (pldotnet) - PostgreSQL support for .NET C# and F# as 
- *                      procedural languages (PL)
+ * 			procedural languages (PL)
  * 
  * 
  * Copyright 2019-2020 Brick Abode
@@ -17,21 +17,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * pldotnet_csharp.h
+ * pldotnet_common.h
  *
  */
-#ifndef PLCSHARP_H
-#define PLCSHARP_H
+#ifndef PLDOTNETCOMPOSITES_H
+#define PLDOTNETCOMPOSITES_H
+#include  "pldotnet_common.h"
 
-#include "pldotnet_common.h"
+char * pldotnet_GetCompositeName(Oid oid);
+int pldotnet_GetCompositeTypeSize(Oid oid);
+int pldotnet_GetStructFromCompositeTuple(char * src, int src_size, Datum dat,
+                                     Form_pg_type typeinfo, TupleDesc tupdesc);
+int pldotnet_FillCompositeValues(char * cur_arg, Datum dat, Oid oid,
+                                 FunctionCallInfo fcinfo, Form_pg_proc procst);
+Datum pldotnet_CreateCompositeResult(char * composite_p, Oid oid,
+                                                      FunctionCallInfo fcinfo);
+#endif
 
-int plcsharp_LoadDotNetEngine(void);
-int plcsharp_CompileFunction(char * src, FunctionCallInfo fcinfo);
-int plcsharp_CompileFunctionNetBuild(char * source_code);
-Datum plcsharp_RunFunction(char * libArgs, FunctionCallInfo fcinfo);
-int plcsharp_Run(char * dotnet_type, char * dotnet_type_method, char * libargs,
-                                                                int args_size);
-char * pldotnet_PublicDecl(Oid type);
-
-#endif  /* PLFCHARP_H */
 
