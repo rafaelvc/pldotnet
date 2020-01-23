@@ -34,7 +34,8 @@ REGRESS = \
 	testmixedtypes \
 	testrecursive \
 	testfsintegers \
-	testspi
+	testspi \
+	testarray
 
 OBJS = \
 	pldotnet.o \

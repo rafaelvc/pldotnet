@@ -47,6 +47,7 @@
 #include <utils/rel.h>
 #include <utils/syscache.h>
 #include <utils/typcache.h>
+#include <mb/pg_wchar.h> /* For UTF8 support */
 
 #include <assert.h>
 #include "pldotnet_hostfxr.h"
@@ -83,23 +84,46 @@
 /* Null pointer constant definition */
 #define nullptr ((void*)0)
 
-typedef struct pldotnet_CStructInfo
+typedef struct pldotnet_ArgArrayInfo
 {
-    int    typesize_nullflags;
-    int    typesize_params;
-    int    typesize_result;
-}pldotnet_CStructInfo;
+    int ixarray;
+    int typlen;
+    bool typbyval;
+    char typtype;
+    Oid typelem;
+    char typalign;
+    int ndim;
+    const int * dims;
+    int nelems;
+    char csharpdecl[64];
+}pldotnet_ArgArrayInfo;
 
-typedef struct ArgsSource
+typedef struct pldotnet_FuncInOutInfo
 {
-    char* SourceCode;
-    int Result;
-    int FuncOid;
-}ArgsSource;
+    int typesize_nullflags;
+    int typesize_args;
+    int typesize_result;
+    pldotnet_ArgArrayInfo arrayinfo[64]; /* check max nr of args */
+}pldotnet_FuncInOutInfo;
+
+typedef struct pldotnet_ArgsSource
+{
+    char* source_code;
+    int result;
+    int func_oid;
+}pldotnet_ArgsSource;
 
 bool pldotnet_TypeSupported(Oid type);
 const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);
 int pldotnet_GetTypeSize(Oid id);
+const char * pldotnet_GetUnmanagedTypeName(Oid type);
+int pldotnet_SetScalarValue(char * argp, Datum datum,
+                            pldotnet_FuncInOutInfo * funinout_info,
+                            FunctionCallInfo fcinfo, int narg, Oid type,
+                            bool * nullp);
+bool pldotnet_IsArray(int narg, pldotnet_FuncInOutInfo * funinout_info);
+bool pldotnet_IsSimpleType(Oid type);
+
 
 /*
  * Directories where C#/F# projects for user code are built when
