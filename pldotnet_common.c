@@ -94,3 +94,116 @@ pldotnet_GetTypeSize(Oid id)
     return -1;
 }
 
+const char * 
+pldotnet_GetUnmanagedTypeName(Oid type)
+{
+    switch (type)
+    {
+        case BOOLOID:
+            return "U1";
+        case INT2OID:
+            return "I2";
+        case INT4OID:
+            return "I4";
+        case INT8OID:
+            return "I8";
+        case FLOAT4OID:
+            return "R4";
+        case FLOAT8OID:
+            return "R8";
+        case NUMERICOID:
+            return "LPStr";
+        case BPCHAROID:
+        case VARCHAROID:
+        case TEXTOID:
+            /*return "LPUTF8Str";  review why marshal is not working */
+            return "LPStr";
+    }
+    return  "";
+}
+
+int pldotnet_SetScalarValue(char * argp, Datum datum,
+                      pldotnet_FuncInOutInfo * funinout_info,
+                      FunctionCallInfo fcinfo, int narg, Oid type, bool * nullp)
+{
+    char * newstr;
+    int len;
+    bool isnull = false;
+
+#if PG_VERSION_NUM >= 120000
+    if (nullp)
+        isnull=datum.isnull;
+#else
+    if (nullp)
+        isnull=fcinfo->argnull[narg];
+#endif
+
+    switch (type)
+    {
+        case BOOLOID:
+            *(bool *)(argp) = DatumGetBool(datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT4OID:
+            *(int *)(argp) = DatumGetInt32(datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT8OID:
+            *(long *)(argp) = DatumGetInt64(datum);
+            if (nullp)
+                *nullp = isnull;
+            break;
+        case INT2OID:
+            *(short *)(argp) = DatumGetInt16(datum);
+            if (argp)
+                *nullp = isnull;
+            break;
+        case FLOAT4OID:
+            *(float *)(argp) = DatumGetFloat4(datum);
+            break;
+        case FLOAT8OID:
+            *(double *)(argp) = DatumGetFloat8(datum);
+            break;
+        case NUMERICOID:
+            /* C String encoding (numeric_out) is used here as it
+             is a number. Unlikely to have encoding issues. */
+            *(unsigned long *)(argp) = (unsigned long)
+                DatumGetCString(DirectFunctionCall1(numeric_out, datum));
+            break;
+        case BPCHAROID:
+        case TEXTOID:
+        case VARCHAROID:
+
+           /* UTF8 encoding */
+           len = VARSIZE( DatumGetTextP (datum) ) - VARHDRSZ;
+           newstr = (char *)palloc0(len+1);
+           memcpy(newstr, VARDATA( DatumGetTextP(datum) ), len);
+           *(unsigned long *)(argp) = (unsigned long)
+                    pg_do_encoding_conversion((unsigned char *)newstr,
+                                              len+1,
+                                              GetDatabaseEncoding(), PG_UTF8);
+
+            /*  If you need C String encoding do like this:
+                *(unsigned long *)argp =
+                DirectFunctionCall1(cstrfunc, DatumGetCString(datum));
+                where cstrfunc is bpcharout, textout or varcharout */
+            break;
+    }
+    return 0;
+}
+
+bool 
+pldotnet_IsSimpleType(Oid type)
+{
+    return (type == INT2OID || type == INT4OID || type == INT8OID ||
+            type == FLOAT4OID || type == FLOAT8OID || type == BOOLOID);
+}
+
+bool 
+pldotnet_IsArray(int narg, pldotnet_FuncInOutInfo * funinout_info)
+{
+    return (funinout_info->arrayinfo[narg].ixarray == narg);
+}
+
