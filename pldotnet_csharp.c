@@ -37,10 +37,11 @@ PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
 static int plcsharp_BuildBlockComposites(char * composites_decl,
                                          FunctionCallInfo fcinfo,
                                          Form_pg_proc procst);
-static char  *plcsharp_BuildBlock2( FunctionCallInfo fcinfo,
+static char  *plcsharp_BuildBlockArgsDecl( FunctionCallInfo fcinfo,
                                     Form_pg_proc procst );
-static char  *plcsharp_BuildBlock4(Form_pg_proc procst);
-static char  *plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc);
+static char  *plcsharp_BuildBlockCallFuncCall(Form_pg_proc procst);
+static char  *plcsharp_BuildBlockUserFuncDecl(Form_pg_proc procst,
+                                              HeapTuple proc);
 static int   GetSizeNullableHeader(int argnm_size, Oid arg_type, int narg);
 static int   GetSizeNullableFooter(Oid ret_type);
 static bool  IsNullable(Oid type);
@@ -80,7 +81,7 @@ const char resu_flag_str[] = "bool resunull;";
 const char arg_flag_str[] = "bool[] argsnull;";
 
 /* C# CODE TEMPLATE */
-static char cs_block_call1[] = "            \n\
+static char cs_block_header[] = "            \n\
 using System;                               \n\
 using System.Dynamic;                       \n\
 using System.Collections.Generic;           \n\
@@ -115,34 +116,34 @@ namespace PlDotNETUserSpace                 \n\
  *    { ... }
  *
  */
-static char cs_block_call11[] = "\
+static char cs_block_args_header[] = "\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs               \n\
         {";
-/*********** cs_block_call2 **********
+/*********** cs_block_args_decl **********
  *          public argType1 argname1;
  *          public argType2 argname2;
  *           ...
  *	        public returnT resu;
  */
-static char cs_block_call3[] = "             \n\
+static char cs_block_callfunc_header[] = "             \n\
         }                                    \n\
         public static int CallFunction(IntPtr arg, int argLength)\n\
         {                                    \n\
             if (argLength != System.Runtime.InteropServices.Marshal.SizeOf(typeof(LibArgs)))\n\
                 return 1;                    \n\
             LibArgs libargs = Marshal.PtrToStructure<LibArgs>(arg);\n";
-/*********** cs_block_call4 **********
+/*********** cs_block_callfunc_call **********
  *          libargs.resu = FUNC(libargs.argname1, libargs.argname2, ...);
  */
 
-/*********** cs_block_call5 **********
+/*********** cs_block_userfunc_decl **********
  *          returnT FUNC(argType1 argname1, argType2 argname2, ...)
  *          {
  *               What is in the SQL function code here
  *          }
  */
-static char cs_block_call6[] = "              \n\
+static char cs_block_footer[] = "              \n\
             decimal[] ArrayToDecimal(string[]str) {\n\
                 int i=0;\n\
                 decimal[] decarr = new decimal[str.Length];\n\
@@ -157,18 +158,18 @@ static char cs_block_call6[] = "              \n\
 }";
 
 
-static char block_inline1[] = "             \n\
+static char block_inline_header[] = "             \n\
 using System;                               \n\
 using System.Runtime.InteropServices;       \n\
 namespace PlDotNETUserSpace                 \n\
 {                                           \n\
     public static class UserClass           \n\
     {";
-static char block_inline2[] = "             \n\
+static char block_inline_callfunc[] = "             \n\
         public static int CallFunction(IntPtr arg, int argLength)\n\
         {";                                   
-/* block_inline3   Function body */
-static char block_inline4[] = "             \n\
+/* block_inline_usercode  Function body */
+static char block_inline_footer[] = "             \n\
 	    return 0;                           \n\
 	}                                       \n\
      }                                      \n\
@@ -295,7 +296,7 @@ plcsharp_BuildBlockComposites(char * composite_decls, FunctionCallInfo fcinfo,
 
 
 static char *
-plcsharp_BuildBlock2(FunctionCallInfo fcinfo, Form_pg_proc procst)
+plcsharp_BuildBlockArgsDecl(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     char *block2str, *str_ptr;
     Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
@@ -396,7 +397,7 @@ plcsharp_BuildBlock2(FunctionCallInfo fcinfo, Form_pg_proc procst)
 }
 
 static char *
-plcsharp_BuildBlock4(Form_pg_proc procst)
+plcsharp_BuildBlockCallFuncCall(Form_pg_proc procst)
 {
     char *block2str, *str_ptr, *resu_var;
     int cursize = 0, i, totalsize;
@@ -616,7 +617,7 @@ IsNullable(Oid type)
 }
 
 static char *
-plcsharp_BuildBlock5(Form_pg_proc procst, HeapTuple proc)
+plcsharp_BuildBlockUserFuncDecl(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *str_ptr, *source_argnm, *source_text;
     int argnm_size, i, nnames, cursize = 0, source_size, totalsize;
@@ -994,15 +995,16 @@ PG_FUNCTION_INFO_V1(plcsharp_call_handler);
 Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
 {
     bool istrigger;
-    char *source_code, *cs_block_call2, *cs_block_call4, *cs_block_call5;
+    char *source_code, *cs_block_args_decl, *cs_block_callfunc_call,
+         *cs_block_userfunc_decl;
     char *libargs;
     int source_code_size;
     HeapTuple proc;
     Form_pg_proc procst;
     Datum retval = 0;
     Oid rettype;
-    char composite_decls[256];
-    composite_decls[0] = 0;
+    char cs_block_composite_decl[256];
+    cs_block_composite_decl[0] = 0;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -1050,24 +1052,31 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         /* STEP 3.1: Fills the C# template source code */
-        plcsharp_BuildBlockComposites(composite_decls, fcinfo, procst);
+        plcsharp_BuildBlockComposites(cs_block_composite_decl, fcinfo, procst);
 
-        cs_block_call2 = plcsharp_BuildBlock2( fcinfo, procst );
-        cs_block_call4 = plcsharp_BuildBlock4( procst );
-        cs_block_call5 = plcsharp_BuildBlock5( procst , proc );
+        cs_block_args_decl = plcsharp_BuildBlockArgsDecl( fcinfo, procst );
+        cs_block_callfunc_call = plcsharp_BuildBlockCallFuncCall( procst );
+        cs_block_userfunc_decl = plcsharp_BuildBlockUserFuncDecl(procst, proc);
 
-        source_code_size = strlen(cs_block_call1)
-            + strlen(composite_decls) + strlen(cs_block_call11)
-            + strlen(cs_block_call2)
-            + strlen(cs_block_call3) + strlen(cs_block_call4)
-            + strlen(cs_block_call5) + strlen(cs_block_call6) + 1;
+        source_code_size = strlen(cs_block_header)
+                         + strlen(cs_block_composite_decl)
+                         + strlen(cs_block_args_header)
+                         + strlen(cs_block_args_decl)
+                         + strlen(cs_block_callfunc_header)
+                         + strlen(cs_block_callfunc_call)
+                         + strlen(cs_block_userfunc_decl)
+                         + strlen(cs_block_footer) + 1;
 
         source_code = palloc0(source_code_size);
-        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s%s"
-            , cs_block_call1, composite_decls, cs_block_call11
-            , cs_block_call2, cs_block_call3
-            , cs_block_call4, cs_block_call5, cs_block_call6);
-
+        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s%s",
+                                                cs_block_header,
+                                                cs_block_composite_decl,
+                                                cs_block_args_header,
+                                                cs_block_args_decl,
+                                                cs_block_callfunc_header,
+                                                cs_block_callfunc_call,
+                                                cs_block_userfunc_decl,
+                                                cs_block_footer);
         rettype = procst->prorettype;
         ReleaseSysCache(proc);
 
@@ -1151,7 +1160,7 @@ PG_FUNCTION_INFO_V1(plcsharp_inline_handler);
 Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 {
     int source_code_size;
-    char* block_inline3;
+    char* block_inline_usercode;
     char* source_code;
 
     if (SPI_connect() != SPI_OK_CONNECT)
@@ -1185,13 +1194,17 @@ Datum plcsharp_inline_handler(PG_FUNCTION_ARGS)
 
         /* STEP 4: Generate the function C# code from the template
          * TODO: Check if template needs to be filled again */
-        block_inline3 = CODEBLOCK;
-        source_code_size = strlen(block_inline1) + strlen(block_inline2)
-                            + strlen(block_inline3) + strlen(block_inline4) + 1;
+        block_inline_usercode = CODEBLOCK;
+        source_code_size = strlen(block_inline_header)
+                         + strlen(block_inline_callfunc)
+                         + strlen(block_inline_usercode)
+                         + strlen(block_inline_footer) + 1;
         source_code = (char*) palloc0(source_code_size);
-	    SNPRINTF(source_code, source_code_size, "%s%s%s%s"
-            , block_inline1, block_inline2, block_inline3, block_inline4);
-
+	    SNPRINTF(source_code, source_code_size, "%s%s%s%s",
+                                                block_inline_header,
+                                                block_inline_callfunc,
+                                                block_inline_usercode,
+                                                block_inline_footer);
 #ifdef USE_DOTNETBUILD
         /* STEP 5: Compiles the C# code  */
         plcsharp_CompileFunctionNetBuild(source_code);

@@ -32,38 +32,39 @@ PGDLLEXPORT Datum plfsharp_inline_handler(PG_FUNCTION_ARGS);
 
 static pldotnet_FuncInOutInfo func_inout_info;
 
-static char   *plfsharp_BuildBlock2(Form_pg_proc procst);
-static char   *plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc);
-static char   *plfsharp_BuildBlock6(Form_pg_proc procst);
+static char   *plfsharp_BuildBlockArgsDecl(Form_pg_proc procst);
+static char   *plfsharp_BuildBlockUserFuncDecl(Form_pg_proc procst,
+                                               HeapTuple proc);
+static char   *plfsharp_BuildBlockCallFuncCall(Form_pg_proc procst);
 static char   *plfsharp_CreateCStructLibargs(FunctionCallInfo fcinfo,
                                                            Form_pg_proc procst);
 static Datum  plfsharp_GetNetResult(char * libargs, Oid rettype,
                                                        FunctionCallInfo fcinfo);
 static bool   plfsharp_TypeSupported(Oid type);
 
-static char fs_block_call1[] = "\n\
+static char fs_block_header[] = "\n\
 namespace PlDotNET\n\
     open System.Runtime.InteropServices\n\
     [<Struct>]           \n\
     [<StructLayout (LayoutKind.Sequential)>]\n\
     type LibArgs =\n";
-/****** fs_block_call2 ******
+/****** fs_block_args_decl ******
  *      val mutable arg1:int
  *      val mutable arg2:int
  *      ...
  *      val mutable resu:int
  */
-static char fs_block_call3[] = "\n\
+static char fs_block_userclass_header[] = "\n\
     type UserClass =\n";
-/********* fs_block_call4 ******
+/********* fs_block_userfunc_decl ******
  *         static member <function_name> =
  *             <function_body>
  */
-static char fs_block_call5[] = "\n\
+static char fs_block_callfunc[] = "\n\
         static member CallFunction (arg:System.IntPtr) (argLength:int) = \n\
            let mutable libargs = Marshal.PtrToStructure<LibArgs> arg\n";
 
-static char fs_block_call7[] = "\n\
+static char fs_block_footer[] = "\n\
            Marshal.StructureToPtr(libargs, arg, false)\n\
            0";
 
@@ -74,7 +75,7 @@ plfsharp_TypeSupported(Oid type)
 }
 
 static char *
-plfsharp_BuildBlock2(Form_pg_proc procst)
+plfsharp_BuildBlockArgsDecl(Form_pg_proc procst)
 {
     char *block2str, *str_ptr;
     Oid *argtype = procst->proargtypes.values; /* Indicates the args type */
@@ -130,7 +131,7 @@ plfsharp_BuildBlock2(Form_pg_proc procst)
 }
 
 static char *
-plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc)
+plfsharp_BuildBlockUserFuncDecl(Form_pg_proc procst, HeapTuple proc)
 {
     char *block2str, *str_ptr, *argnm, *source_text;
     int argnm_size, i, nnames, cursize=0, totalsize;
@@ -226,7 +227,7 @@ plfsharp_BuildBlock4(Form_pg_proc procst, HeapTuple proc)
 }
 
 static char *
-plfsharp_BuildBlock6(Form_pg_proc procst)
+plfsharp_BuildBlockCallFuncCall(Form_pg_proc procst)
 {
     char *block2str, *str_ptr;
     int cursize = 0, i, totalsize;
@@ -345,9 +346,9 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
 {
     bool istrigger;
     char *source_code,
-         *fs_block_call2,
-         *fs_block_call4,
-         *fs_block_call6;
+         *fs_block_args_decl,
+         *fs_block_userfunc_decl,
+         *fs_block_callfunc_call;
     char *libargs;
     int source_code_size;
     HeapTuple proc;
@@ -401,20 +402,27 @@ Datum plfsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         /* Build the source code */
-        fs_block_call2 = plfsharp_BuildBlock2( procst );
-        fs_block_call4 = plfsharp_BuildBlock4( procst , proc );
-        fs_block_call6 = plfsharp_BuildBlock6( procst);
+        fs_block_args_decl = plfsharp_BuildBlockArgsDecl( procst );
+        fs_block_userfunc_decl = plfsharp_BuildBlockUserFuncDecl(procst, proc);
+        fs_block_callfunc_call = plfsharp_BuildBlockCallFuncCall( procst );
 
-        source_code_size = strlen(fs_block_call1) + strlen(fs_block_call2)
-            + strlen(fs_block_call3) + strlen(fs_block_call4)
-            + strlen(fs_block_call5) + strlen(fs_block_call6)
-            + strlen(fs_block_call7) + 1;
+        source_code_size = strlen(fs_block_header)
+                         + strlen(fs_block_args_decl)
+                         + strlen(fs_block_userclass_header)
+                         + strlen(fs_block_userfunc_decl)
+                         + strlen(fs_block_callfunc)
+                         + strlen(fs_block_callfunc_call)
+                         + strlen(fs_block_footer) + 1;
 
         source_code = palloc0(source_code_size);
-        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s"
-            , fs_block_call1, fs_block_call2, fs_block_call3
-            , fs_block_call4, fs_block_call5, fs_block_call6, fs_block_call7);
-
+        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s",
+                                                fs_block_header,
+                                                fs_block_args_decl,
+                                                fs_block_userclass_header,
+                                                fs_block_userfunc_decl,
+                                                fs_block_callfunc,
+                                                fs_block_callfunc_call,
+                                                fs_block_footer);
         rettype = procst->prorettype;
 
         ReleaseSysCache(proc);
