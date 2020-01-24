@@ -47,6 +47,7 @@
 #include <utils/rel.h>
 #include <utils/syscache.h>
 #include <utils/typcache.h>
+#include <utils/numeric.h>
 #include <mb/pg_wchar.h> /* For UTF8 support */
 
 #include <assert.h>
@@ -117,13 +118,13 @@ bool pldotnet_TypeSupported(Oid type);
 const char * pldotnet_GetNetTypeName(Oid id, bool hastypeconversion);
 int pldotnet_GetTypeSize(Oid id);
 const char * pldotnet_GetUnmanagedTypeName(Oid type);
-int pldotnet_SetScalarValue(char * argp, Datum datum,
-                            pldotnet_FuncInOutInfo * funinout_info,
-                            FunctionCallInfo fcinfo, int narg, Oid type,
-                            bool * nullp);
+int pldotnet_SetScalarValue(char * argp, Datum datum, FunctionCallInfo fcinfo,
+                            int narg, Oid type, bool * nullp);
+Datum pldotnet_GetScalarValue(char * result_ptr, char * resultnull_ptr,
+                              FunctionCallInfo fcinfo, Oid type);
 bool pldotnet_IsArray(int narg, pldotnet_FuncInOutInfo * funinout_info);
 bool pldotnet_IsSimpleType(Oid type);
-
+bool pldotnet_IsTextType(Oid type);
 
 /*
  * Directories where C#/F# projects for user code are built when

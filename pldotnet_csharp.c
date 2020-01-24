@@ -22,9 +22,8 @@
  */
 #include "pldotnet_csharp.h"
 #include "pldotnet_hostfxr.h" /* needed for pldotnet_LoadHostfxr() */
+#include "pldotnet_composites.h"
 #include <math.h>
-#include <mb/pg_wchar.h> /* For UTF8 support */
-#include <utils/numeric.h>
 
 static pldotnet_FuncInOutInfo func_inout_info;
 
@@ -35,6 +34,9 @@ PGDLLEXPORT Datum plcsharp_validator(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum plcsharp_inline_handler(PG_FUNCTION_ARGS);
 #endif
 
+static int plcsharp_BuildBlockComposites(char * composites_decl,
+                                         FunctionCallInfo fcinfo,
+                                         Form_pg_proc procst);
 static char  *plcsharp_BuildBlock2( FunctionCallInfo fcinfo,
                                     Form_pg_proc procst );
 static char  *plcsharp_BuildBlock4(Form_pg_proc procst);
@@ -48,7 +50,6 @@ static Datum pldotnet_GetNetResult(char * libargs, Oid rettype,
                                                        FunctionCallInfo fcinfo);
 static int   GetSizeArgsNullArray(int nargs);
 static int   pldotnet_PublicDeclSize(Oid type);
-static char  *pldotnet_PublicDecl(Oid type);
 static const char * pldotnet_GetNullableTypeName(Oid id);
 static inline void plcsharp_BuildPaths(void);
 bool pldotnet_CheckArgIsArray(Datum datum, Oid oid, int narg);
@@ -68,6 +69,7 @@ bool paths_defined = false;
 
 const char public_bool[] = "\n[MarshalAs(UnmanagedType.U1)]public ";
 const char public_string_utf8[] = "\n[MarshalAs(UnmanagedType.LPUTF8Str)]public ";
+const char public_struct[] = "\n[MarshalAs(UnmanagedType.Struct)]public ";
 const char public_[] = "\npublic ";
 /* nullable related constants */
 const char resu_nullable_value[] = "libargs.resu = resu_nullable.GetValueOrDefault();\n";
@@ -97,7 +99,23 @@ namespace PlDotNETUserSpace                 \n\
        NUMERICOID = 1700,                   \n\
     }                                       \n\
     public static class UserClass           \n\
-    {                                       \n\
+    {                                       \n";
+/********** cs_block_composites *********
+ *   [StructLayout(LayoutKind.Sequential,Pack=1)]
+ *   public struct CompositeName1;
+ *   {
+ *       public fielType1 fieldName1;
+ *       public fielType2 fieldName2;
+ *       ...
+ *       public fielTypeN fieldNameN;
+ *   }
+ *
+ *   [StructLayout(LayoutKind.Sequential,Pack=1)]
+ *   public struct CompositeNameN;
+ *    { ... }
+ *
+ */
+static char cs_block_call11[] = "\
         [StructLayout(LayoutKind.Sequential,Pack=1)]\n\
         public struct LibArgs               \n\
         {";
@@ -159,8 +177,19 @@ static char block_inline4[] = "             \n\
 static int
 pldotnet_PublicDeclSize(Oid type)
 {
+    Oid id;
+    Form_pg_type typeinfo;
+    HeapTuple typ;
+
     switch (type)
     {
+        case INT4OID:
+        case INT8OID:
+        case INT2OID:
+        case FLOAT4OID:
+        case FLOAT8OID:
+        case NUMERICOID:
+            return strlen(public_);
         case BOOLOID:
             return strlen(public_bool);
         case BPCHAROID:
@@ -168,16 +197,39 @@ pldotnet_PublicDeclSize(Oid type)
         case TEXTOID:
             return strlen(public_string_utf8);
         default:
-            return strlen(public_);
+            typ = SearchSysCache(TYPEOID,
+                                  ObjectIdGetDatum(type), 0, 0, 0);
+            if (!HeapTupleIsValid(typ))
+            {
+                elog(ERROR, "[pldotnet]: cache lookup failed for type %u",
+
+        type);
+            }
+            typeinfo = (Form_pg_type) GETSTRUCT(typ);
+            id = typeinfo->typtype;
+            ReleaseSysCache(typ);
+            if (id == TYPTYPE_COMPOSITE)
+                return strlen(public_struct);
     }
     return  0;
 }
 
-static char *
+char *
 pldotnet_PublicDecl(Oid type)
 {
+    Oid id;
+    Form_pg_type typeinfo;
+    HeapTuple typ;
+
     switch (type)
     {
+        case INT4OID:
+        case INT8OID:
+        case INT2OID:
+        case FLOAT4OID:
+        case FLOAT8OID:
+        case NUMERICOID:
+            return (char *)&public_;
         case BOOLOID:
             return (char *)&public_bool;
         case BPCHAROID:
@@ -185,10 +237,62 @@ pldotnet_PublicDecl(Oid type)
         case TEXTOID:
             return (char *)&public_string_utf8;
         default:
-            return (char *)&public_;
+            typ = SearchSysCache(TYPEOID,
+                                  ObjectIdGetDatum(type), 0, 0, 0);
+            if (!HeapTupleIsValid(typ))
+            {
+                elog(ERROR, "[pldotnet]: cache lookup failed for type %u",
+
+        type);
+            }
+            typeinfo = (Form_pg_type) GETSTRUCT(typ);
+            id = typeinfo->typtype;
+            ReleaseSysCache(typ);
+            if (id == TYPTYPE_COMPOSITE)
+                return (char *)&public_struct;
     }
     return  0;
 }
+
+static int
+plcsharp_BuildBlockComposites(char * composite_decls, FunctionCallInfo fcinfo,
+                                                           Form_pg_proc procst)
+{
+    int cursize=0, i;
+    Oid *argtype = procst->proargtypes.values;
+    Form_pg_type typeinfo;
+    HeapTuple type;
+    TupleDesc tupdesc;
+
+    for (i = 0;i < procst->pronargs; i++)
+    {
+
+        /* TODO: review this */
+        if ( pldotnet_IsSimpleType(argtype[i]) ||
+             pldotnet_IsTextType(argtype[i]) )
+            continue;
+
+        type = SearchSysCache(TYPEOID, ObjectIdGetDatum(argtype[i]), 0, 0, 0);
+        if (!HeapTupleIsValid(type))
+        {
+            elog(ERROR, "[pldotnet]: cache lookup failed for type %u",
+                                                                    argtype[i]);
+        }
+        typeinfo = (Form_pg_type) GETSTRUCT(type);
+        if (typeinfo->typtype == TYPTYPE_COMPOSITE)
+        {
+            tupdesc = lookup_rowtype_tupdesc(argtype[i], typeinfo->typtypmod);
+            pldotnet_GetStructFromCompositeTuple( composite_decls + cursize,
+                           1024 - cursize, fcinfo->arg[i], typeinfo, tupdesc);
+
+            ReleaseTupleDesc(tupdesc);
+            cursize += strlen(composite_decls);
+        }
+        ReleaseSysCache(type);
+    }
+    return 0;
+}
+
 
 static char *
 plcsharp_BuildBlock2(FunctionCallInfo fcinfo, Form_pg_proc procst)
@@ -765,7 +869,6 @@ static char *
 pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 {
     int i;
-    int cursize = 0;
     char *libargs_ptr = NULL;
     char *cur_arg = NULL;
     Oid *argtype = procst->proargtypes.values;
@@ -838,30 +941,29 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
                            extensions. */
                                 pldotnet_IsSimpleType(arrinfo->typelem) ?
                   (Datum) (*(Datum *) (array_element)) : array_element,
-                                        &func_inout_info, fcinfo, j,
-                                         arrinfo->typelem, NULL);
+                                        fcinfo, j, arrinfo->typelem, NULL);
                 /* Iterate array */
                 array_p = att_addlength_pointer(array_p, arrinfo->typlen,
                                                 array_p);
                 array_p = (char *) att_align_nominal(array_p,
                                                            arrinfo->typalign);
                 /* Iterate CLibargs */
-                cursize += pldotnet_GetTypeSize(arrinfo->typelem);
-
-                cur_arg = libargs_ptr + func_inout_info.typesize_nullflags
-                                                                   + cursize;
+                cur_arg += pldotnet_GetTypeSize(arrinfo->typelem);
             }
+            continue;
+        }
+        else if ( !pldotnet_IsSimpleType(argtype[i]) &&
+                  !pldotnet_IsTextType(argtype[i]) )
+        {
+            pldotnet_FillCompositeValues(cur_arg, argdatum, argtype[i],
+                                                               fcinfo, procst);
         }
         else
         {
-            pldotnet_SetScalarValue(cur_arg, argdatum,
-                                    &func_inout_info, fcinfo, i, argtype[i],
+            pldotnet_SetScalarValue(cur_arg, argdatum, fcinfo, i, argtype[i],
                                     argsnull_ptr + i);
-
-            cursize += pldotnet_GetTypeSize(argtype[i]);
-            cur_arg = libargs_ptr + func_inout_info.typesize_nullflags
-                                                                     + cursize;
         }
+        cur_arg += pldotnet_GetTypeSize(argtype[i]);
     }
 
     return libargs_ptr;
@@ -870,92 +972,22 @@ pldotnet_CreateCStructLibargs(FunctionCallInfo fcinfo, Form_pg_proc procst)
 static Datum
 pldotnet_GetNetResult(char * libargs, Oid rettype, FunctionCallInfo fcinfo)
 {
-    Datum retval = 0;
-    unsigned long * ret_ptr;
-    VarChar * res_varchar; /* For Unicode/UTF8 support */
-    int str_len;
-    char * str_num;
-    char * result_ptr = libargs
-                    + func_inout_info.typesize_args + func_inout_info.typesize_nullflags;
-    char * resultnull_ptr = libargs + (func_inout_info.typesize_nullflags - sizeof(bool));
-    char * encoded_str;
+    char * result_ptr = libargs + func_inout_info.typesize_args
+                                + func_inout_info.typesize_nullflags;
+    char * resultnull_ptr = libargs +
+                           (func_inout_info.typesize_nullflags - sizeof(bool));
 
-    switch (rettype)
+    if (!pldotnet_IsSimpleType(rettype) && !pldotnet_IsTextType(rettype))
     {
-        case BOOLOID:
-            /* Recover flag for null result */
-            fcinfo->isnull = *(bool *) (resultnull_ptr);
-            if (fcinfo->isnull)
-                return (Datum) 0;
-            return  BoolGetDatum  ( *(bool *)(result_ptr) );
-        case INT4OID:
-            fcinfo->isnull = *(bool *) (resultnull_ptr);
-            if (fcinfo->isnull)
-                return (Datum) 0;
-            return  Int32GetDatum ( *(int *)(result_ptr) );
-        case INT8OID:
-            fcinfo->isnull = *(bool *) (resultnull_ptr);
-            if (fcinfo->isnull)
-                return (Datum) 0;
-            return  Int64GetDatum ( *(long *)(result_ptr) );
-        case INT2OID:
-            fcinfo->isnull = *(bool *) (resultnull_ptr);
-            if (fcinfo->isnull)
-                return (Datum) 0;
-            return  Int16GetDatum ( *(short *)(result_ptr) );
-        case FLOAT4OID:
-            return  Float4GetDatum ( *(float *)(result_ptr) );
-        case FLOAT8OID:
-            return  Float8GetDatum ( *(double *)(result_ptr) );
-        case NUMERICOID:
-            str_num = (char *)*(unsigned long *)(result_ptr);
-            return NumericGetDatum(
-                                   DirectFunctionCall3(numeric_in,
-                                         CStringGetDatum(str_num),
-                                         ObjectIdGetDatum(InvalidOid),
-                                         Int32GetDatum(-1)));
-        case TEXTOID:
-             /* C String encoding
-              * retval = DirectFunctionCall1(textin,
-              *               CStringGetDatum(
-              *                       *(unsigned long *)(libargs + func_inout_info.typesize_args)));
-              */
-        case BPCHAROID:
-        /* https://git.brickabode.com/DotNetInPostgreSQL/pldotnet/issues/10#note_19223
-         * We should try to get atttymod which is n size in char(n)
-         * and use it in bpcharin (I did not find a way to get it)
-         * case BPCHAROID:
-         *    retval = DirectFunctionCall1(bpcharin,
-         *                           CStringGetDatum(
-         *                            *(unsigned long *)(libargs + func_inout_info.typesize_args)), attypmod);
-         */
-        case VARCHAROID:
-             /* C String encoding
-              * retval = DirectFunctionCall1(varcharin,
-              *               CStringGetDatum(
-              *                       *(unsigned long *)(libargs + func_inout_info.typesize_args)));
-              */
-
-            /* UTF8 encoding */
-            ret_ptr = *(unsigned long **)(result_ptr);
-            /* str_len = pg_mbstrlen(ret_ptr); */
-            str_len = strlen((char*)ret_ptr);
-            encoded_str = (char *)pg_do_encoding_conversion( 
-                                             (unsigned char*)ret_ptr, str_len,
-                                              PG_UTF8, GetDatabaseEncoding() );
-             res_varchar = (VarChar *)SPI_palloc(str_len + VARHDRSZ);
-#if PG_VERSION_NUM < 80300
-            /* Total size of structure, not just data */
-            VARATT_SIZEP(res_varchar) = str_len + VARHDRSZ;
-#else
-            /* Total size of structure, not just data */
-            SET_VARSIZE(res_varchar, str_len + VARHDRSZ);
-#endif
-            memcpy(VARDATA(res_varchar), encoded_str , str_len);
-            /* pfree(encoded_str); */
-            PG_RETURN_VARCHAR_P(res_varchar);
+        /* TODO: review null composite values */
+        fcinfo->isnull = *(bool *) (resultnull_ptr);
+        if (fcinfo->isnull)
+            return (Datum) 0;
+        return pldotnet_CreateCompositeResult(result_ptr, rettype, fcinfo);
     }
-    return retval;
+
+    return
+          pldotnet_GetScalarValue(result_ptr, resultnull_ptr, fcinfo, rettype);
 }
 
 PG_FUNCTION_INFO_V1(plcsharp_call_handler);
@@ -969,6 +1001,8 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
     Form_pg_proc procst;
     Datum retval = 0;
     Oid rettype;
+    char composite_decls[256];
+    composite_decls[0] = 0;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         elog(ERROR, "[pldotnet]: could not connect to SPI manager");
@@ -1016,17 +1050,22 @@ Datum plcsharp_call_handler(PG_FUNCTION_ARGS)
         procst = (Form_pg_proc) GETSTRUCT(proc);
 
         /* STEP 3.1: Fills the C# template source code */
+        plcsharp_BuildBlockComposites(composite_decls, fcinfo, procst);
+
         cs_block_call2 = plcsharp_BuildBlock2( fcinfo, procst );
         cs_block_call4 = plcsharp_BuildBlock4( procst );
         cs_block_call5 = plcsharp_BuildBlock5( procst , proc );
 
-        source_code_size = strlen(cs_block_call1) + strlen(cs_block_call2)
+        source_code_size = strlen(cs_block_call1)
+            + strlen(composite_decls) + strlen(cs_block_call11)
+            + strlen(cs_block_call2)
             + strlen(cs_block_call3) + strlen(cs_block_call4)
             + strlen(cs_block_call5) + strlen(cs_block_call6) + 1;
 
         source_code = palloc0(source_code_size);
-        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s"
-            , cs_block_call1, cs_block_call2, cs_block_call3
+        SNPRINTF(source_code, source_code_size, "%s%s%s%s%s%s%s%s"
+            , cs_block_call1, composite_decls, cs_block_call11
+            , cs_block_call2, cs_block_call3
             , cs_block_call4, cs_block_call5, cs_block_call6);
 
         rettype = procst->prorettype;
