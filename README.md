@@ -113,8 +113,9 @@ Many samples can be checked in our
 them:
 
 ### C# (plcsharp)
-* Fibonnaci
-```csharp
+
+Fibonnaci:
+```fsharp
 CREATE FUNCTION fibbb(n integer) RETURNS integer AS $$
     int? ret = 1; // C# code
     if (n == 1 || n == 2)
