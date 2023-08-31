@@ -1,6 +1,11 @@
+# NOTE:
+
+This repository is only an archive of the former PL/.NET Open Source project sponsored by [Brick Abode](http://www.brickabode.com).
+The newer project is currently being developed at [https://github.com/Brick-Abode/pldotnet](https://github.com/Brick-Abode/pldotnet).
+
 # PL/.NET
 
-## Introduction
+## Introduction 
 
  PL/.NET a.k.a (***pldotnet***) adds Microsoft's .NET framework to PostgreSQL by
 introducing both the C# and F# as loadable procedural language.
